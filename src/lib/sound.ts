@@ -2,11 +2,13 @@ let audioCtx: AudioContext | null = null;
 
 type BgmScene = 'title' | 'host' | 'play' | 'results';
 
+const withBase = (path: string) => new URL(path.replace(/^\//, ''), import.meta.env.BASE_URL).toString();
+
 const BGM_SOURCES: Record<BgmScene, string[]> = {
-  title: ['/bgm/title/title_main.mp3'],
-  host: ['/bgm/host/host_lobby.mp3'],
-  play: ['/bgm/play/gameplay_main.mp3'],
-  results: ['/bgm/results/results_win.mp3'],
+  title: [withBase('/bgm/title/title_main.mp3')],
+  host: [withBase('/bgm/host/host_lobby.mp3')],
+  play: [withBase('/bgm/play/gameplay_main.mp3')],
+  results: [withBase('/bgm/results/results_win.mp3')],
 };
 
 const getCtx = () => {
