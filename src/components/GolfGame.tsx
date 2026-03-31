@@ -188,6 +188,9 @@ export default function GolfGame({
   const stickyHoldRef = useRef(false);
   const activePointerIdRef = useRef<number | null>(null);
   const activeTouchIdRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const dragCurrentRef = useRef({ x: 0, y: 0 });
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -196,7 +199,9 @@ export default function GolfGame({
 
   const clearDragState = () => {
     setIsDragging(false);
+    isDraggingRef.current = false;
     activePointerIdRef.current = null;
+    activeTouchIdRef.current = null;
   };
 
   const getScaledPointerPosition = (clientX: number, clientY: number) => {
@@ -213,6 +218,9 @@ export default function GolfGame({
     if (!me?.canShoot) return false;
     const position = getScaledPointerPosition(clientX, clientY);
     if (!position) return false;
+    isDraggingRef.current = true;
+    dragStartRef.current = position;
+    dragCurrentRef.current = position;
     setIsDragging(true);
     setDragStart(position);
     setDragCurrent(position);
@@ -222,6 +230,7 @@ export default function GolfGame({
   const moveDragAt = (clientX: number, clientY: number) => {
     const position = getScaledPointerPosition(clientX, clientY);
     if (!position) return;
+    dragCurrentRef.current = position;
     setDragCurrent(position);
   };
 
@@ -574,13 +583,13 @@ export default function GolfGame({
   }, [freezeBall, me?.holesCompleted]);
 
   const releaseShot = () => {
-    if (!isDragging || !me?.canShoot || !ballRef.current) {
+    if (!isDraggingRef.current || !me?.canShoot || !ballRef.current) {
       clearDragState();
       return;
     }
 
-    const dx = dragStart.x - dragCurrent.x;
-    const dy = dragStart.y - dragCurrent.y;
+    const dx = dragStartRef.current.x - dragCurrentRef.current.x;
+    const dy = dragStartRef.current.y - dragCurrentRef.current.y;
     const dragDistance = Math.hypot(dx, dy);
 
     if (dragDistance < 6) {
