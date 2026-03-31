@@ -2,7 +2,11 @@ let audioCtx: AudioContext | null = null;
 
 type BgmScene = 'title' | 'host' | 'play' | 'results';
 
-const withBase = (path: string) => new URL(path.replace(/^\//, ''), import.meta.env.BASE_URL).toString();
+const withBase = (path: string) => {
+  const normalizedBase = import.meta.env.BASE_URL || '/';
+  const baseUrl = new URL(normalizedBase, window.location.origin);
+  return new URL(path.replace(/^\//, ''), baseUrl).toString();
+};
 
 const BGM_SOURCES: Record<BgmScene, string[]> = {
   title: [withBase('/bgm/title/title_main.mp3')],
