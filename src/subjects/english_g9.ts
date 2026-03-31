@@ -1,0 +1,216 @@
+import { GeneralProblem } from './utils';
+import { buildListeningReviewUnit, buildRepeatReviewUnit, buildResponseReviewUnit, buildSpeakingReviewUnit, cycleProblems, EnglishResponseItem, EnglishWordItem, prompt, uniqueEnglishWordItems } from './english_utils';
+
+const readingPassages = [
+  {
+    text: 'Aya gets up at six every day. She helps her mother make breakfast and then walks to school with her friend.',
+    topic: 'あやの朝の生活',
+    detail: 'お母さんの手伝い',
+    place: '学校へ歩いて行く前',
+  },
+  {
+    text: 'Our school library was renewed last year. Many students now use it after school to read books and study quietly.',
+    topic: '学校の図書館',
+    detail: '放課後に使う生徒が多い',
+    place: '学校',
+  },
+  {
+    text: 'Ken wants to be a doctor because he likes helping people. He studies science hard and reads books about the human body.',
+    topic: 'けんの将来の夢',
+    detail: '人を助けるのが好き',
+    place: '医者になりたい理由',
+  },
+  {
+    text: 'Last Sunday, my family went to the beach. We picked up trash there because we wanted to keep the beach clean.',
+    topic: '海での家族の活動',
+    detail: 'ごみを拾った',
+    place: '海辺',
+  },
+  {
+    text: 'Mika has been practicing the piano for three years. She was nervous at first, but now she enjoys playing in front of many people.',
+    topic: 'みかのピアノ練習',
+    detail: '人前で弾くのを楽しんでいる',
+    place: 'ピアノの経験',
+  },
+  {
+    text: 'In our town, a small festival is held every autumn. People enjoy local food, music, and a parade in the evening.',
+    topic: '町の秋祭り',
+    detail: '夕方にパレードがある',
+    place: '町',
+  },
+  {
+    text: 'Rina wants to improve her English, so she listens to short podcasts every day and writes down new words in a notebook.',
+    topic: 'りなの英語学習',
+    detail: '新しい単語をノートに書く',
+    place: '英語を上達させる方法',
+  },
+  {
+    text: 'A new sports center opened near our station this month. Many people go there to swim, run, or join dance classes.',
+    topic: '新しいスポーツセンター',
+    detail: '泳いだり走ったりできる',
+    place: '駅の近く',
+  },
+];
+const g9ReviewItems: EnglishWordItem[] = uniqueEnglishWordItems([
+  { en: 'I have seen that movie.', jp: 'わたしは その映画を見たことがあります。', speech: 'I have seen that movie' },
+  { en: 'We have been waiting here.', jp: 'わたしたちは ここでずっと待っています。', speech: 'We have been waiting here' },
+  { en: 'This is the cake that my mother made.', jp: 'これは 母が作ったケーキです。', speech: 'This is the cake that my mother made' },
+  { en: 'Do you know what this is?', jp: 'これが何か知っていますか。', speech: 'Do you know what this is' },
+  { en: 'If I were you, I would study harder.', jp: 'もしわたしがあなたなら もっと勉強するのに。', speech: 'If I were you I would study harder' },
+  { en: 'The language spoken here is English.', jp: 'ここで話されている言語は英語です。', speech: 'The language spoken here is English' },
+  { en: 'This song is as popular as that one.', jp: 'この歌は あの歌と同じくらい人気です。', speech: 'This song is as popular as that one' },
+  { en: 'I think it is important to study English.', jp: '英語を勉強することは大切だと思います。', speech: 'I think it is important to study English' },
+  { en: 'Today, I want to talk about my hobby.', jp: '今日は わたしのしゅみについて話したいです。', speech: 'Today I want to talk about my hobby' },
+  { en: 'Thank you for listening.', jp: '聞いてくれてありがとうございます。', speech: 'Thank you for listening', speechAlternates: ['Thanks for listening'] },
+]);
+const g9ResponseItems: EnglishResponseItem[] = [
+  { promptEn: 'Have you seen that movie?', promptJp: 'その映画を見たことがありますか。', answerEn: 'Yes, I have.', answerJp: 'はい、あります。', answerSpeech: 'Yes I have', answerSpeechAlternates: ['Yes, I have.'] },
+  { promptEn: 'What have you been doing?', promptJp: 'ずっと 何を していましたか。', answerEn: 'We have been waiting here.', answerJp: 'わたしたちは ここでずっと待っています。', answerSpeech: 'We have been waiting here' },
+  { promptEn: 'Which cake is it?', promptJp: 'どの ケーキですか。', answerEn: 'This is the cake that my mother made.', answerJp: 'これは 母が作ったケーキです。', answerSpeech: 'This is the cake that my mother made' },
+  { promptEn: 'If you were me, what would you do?', promptJp: 'もし わたしだったら、どうしますか。', answerEn: 'I would study harder.', answerJp: 'もっと 勉強します。', answerSpeech: 'I would study harder' },
+  { promptEn: 'What language is spoken here?', promptJp: 'ここで 話されている言語は 何ですか。', answerEn: 'English is spoken here.', answerJp: 'ここでは 英語が話されています。', answerSpeech: 'English is spoken here' },
+  { promptEn: 'Please start your speech.', promptJp: 'スピーチを はじめてください。', answerEn: 'Today, I want to talk about my hobby.', answerJp: '今日は わたしのしゅみについて話したいです。', answerSpeech: 'Today I want to talk about my hobby' },
+];
+
+export const ENGLISH_G9_UNIT_DATA: Record<string, GeneralProblem[]> = {
+  ENGLISH_G9_U01: cycleProblems([
+    prompt('I have ___ this book before.', 'read', ['reads', 'reading', 'readed'], '現在完了。', { audioPrompt: { text: 'I have read this book before.', lang: 'en-US', autoPlay: true } }),
+    prompt('She has lived here for five years. の いみは？', '彼女は 5年間ここに住んでいます。', ['彼女は 5年間ここに住んでいました。', '彼女は ここに5回住みました。', '彼女は ここに住むでしょう。'], '継続。'),
+    prompt('Have you finished your homework? の こたえは？', 'Yes, I have.', ['Yes, I do.', 'Yes, I am.', 'Yes, I did.'], '現在完了の応答。'),
+    prompt('「I have seen that movie.」を いってみよう。', 'I have seen that movie.', ['I have saw that movie.', 'I seen that movie.', 'I have seeing that movie.'], '現在完了を発話。', { speechPrompt: { expected: 'I have seen that movie', alternates: ['I have seen that movie.'], lang: 'en-US', buttonLabel: '現在完了を はなす' } }),
+    prompt('She has just ___ lunch.', 'finished', ['finish', 'finishing', 'finishes'], '完了の表現。'),
+    prompt('We have already cleaned the classroom. の いみは？', 'わたしたちは すでに教室をそうじしました。', ['わたしたちは いま教室をそうじしています。', 'わたしたちは これから教室をそうじします。', 'わたしたちは 教室に入りません。'], 'school vocabulary。'),
+  ]),
+  ENGLISH_G9_U02: cycleProblems([
+    prompt('I have been ___ English for two hours.', 'studying', ['study', 'studied', 'to study'], '現在完了進行形。', { audioPrompt: { text: 'I have been studying English for two hours.', lang: 'en-US', autoPlay: true } }),
+    prompt('He has been playing soccer since noon. の いみは？', '彼は 正午からずっと サッカーをしています。', ['彼は 正午にサッカーをしました。', '彼は 正午からサッカーができます。', '彼は 正午にサッカーをするでしょう。'], 'ずっと続いている動作。'),
+    prompt('She has been ___ letters.', 'writing', ['write', 'wrote', 'written'], 'been + -ing。'),
+    prompt('「We have been waiting here.」を いってみよう。', 'We have been waiting here.', ['We have waiting here.', 'We have been wait here.', 'We are been waiting here.'], '現在完了進行形を発話。', { speechPrompt: { expected: 'We have been waiting here', alternates: ['We have been waiting here.'], lang: 'en-US', buttonLabel: '継続の文を はなす' } }),
+    prompt('I have been ___ this book since Monday.', 'reading', ['read', 'reads', 'reads to'], 'since とともに使う。'),
+    prompt('He has been practicing the violin for years. の いみは？', '彼は 何年もバイオリンを練習しています。', ['彼は きのうバイオリンを始めました。', '彼は バイオリンを買いたいです。', '彼は バイオリンを教えました。'], '芸術語彙。'),
+  ]),
+  ENGLISH_G9_U03: cycleProblems([
+    prompt('This is the book ___ I bought yesterday.', 'that', ['who', 'where', 'when'], '関係代名詞。', { audioPrompt: { text: 'This is the book that I bought yesterday.', lang: 'en-US', autoPlay: true } }),
+    prompt('The girl who is singing is my sister. の いみは？', '歌っている女の子は わたしの姉妹です。', ['その女の子は 歌が好きです。', '歌っていた女の子は 先生です。', '歌っている女の子は わたしです。'], 'who の先行詞。'),
+    prompt('I know a boy ___ lives in Osaka.', 'who', ['which', 'where', 'when'], '人を説明する。'),
+    prompt('「This is the cake that my mother made.」を いってみよう。', 'This is the cake that my mother made.', ['This is the cake who my mother made.', 'This is cake that my mother made.', 'This is the cake that my mother makes.'], '関係代名詞を発話。', { speechPrompt: { expected: 'This is the cake that my mother made', alternates: ['This is the cake that my mother made.'], lang: 'en-US', buttonLabel: '関係代名詞を はなす' } }),
+    prompt('The place ___ we visited was very quiet.', 'that', ['who', 'what', 'when'], '物を説明する。'),
+    prompt('The student who won the contest is my friend. の いみは？', 'その大会で勝った生徒は わたしの友だちです。', ['その大会に出た生徒は 先生です。', 'その大会は 友だちが開きました。', '生徒は大会を見ていました。'], 'school/event vocabulary。'),
+  ]),
+  ENGLISH_G9_U04: cycleProblems([
+    prompt('Do you know ___ he is? ', 'where', ['what', 'who', 'when'], '間接疑問文。', { audioPrompt: { text: 'Do you know where he is?', lang: 'en-US', autoPlay: true } }),
+    prompt('I wonder what she wants. の いみは？', '彼女が 何をほしいのか わたしは知りたい。', ['彼女は 何がほしいですか。', 'わたしは 彼女に何をあげますか。', '彼女は 何を買いましたか。'], '語順に注意。'),
+    prompt('Please tell me ___ you are from.', 'where', ['what', 'when', 'how'], '間接疑問。'),
+    prompt('「Do you know what this is?」を いってみよう。', 'Do you know what this is?', ['Do you know what is this?', 'Do you know this is what?', 'What do you know this is?'], '疑問詞の語順。', { speechPrompt: { expected: 'Do you know what this is', alternates: ['Do you know what this is?'], lang: 'en-US', buttonLabel: '間接疑問を はなす' } }),
+    prompt('Can you tell me ___ she lives?', 'where', ['what', 'which', 'who'], '間接疑問文の語順。'),
+    prompt('Do you know why the train is late? の いみは？', 'なぜ電車がおくれているのか知っていますか。', ['電車はどこですか。', '電車は何時に出ますか。', '電車に乗りましたか。'], '交通語彙。'),
+  ]),
+  ENGLISH_G9_U05: cycleProblems([
+    prompt('If I ___ rich, I would travel abroad.', 'were', ['am', 'was', 'be'], '仮定法。', { audioPrompt: { text: 'If I were rich, I would travel abroad.', lang: 'en-US', autoPlay: true } }),
+    prompt('If I had more time, I would read more books. の いみは？', 'もっと時間があれば、もっと本を読むのに。', ['もっと時間があるので、本を読みます。', 'もっと本を読んだので、時間があります。', 'もっと時間があれば、本を読みました。'], '事実に反する仮定。'),
+    prompt('If she were here, she ___ help us.', 'would', ['will', 'can', 'did'], 'would を使う。'),
+    prompt('「If I were you, I would study harder.」を いってみよう。', 'If I were you, I would study harder.', ['If I was you, I study harder.', 'If I were you, I will study harder.', 'If I were you, I would studied harder.'], '仮定法を発話。', { speechPrompt: { expected: 'If I were you I would study harder', alternates: ['If I were you, I would study harder', 'If I were you, I would study harder.'], lang: 'en-US', buttonLabel: '仮定法を はなす' } }),
+    prompt('If he were free, he ___ join us.', 'would', ['will', 'did', 'is'], '仮定法。'),
+    prompt('If I had enough money, I would buy a new computer. の いみは？', 'もし十分なお金があれば 新しいコンピュータを買うのに。', ['十分なお金があるので買いました。', 'コンピュータを売りたいです。', 'コンピュータを修理しています。'], 'technology vocabulary。'),
+  ]),
+  ENGLISH_G9_U06: cycleProblems([
+    prompt('The boy ___ by the window is my brother.', 'standing', ['stood', 'stands', 'stand'], '分詞の形容詞用法。', { audioPrompt: { text: 'The boy standing by the window is my brother.', lang: 'en-US', autoPlay: true } }),
+    prompt('The homework given by the teacher was hard. の いみは？', '先生に出された宿題は むずかしかった。', ['先生が宿題を出しました。', '宿題を先生にあげました。', '先生の宿題は かんたんでした。'], '過去分詞。'),
+    prompt('I saw a girl ___ in the park.', 'running', ['run', 'ran', 'runs'], '現在分詞。'),
+    prompt('「The language spoken here is English.」を いってみよう。', 'The language spoken here is English.', ['The language speak here is English.', 'The language speaking here is English.', 'The language was spoken here English.'], '分詞を発話。', { speechPrompt: { expected: 'The language spoken here is English', alternates: ['The language spoken here is English.'], lang: 'en-US', buttonLabel: '分詞の文を はなす' } }),
+    prompt('The girl ___ in the room is my cousin.', 'singing', ['sings', 'sang', 'sung'], '現在分詞。'),
+    prompt('The picture taken in Kyoto was beautiful. の いみは？', '京都で撮られた写真は美しかった。', ['京都で写真を撮ります。', '写真は京都へ行きたいです。', '写真は美しくありません。'], 'travel vocabulary。'),
+  ]),
+  ENGLISH_G9_U07: cycleProblems([
+    prompt('This problem is ___ than that one.', 'more difficult', ['difficulter', 'most difficult', 'difficult'], '比較の応用。', { audioPrompt: { text: 'This problem is more difficult than that one.', lang: 'en-US', autoPlay: true } }),
+    prompt('He is one of the most famous players. の いみは？', '彼は もっとも有名な選手の一人です。', ['彼は 一番若い選手です。', '彼は 有名な選手ではありません。', '彼は もっとも速く走ります。'], 'one of the most。'),
+    prompt('Your bag is as ___ as mine.', 'heavy', ['heavier', 'heaviest', 'more heavy'], 'as ... as。'),
+    prompt('「This song is as popular as that one.」を いってみよう。', 'This song is as popular as that one.', ['This song is popular as that one.', 'This song as popular as that one.', 'This song is more popular as that one.'], '同等比較。', { speechPrompt: { expected: 'This song is as popular as that one', alternates: ['This song is as popular as that one.'], lang: 'en-US', buttonLabel: '比較の文を はなす' } }),
+    prompt('This test is the ___ of the three.', 'most difficult', ['difficultest', 'more difficult', 'difficult'], '最上級の応用。'),
+    prompt('This website is easier to use than that one. の いみは？', 'このウェブサイトは あれより使いやすい。', ['このウェブサイトは あれより古い。', 'このウェブサイトは あれと同じ大きさだ。', 'このウェブサイトは だれも使わない。'], 'ICT vocabulary。'),
+  ]),
+  ENGLISH_G9_U08: cycleProblems([
+    prompt('長文で まず つかむと よいものは？', '話題', ['発音記号', '単語数', 'ページ番号'], '何についての文か。'),
+    prompt('文脈から unknown word の 意味を考える とき 見るものは？', '前後の内容', ['文字の形', '行の長さ', '句読点だけ'], '前後関係。'),
+    prompt('長文の 要点をつかむには？', '段落ごとの中心文', ['最後の単語', '最初の一文字', '接続詞だけ'], '読みの基本。'),
+    prompt('This passage is about school lunch. を 日本語でいうと？', 'この文は 給食についてです。', ['この文は 学校へ行くことです。', 'この文は 宿題についてです。', 'この文は 部活動についてです。'], 'about の内容。', { audioPrompt: { text: 'This passage is about school lunch.', lang: 'en-US', autoPlay: true } }),
+    ...readingPassages.flatMap((passage) => ([
+      prompt(`つぎの文を読もう。\n${passage.text}\nこの文の 話題として もっとも近いものは？`, passage.topic, ['学校の時間割', '電車の乗り方', '買い物の値段'], 'まず全体の話題をつかむ。', { audioPrompt: { text: passage.text, lang: 'en-US', autoPlay: true } }),
+      prompt(`つぎの文を読もう。\n${passage.text}\n文の内容として 正しいものは？`, passage.detail, ['朝ごはんを作らない', '一人で海へ行った', '冬に花火がある'], '本文の具体的情報。', { audioPrompt: { text: passage.text, lang: 'en-US', autoPlay: false } }),
+      prompt(`つぎの文を読もう。\n${passage.text}\n内容が書かれている 場面として 合うものは？`, passage.place, ['病院の待合室', '空港の中', '山のてっぺん'], 'どこやどんな場面かを読む。'),
+    ])),
+  ]),
+  ENGLISH_G9_U09: cycleProblems([
+    prompt('「わたしは 英語を勉強することが大切だと思います。」に 合うのは？', 'I think it is important to study English.', ['I important study English.', 'I think study English important.', 'I think it important study English.'], '英作文。', { audioPrompt: { text: 'I think it is important to study English.', lang: 'en-US', autoPlay: true } }),
+    prompt('「彼は 昨日図書館へ行きました。」に 合うのは？', 'He went to the library yesterday.', ['He go to the library yesterday.', 'He was go to the library yesterday.', 'He goes to the library yesterday.'], '過去形。'),
+    prompt('「私は 犬を2ひき飼っています。」に 合うのは？', 'I have two dogs.', ['I am two dogs.', 'I has two dogs.', 'I have two dog.'], '名詞の複数形。'),
+    prompt('「I want to help people.」を いってみよう。', 'I want to help people.', ['I want help people.', 'I want to helps people.', 'I wanting to help people.'], '英作文を音読。', { speechPrompt: { expected: 'I want to help people', alternates: ['I want to help people.'], lang: 'en-US', buttonLabel: '英文を はなす' } }),
+    prompt('「私は 毎日英語を練習します。」に 合うのは？', 'I practice English every day.', ['I am practice English every day.', 'I practiced English every day.', 'I practice every day English.'], '語順。'),
+    prompt('「私たちは週末にボランティア活動をします。」に 合うのは？', 'We do volunteer work on weekends.', ['We are volunteer on weekends.', 'We did volunteer works every day.', 'We do work volunteer weekend.'], '社会・学校活動の語彙。'),
+    prompt('自分の好きな教科について 1文で話してみよう。', 'I like English because it is fun.', ['I like English because it is fun.', 'My favorite subject is English.', 'I enjoy studying English.'], '好きな教科と理由を入れる。', {
+      speechPrompt: {
+        expected: 'I like English because it is fun',
+        alternates: ['My favorite subject is English because it is interesting', 'I enjoy English because it is fun'],
+        keywords: ['english', 'because'],
+        minKeywordHits: 2,
+        lang: 'en-US',
+        buttonLabel: '自由に はなす',
+        freeResponse: true,
+        examples: ['I like English because it is fun.', 'My favorite subject is math because it is useful.'],
+      },
+    }),
+    prompt('将来したいことを 1文で話してみよう。', 'I want to be a teacher in the future.', ['I want to be a teacher in the future.', 'I want to help people in the future.', 'I want to travel abroad someday.'], 'I want to ... を使えるとよい。', {
+      speechPrompt: {
+        expected: 'I want to be a teacher in the future',
+        alternates: ['I want to be a doctor in the future', 'I want to help people in the future'],
+        keywords: ['i want to'],
+        minKeywordHits: 1,
+        lang: 'en-US',
+        buttonLabel: '自由に はなす',
+        freeResponse: true,
+        examples: ['I want to be a doctor in the future.', 'I want to travel abroad in the future.'],
+      },
+    }),
+  ]),
+  ENGLISH_G9_U10: cycleProblems([
+    prompt('スピーチの はじめに あると よいのは？', 'あいさつと 話題提示', ['結論だけ', '単語の意味', '発音記号'], '導入。'),
+    prompt('I want to talk about my dream. の いみは？', 'わたしは 夢について話したいです。', ['わたしは 夢を見ました。', 'わたしは 夢を持っていません。', 'わたしは 夢について書きます。'], 'スピーチ表現。', { audioPrompt: { text: 'I want to talk about my dream.', lang: 'en-US', autoPlay: true } }),
+    prompt('スピーチで 大切なのは？', '聞き手に 伝わるように話す', ['速く読む', '下だけ見る', '難しい単語だけ使う'], '発表の基本。'),
+    prompt('「Thank you for listening.」を いってみよう。', 'Thank you for listening.', ['Thank you listening.', 'Thanks for listen.', 'Thank you to listening.'], '結びの表現。', { speechPrompt: { expected: 'Thank you for listening', alternates: ['Thank you for listening.', 'Thanks for listening'], lang: 'en-US', buttonLabel: 'スピーチの結びを はなす' } }),
+    prompt('スピーチで 理由や例を入れる目的は？', '内容をわかりやすくするため', ['文を長くするため', '難しい単語を増やすため', '読む量を減らすため'], '聞き手に伝える。'),
+    prompt('スピーチで 経験を入れるよさは？', '自分の考えが伝わりやすくなる', ['文を短くできる', '発音をなくせる', '質問を減らせる'], '内容の具体化。'),
+    prompt('スピーチの書き出しを 自分の話題で言ってみよう。', 'Today, I want to talk about my hobby.', ['Today, I want to talk about my hobby.', 'I will hobby talk.', 'My hobby is talk today.'], 'Today, I want to talk about ... を使う。', {
+      speechPrompt: {
+        expected: 'Today I want to talk about my hobby',
+        alternates: ['Today, I want to talk about my dream', 'Today, I want to talk about my school life'],
+        keywords: ['today', 'talk about'],
+        minKeywordHits: 2,
+        lang: 'en-US',
+        buttonLabel: '導入を はなす',
+        freeResponse: true,
+        examples: ['Today, I want to talk about my dream.', 'Today, I want to talk about my town.'],
+      },
+    }),
+    prompt('スピーチの結びを 自分の表現で言ってみよう。', 'Thank you for listening.', ['Thank you for listening.', 'Thanks for listening.', 'I am listening you.'], '終わりのあいさつ。', {
+      speechPrompt: {
+        expected: 'Thank you for listening',
+        alternates: ['Thank you for listening.', 'Thanks for listening', 'Thank you very much for listening'],
+        keywords: ['thank', 'listening'],
+        minKeywordHits: 2,
+        lang: 'en-US',
+        buttonLabel: '結びを はなす',
+        freeResponse: true,
+        examples: ['Thank you for listening.', 'Thanks for listening.'],
+      },
+    }),
+  ]),
+  ENGLISH_G9_U11: buildListeningReviewUnit(g9ReviewItems, '中3の 重要表現を きいて、あてはまる 英語を えらぼう。'),
+  ENGLISH_G9_U12: buildSpeakingReviewUnit(g9ReviewItems, '中3の 重要表現を 英語で いってみよう。'),
+  ENGLISH_G9_U13: buildRepeatReviewUnit(g9ReviewItems, '中3の 重要表現を きいて、英語を くりかえそう。'),
+  ENGLISH_G9_U14: buildResponseReviewUnit(g9ResponseItems, '中3の 会話に 英語で こたえよう。'),
+};
+
+export const ENGLISH_G9_DATA: Record<string, GeneralProblem[]> = {
+  ENGLISH_G9_1: Object.values(ENGLISH_G9_UNIT_DATA).flat(),
+  ...ENGLISH_G9_UNIT_DATA,
+};

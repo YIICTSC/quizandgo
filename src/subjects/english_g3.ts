@@ -1,0 +1,170 @@
+import { GeneralProblem } from './utils';
+import { buildListeningReviewUnit, buildRepeatReviewUnit, buildResponseReviewUnit, buildSpeakingReviewUnit, buildWordUnit, cycleProblems, EnglishResponseItem, EnglishWordItem, uniqueEnglishWordItems } from './english_utils';
+
+const greetings: EnglishWordItem[] = [
+  { en: 'Hello', jp: 'こんにちは', speechAlternates: ['hello there'] },
+  { en: 'Good morning', jp: 'おはよう' },
+  { en: 'Goodbye', jp: 'さようなら', speechAlternates: ['bye', 'bye bye'] },
+  { en: 'Thank you', jp: 'ありがとう', speechAlternates: ['thanks'] },
+  { en: 'See you', jp: 'またね', speechAlternates: ['see you later'] },
+  { en: 'Nice to meet you', jp: 'はじめまして' },
+  { en: 'Good afternoon', jp: 'こんにちは' },
+  { en: 'Good night', jp: 'おやすみ' },
+  { en: 'See you tomorrow', jp: 'またあした' },
+  { en: 'You are welcome', jp: 'どういたしまして' },
+];
+const selfIntro: EnglishWordItem[] = [
+  { en: 'I am Ken.', jp: 'ぼくは ケンです。', speech: 'I am Ken', speechAlternates: ["I'm Ken"] },
+  { en: 'My name is Mei.', jp: 'わたしの なまえは メイです。', speech: 'My name is Mei', speechAlternates: ["I'm Mei"] },
+  { en: 'I am nine.', jp: 'わたしは 9さいです。', speech: 'I am nine', speechAlternates: ["I'm nine years old", "I am nine years old"] },
+  { en: 'I live in Tokyo.', jp: 'わたしは 東京に すんでいます。', speech: 'I live in Tokyo' },
+  { en: 'I am in third grade.', jp: 'わたしは 3年生です。', speech: 'I am in third grade' },
+  { en: 'I am from Japan.', jp: 'わたしは 日本の しゅっしんです。', speech: 'I am from Japan', speechAlternates: ["I'm from Japan"] },
+  { en: 'I like dogs.', jp: 'わたしは いぬが すきです。', speech: 'I like dogs' },
+];
+const favorites: EnglishWordItem[] = [
+  { en: 'I like soccer.', jp: 'わたしは サッカーが すきです。', speech: 'I like soccer' },
+  { en: 'I like music.', jp: 'わたしは 音楽が すきです。', speech: 'I like music' },
+  { en: 'I like dogs.', jp: 'わたしは 犬が すきです。', speech: 'I like dogs' },
+  { en: 'I like apples.', jp: 'わたしは りんごが すきです。', speech: 'I like apples' },
+  { en: 'I like blue.', jp: 'わたしは 青が すきです。', speech: 'I like blue' },
+  { en: 'I like sushi.', jp: 'わたしは すしが すきです。', speech: 'I like sushi' },
+  { en: 'I like rabbits.', jp: 'わたしは うさぎが すきです。', speech: 'I like rabbits' },
+];
+const family: EnglishWordItem[] = [
+  { en: 'father', jp: 'おとうさん' },
+  { en: 'mother', jp: 'おかあさん' },
+  { en: 'brother', jp: 'おとうと・おにいさん' },
+  { en: 'sister', jp: 'いもうと・おねえさん' },
+  { en: 'grandfather', jp: 'おじいさん' },
+  { en: 'grandmother', jp: 'おばあさん' },
+  { en: 'family', jp: 'かぞく' },
+  { en: 'friend', jp: 'ともだち' },
+];
+const colors: EnglishWordItem[] = [
+  { en: 'red', jp: '赤' },
+  { en: 'blue', jp: '青' },
+  { en: 'yellow', jp: '黄色' },
+  { en: 'green', jp: '緑' },
+  { en: 'black', jp: '黒' },
+  { en: 'white', jp: '白' },
+  { en: 'pink', jp: 'ピンク' },
+  { en: 'orange', jp: 'オレンジ' },
+  { en: 'brown', jp: '茶色' },
+  { en: 'purple', jp: 'むらさき' },
+];
+const numbers: EnglishWordItem[] = [
+  { en: 'one', jp: '1' },
+  { en: 'two', jp: '2' },
+  { en: 'three', jp: '3' },
+  { en: 'four', jp: '4' },
+  { en: 'five', jp: '5' },
+  { en: 'six', jp: '6' },
+  { en: 'seven', jp: '7' },
+  { en: 'eight', jp: '8' },
+  { en: 'nine', jp: '9' },
+  { en: 'ten', jp: '10' },
+  { en: 'eleven', jp: '11' },
+  { en: 'twelve', jp: '12' },
+  { en: 'thirteen', jp: '13' },
+  { en: 'fourteen', jp: '14' },
+  { en: 'fifteen', jp: '15' },
+  { en: 'sixteen', jp: '16' },
+  { en: 'seventeen', jp: '17' },
+  { en: 'eighteen', jp: '18' },
+  { en: 'nineteen', jp: '19' },
+  { en: 'twenty', jp: '20' },
+];
+const animals: EnglishWordItem[] = [
+  { en: 'dog', jp: 'いぬ' },
+  { en: 'cat', jp: 'ねこ' },
+  { en: 'bird', jp: 'とり' },
+  { en: 'rabbit', jp: 'うさぎ' },
+  { en: 'bear', jp: 'くま' },
+  { en: 'elephant', jp: 'ぞう' },
+  { en: 'monkey', jp: 'さる' },
+  { en: 'tiger', jp: 'とら' },
+  { en: 'lion', jp: 'ライオン' },
+  { en: 'panda', jp: 'パンダ' },
+  { en: 'fish', jp: 'さかな' },
+  { en: 'horse', jp: 'うま' },
+];
+const foods: EnglishWordItem[] = [
+  { en: 'apple', jp: 'りんご' },
+  { en: 'banana', jp: 'バナナ' },
+  { en: 'bread', jp: 'パン' },
+  { en: 'milk', jp: 'ぎゅうにゅう' },
+  { en: 'rice', jp: 'ごはん' },
+  { en: 'juice', jp: 'ジュース' },
+  { en: 'orange', jp: 'みかん' },
+  { en: 'cake', jp: 'ケーキ' },
+  { en: 'strawberry', jp: 'いちご' },
+  { en: 'grape', jp: 'ぶどう' },
+  { en: 'peach', jp: 'もも' },
+  { en: 'egg', jp: 'たまご' },
+  { en: 'water', jp: 'みず' },
+];
+const feelings: EnglishWordItem[] = [
+  { en: 'happy', jp: 'うれしい' },
+  { en: 'sad', jp: 'かなしい' },
+  { en: 'sleepy', jp: 'ねむい' },
+  { en: 'hungry', jp: 'おなかがすいた' },
+  { en: 'fine', jp: 'げんき' },
+  { en: 'tired', jp: 'つかれた' },
+  { en: 'angry', jp: 'おこっている' },
+  { en: 'great', jp: 'とてもげんき' },
+];
+const body: EnglishWordItem[] = [
+  { en: 'head', jp: 'あたま' },
+  { en: 'eye', jp: 'め' },
+  { en: 'ear', jp: 'みみ' },
+  { en: 'mouth', jp: 'くち' },
+  { en: 'hand', jp: 'て' },
+  { en: 'foot', jp: 'あし' },
+  { en: 'arm', jp: 'うで' },
+  { en: 'leg', jp: 'あし' },
+  { en: 'nose', jp: 'はな' },
+  { en: 'face', jp: 'かお' },
+];
+const g3ReviewItems: EnglishWordItem[] = uniqueEnglishWordItems([
+  ...greetings,
+  ...selfIntro,
+  ...favorites,
+  ...family,
+  ...colors,
+  ...numbers,
+  ...animals,
+  ...foods,
+  ...feelings,
+  ...body,
+]);
+const g3ResponseItems: EnglishResponseItem[] = [
+  { promptEn: 'Hello.', promptJp: 'こんにちは。', answerEn: 'Hello.', answerJp: 'こんにちは。', promptSpeech: 'Hello', answerSpeech: 'Hello' },
+  { promptEn: 'What is your name?', promptJp: 'おなまえは なんですか。', answerEn: 'My name is Mei.', answerJp: 'わたしの なまえは メイです。', answerSpeech: 'My name is Mei' },
+  { promptEn: 'How are you?', promptJp: 'げんきですか。', answerEn: 'I am fine.', answerJp: 'げんきです。', answerSpeech: 'I am fine', answerSpeechAlternates: ["I'm fine"] },
+  { promptEn: 'What do you like?', promptJp: 'なにが すきですか。', answerEn: 'I like apples.', answerJp: 'わたしは りんごが すきです。', answerSpeech: 'I like apples' },
+  { promptEn: 'What color do you like?', promptJp: 'どんないろが すきですか。', answerEn: 'I like blue.', answerJp: 'わたしは 青が すきです。', answerSpeech: 'I like blue' },
+  { promptEn: 'How old are you?', promptJp: 'なんさいですか。', answerEn: 'I am nine.', answerJp: 'わたしは 9さいです。', answerSpeech: 'I am nine', answerSpeechAlternates: ["I'm nine", 'I am nine years old'] },
+];
+
+export const ENGLISH_G3_UNIT_DATA: Record<string, GeneralProblem[]> = {
+  ENGLISH_G3_U01: cycleProblems(buildWordUnit(greetings, { enableListening: true, enableSpeaking: true })),
+  ENGLISH_G3_U02: cycleProblems(buildWordUnit(selfIntro, { enableListening: true, enableSpeaking: true })),
+  ENGLISH_G3_U03: cycleProblems(buildWordUnit(favorites, { enableListening: true, enableSpeaking: true })),
+  ENGLISH_G3_U04: cycleProblems(buildWordUnit(family, { enableListening: true })),
+  ENGLISH_G3_U05: cycleProblems(buildWordUnit(colors, { enableListening: true })),
+  ENGLISH_G3_U06: cycleProblems(buildWordUnit(numbers, { enableListening: true, listeningPrompt: 'おとを きいて、あてはまる 数を えらぼう。' })),
+  ENGLISH_G3_U07: cycleProblems(buildWordUnit(animals, { enableListening: true })),
+  ENGLISH_G3_U08: cycleProblems(buildWordUnit(foods, { enableListening: true })),
+  ENGLISH_G3_U09: cycleProblems(buildWordUnit(feelings, { enableListening: true, enableSpeaking: true })),
+  ENGLISH_G3_U10: cycleProblems(buildWordUnit(body, { enableListening: true })),
+  ENGLISH_G3_U11: buildListeningReviewUnit(g3ReviewItems, '3年生の ことばを きいて、あてはまる 英語を えらぼう。'),
+  ENGLISH_G3_U12: buildSpeakingReviewUnit(g3ReviewItems, '3年生の ことばを 英語で いってみよう。'),
+  ENGLISH_G3_U13: buildRepeatReviewUnit(g3ReviewItems, '3年生の ことばを きいて、英語を くりかえそう。'),
+  ENGLISH_G3_U14: buildResponseReviewUnit(g3ResponseItems, '3年生の きほん会話に 英語で こたえよう。'),
+};
+
+export const ENGLISH_G3_DATA: Record<string, GeneralProblem[]> = {
+  ENGLISH_G3_1: Object.values(ENGLISH_G3_UNIT_DATA).flat(),
+  ...ENGLISH_G3_UNIT_DATA,
+};

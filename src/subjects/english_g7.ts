@@ -1,0 +1,162 @@
+import { GeneralProblem } from './utils';
+import { buildListeningReviewUnit, buildRepeatReviewUnit, buildResponseReviewUnit, buildSpeakingReviewUnit, cycleProblems, EnglishResponseItem, EnglishWordItem, prompt, uniqueEnglishWordItems } from './english_utils';
+
+const readingPassagesG7: GeneralProblem[] = [
+  prompt(
+    'つぎの文を読もう。\nTom has a dog. He walks with his dog in the park every morning.\nトムが 毎朝していることは？',
+    '犬と公園を歩く',
+    ['学校で本を読む', '駅で友だちを待つ', '夜にサッカーをする'],
+    '本文の行動を読む。',
+    { audioPrompt: { text: 'Tom has a dog. He walks with his dog in the park every morning.', lang: 'en-US', autoPlay: true } },
+  ),
+  prompt(
+    'つぎの文を読もう。\nEmi is in the library now. She is reading a science book for her homework.\nえみが いる場所は？',
+    '図書館',
+    ['体育館', '公園', '音楽室'],
+    '場所を表す語に注目。',
+    { audioPrompt: { text: 'Emi is in the library now. She is reading a science book for her homework.', lang: 'en-US', autoPlay: true } },
+  ),
+  prompt(
+    'つぎの文を読もう。\nKen plays soccer after school, but his sister plays tennis.\n本文の内容として 正しいものは？',
+    'けんの妹はテニスをする',
+    ['けんは学校前に走る', 'けんの妹はサッカーをする', '二人とも野球をする'],
+    'but の前後を読む。',
+  ),
+  prompt(
+    'つぎの文を読もう。\nMy mother is cooking dinner, and I am setting the table.\n話している場面として 合うものは？',
+    '夕食の準備',
+    ['朝の登校', '図書館で読書', '運動会の練習'],
+    '家の中の行動をまとめる。',
+    { audioPrompt: { text: 'My mother is cooking dinner, and I am setting the table.', lang: 'en-US', autoPlay: false } },
+  ),
+];
+const g7ReviewItems: EnglishWordItem[] = uniqueEnglishWordItems([
+  { en: 'I am a student.', jp: 'わたしは 生徒です。', speech: 'I am a student', speechAlternates: ["I'm a student"] },
+  { en: 'You are busy.', jp: 'あなたは いそがしいです。', speech: 'You are busy', speechAlternates: ["You're busy"] },
+  { en: 'I play soccer every day.', jp: 'わたしは 毎日サッカーをします。', speech: 'I play soccer every day' },
+  { en: 'Do you play baseball?', jp: 'あなたは 野球をしますか。', speech: 'Do you play baseball' },
+  { en: 'I do not like math.', jp: 'わたしは 算数が好きではありません。', speech: 'I do not like math', speechAlternates: ["I don't like math"] },
+  { en: 'Stand up.', jp: '立ちなさい。', speech: 'Stand up' },
+  { en: 'I can cook.', jp: 'わたしは 料理できます。', speech: 'I can cook' },
+  { en: 'He is reading a book.', jp: '彼は 本を読んでいます。', speech: 'He is reading a book' },
+  { en: 'My sister likes music.', jp: 'わたしの姉妹は 音楽が好きです。', speech: 'My sister likes music' },
+  { en: 'The cat is in the box.', jp: 'ねこは 箱の中にいます。', speech: 'The cat is in the box' },
+  { en: 'These are books.', jp: 'これらは 本です。', speech: 'These are books' },
+  { en: 'She is my friend.', jp: '彼女は わたしの友だちです。', speech: 'She is my friend' },
+]);
+const g7ResponseItems: EnglishResponseItem[] = [
+  { promptEn: 'Are you a student?', promptJp: 'あなたは 生徒ですか。', answerEn: 'Yes, I am.', answerJp: 'はい、そうです。', answerSpeech: 'Yes I am', answerSpeechAlternates: ['Yes, I am.'] },
+  { promptEn: 'Do you play soccer?', promptJp: 'あなたは サッカーをしますか。', answerEn: 'Yes, I do.', answerJp: 'はい、します。', answerSpeech: 'Yes I do', answerSpeechAlternates: ['Yes, I do.'] },
+  { promptEn: 'Can you cook?', promptJp: 'あなたは 料理できますか。', answerEn: 'Yes, I can.', answerJp: 'はい、できます。', answerSpeech: 'Yes I can', answerSpeechAlternates: ['Yes, I can.'] },
+  { promptEn: 'What is she doing?', promptJp: '彼女は 何を していますか。', answerEn: 'She is reading a book.', answerJp: '彼女は 本を 読んでいます。', answerSpeech: 'She is reading a book' },
+  { promptEn: 'Where is the cat?', promptJp: 'ねこは どこですか。', answerEn: 'It is in the box.', answerJp: 'それは 箱の中にいます。', answerSpeech: 'It is in the box' },
+  { promptEn: 'Who is she?', promptJp: '彼女は だれですか。', answerEn: 'She is my friend.', answerJp: '彼女は わたしの友だちです。', answerSpeech: 'She is my friend' },
+];
+
+export const ENGLISH_G7_UNIT_DATA: Record<string, GeneralProblem[]> = {
+  ENGLISH_G7_U01: cycleProblems([
+    prompt('「A」は 何と読む？', 'ei', ['bi', 'si', 'di'], 'アルファベットの音。', { audioPrompt: { text: 'A', lang: 'en-US', autoPlay: true } }),
+    prompt('「dog」の はじめの文字は？', 'd', ['b', 'g', 'o'], '最初の文字。'),
+    prompt('「M」を こえに出して いってみよう。', 'M', ['N', 'L', 'S'], '発音してみよう。', { speechPrompt: { expected: 'M', alternates: ['m'], lang: 'en-US', buttonLabel: 'アルファベットを よむ' } }),
+    prompt('「C」は どれ？', 'C', ['G', 'E', 'T'], '文字を見分けよう。'),
+    prompt('「apple」の さいごの文字は？', 'e', ['a', 'l', 'p'], '最後の文字。'),
+    prompt('「student」の はじめの文字は？', 's', ['t', 'u', 'd'], '学校でよく使う語。'),
+  ]),
+  ENGLISH_G7_U02: cycleProblems([
+    prompt('I ___ a student.', 'am', ['is', 'are', 'be'], '主語が I の be動詞。', { audioPrompt: { text: 'I am a student.', lang: 'en-US', autoPlay: true } }),
+    prompt('He ___ happy.', 'is', ['am', 'are', 'be'], 'he に合う be動詞。'),
+    prompt('They ___ in the park.', 'are', ['is', 'am', 'be'], 'they に合う形。'),
+    prompt('「I am happy.」を こえに出して いおう。', 'I am happy.', ['I is happy.', 'I are happy.', 'I happy.'], 'be動詞を入れて。', { speechPrompt: { expected: 'I am happy', alternates: ['I am happy.', "I'm happy"], lang: 'en-US', buttonLabel: '英文を はなす' } }),
+    prompt('You ___ busy.', 'are', ['am', 'is', 'be'], 'you に合う be動詞。'),
+    prompt('My mother ___ at home.', 'is', ['am', 'are', 'be'], '家族の語彙でも同じ形。'),
+  ]),
+  ENGLISH_G7_U03: cycleProblems([
+    prompt('I ___ soccer every day.', 'play', ['plays', 'am', 'playing'], '一般動詞の基本形。', { audioPrompt: { text: 'I play soccer every day.', lang: 'en-US', autoPlay: true } }),
+    prompt('We ___ English at school.', 'study', ['studies', 'are', 'is'], 'we に合う一般動詞。'),
+    prompt('You ___ lunch at noon.', 'eat', ['eats', 'is', 'are'], 'you に合う形。'),
+    prompt('「I play tennis.」を こえに出して いおう。', 'I play tennis.', ['I plays tennis.', 'I am tennis.', 'I playing tennis.'], '動詞の形。', { speechPrompt: { expected: 'I play tennis', alternates: ['I play tennis.'], lang: 'en-US', buttonLabel: '英文を はなす' } }),
+    prompt('She ___ breakfast every day. の 正しい形は？', 'eats', ['eat', 'eating', 'ate'], '毎日の習慣。'),
+    prompt('We ___ music after school.', 'listen to', ['listens to', 'are', 'is'], '学校生活の語彙。'),
+  ]),
+  ENGLISH_G7_U04: cycleProblems([
+    prompt('___ you a student?', 'Are', ['Is', 'Am', 'Do'], 'be動詞の疑問文。', { audioPrompt: { text: 'Are you a student?', lang: 'en-US', autoPlay: true } }),
+    prompt('Do you like music? の いみは？', 'あなたは 音楽が好きですか。', ['あなたは 音楽をします。', 'あなたは 音楽です。', 'あなたは 音楽が上手です。'], 'Do you ...? の意味。'),
+    prompt('Is he busy? の こたえとして 合うのは？', 'Yes, he is.', ['Yes, he does.', 'No, he not.', 'Yes, he am.'], 'be動詞で答える。'),
+    prompt('「Do you play baseball?」を よんでみよう。', 'Do you play baseball?', ['You play baseball.', 'Are you play baseball?', 'Do you baseball?'], '疑問文の語順。', { speechPrompt: { expected: 'Do you play baseball', alternates: ['Do you play baseball?'], lang: 'en-US', buttonLabel: '疑問文を はなす' } }),
+    prompt('Is she a teacher? の こたえとして 合うのは？', 'No, she is not.', ['No, she does not.', 'No, she not.', 'No, she do not.'], 'be動詞で答える。'),
+    prompt('Do you have a racket? の いみは？', 'あなたは ラケットを もっていますか。', ['あなたは ラケットで あそびますか。', 'あなたは ラケットですか。', 'あなたは ラケットを つかいましたか。'], '身近な持ち物の語彙。'),
+  ]),
+  ENGLISH_G7_U05: cycleProblems([
+    prompt('I am ___ busy.', 'not', ['no', 'dont', 'doesnt'], 'be動詞の否定文。'),
+    prompt('He does not play tennis. の いみは？', '彼は テニスをしません。', ['彼は テニスができます。', '彼は テニスをしました。', '彼は テニスをしています。'], 'does not の意味。'),
+    prompt('They ___ not hungry.', 'are', ['is', 'am', 'do'], 'they に合う be動詞。'),
+    prompt('「I do not like math.」を よんでみよう。', 'I do not like math.', ['I not like math.', 'I am not like math.', 'I do like not math.'], '否定文の形。', { speechPrompt: { expected: 'I do not like math', alternates: ["I don't like math", 'I do not like math.'], lang: 'en-US', buttonLabel: '否定文を はなす' } }),
+    prompt('She is not busy. の いみは？', '彼女は いそがしくありません。', ['彼女は いそがしいです。', '彼女は いそがしくなります。', '彼女は いそがしかったです。'], 'be動詞の否定文。'),
+    prompt('I do not have a bicycle. の いみは？', 'わたしは 自転車を もっていません。', ['わたしは 自転車に のれません。', 'わたしは 自転車が すきです。', 'わたしは 自転車を かいました。'], '持ち物の語彙。'),
+  ]),
+  ENGLISH_G7_U06: cycleProblems([
+    prompt('「座ってください」は 英語で？', 'Sit down.', ['Stand up.', 'Be quiet.', 'Open the door.'], '命令文。', { audioPrompt: { text: 'Sit down.', lang: 'en-US', autoPlay: true } }),
+    prompt('Open your book. の いみは？', '本を開きなさい。', ['本を閉じなさい。', '本を読みなさい。', '本を持ちなさい。'], '動詞から考える。'),
+    prompt('「静かにして」は どれ？', 'Be quiet.', ['Come here.', 'Listen to me.', 'Write your name.'], '教室で使う表現。'),
+    prompt('「Stand up.」を いってみよう。', 'Stand up.', ['Sit down.', 'Open the window.', 'Close the door.'], '命令文を発話。', { speechPrompt: { expected: 'Stand up', alternates: ['Stand up.'], lang: 'en-US', buttonLabel: '命令文を はなす' } }),
+    prompt('「ここへ来て」は 英語で？', 'Come here.', ['Go there.', 'Read it.', 'Take this.'], '命令文。'),
+    prompt('「ドアをしめて」は 英語で？', 'Close the door.', ['Open the door.', 'Read the door.', 'Take the door.'], '教室の語彙。'),
+  ]),
+  ENGLISH_G7_U07: cycleProblems([
+    prompt('I ___ swim.', 'can', ['am', 'do', 'is'], 'can の用法。', { audioPrompt: { text: 'I can swim.', lang: 'en-US', autoPlay: true } }),
+    prompt('Can you play the piano? の こたえは？', 'Yes, I can.', ['Yes, I do.', 'Yes, I am.', 'Yes, I play.'], 'can で答える。'),
+    prompt('He can run fast. の いみは？', '彼は はやく走れます。', ['彼は はやく走りました。', '彼は はやく走っています。', '彼は はやく走りません。'], 'can は できる。'),
+    prompt('「I can cook.」を いってみよう。', 'I can cook.', ['I cook can.', 'I am cook.', 'I can cooking.'], 'can + 動詞の原形。', { speechPrompt: { expected: 'I can cook', alternates: ['I can cook.'], lang: 'en-US', buttonLabel: 'can 文を はなす' } }),
+    prompt('Can he swim? に 合う こたえは？', 'No, he cannot.', ['No, he does not.', 'No, he is not.', 'No, he not.'], 'can の応答。'),
+    prompt('She can play the guitar. の いみは？', '彼女は ギターがひけます。', ['彼女は ギターを もっています。', '彼女は ギターを つくります。', '彼女は ギターを ききます。'], '楽器の語彙。'),
+  ]),
+  ENGLISH_G7_U08: cycleProblems([
+    prompt('I am ___ now.', 'studying', ['study', 'studies', 'studied'], '進行形。', { audioPrompt: { text: 'I am studying now.', lang: 'en-US', autoPlay: true } }),
+    prompt('She is playing tennis. の いみは？', '彼女は テニスをしています。', ['彼女は テニスをします。', '彼女は テニスをしました。', '彼女は テニスが好きです。'], 'be動詞 + -ing。'),
+    prompt('They are ___ lunch.', 'eating', ['eat', 'eats', 'ate'], '進行中の動作。'),
+    prompt('「He is reading a book.」を いってみよう。', 'He is reading a book.', ['He reading a book.', 'He is read a book.', 'He reads a book now.'], '進行形を発話。', { speechPrompt: { expected: 'He is reading a book', alternates: ['He is reading a book.'], lang: 'en-US', buttonLabel: '進行形を はなす' } }),
+    prompt('We are running now. の いみは？', 'わたしたちは 今走っています。', ['わたしたちは よく走ります。', 'わたしたちは 走りました。', 'わたしたちは 走れます。'], '進行中の動作。'),
+    prompt('My brother is using a computer now. の いみは？', 'わたしの兄弟は 今コンピュータを使っています。', ['わたしの兄弟は コンピュータがほしいです。', 'わたしの兄弟は 毎日コンピュータを作ります。', 'わたしの兄弟は コンピュータをなおしました。'], '学校・生活語彙。'),
+  ]),
+  ENGLISH_G7_U09: cycleProblems([
+    prompt('He ___ soccer.', 'plays', ['play', 'playing', 'played'], '三人称単数。', { audioPrompt: { text: 'He plays soccer.', lang: 'en-US', autoPlay: true } }),
+    prompt('She ___ lunch at school.', 'eats', ['eat', 'eating', 'ate'], '主語が she。'),
+    prompt('Tom studies English. の いみは？', 'トムは 英語を勉強します。', ['トムは 英語を勉強しました。', 'トムは 英語を勉強しています。', 'トムは 英語ができます。'], '三単現の s。'),
+    prompt('「My sister likes music.」を いってみよう。', 'My sister likes music.', ['My sister like music.', 'My sister is like music.', 'My sister liking music.'], 'likes の形。', { speechPrompt: { expected: 'My sister likes music', alternates: ['My sister likes music.'], lang: 'en-US', buttonLabel: '三単現を はなす' } }),
+    prompt('My father ___ TV at night.', 'watches', ['watch', 'watching', 'watched'], '三人称単数。'),
+    prompt('My teacher teaches science. の いみは？', 'わたしの先生は 理科を教えます。', ['わたしの先生は 理科を学びます。', 'わたしの先生は 理科を作ります。', 'わたしの先生は 理科がきらいです。'], '学校語彙。'),
+  ]),
+  ENGLISH_G7_U10: cycleProblems([
+    prompt('The cat is ___ the box.', 'in', ['on', 'under', 'by'], '前置詞。', { audioPrompt: { text: 'The cat is in the box.', lang: 'en-US', autoPlay: true } }),
+    prompt('The book is on the desk. の いみは？', '本は 机の上にあります。', ['本は 机の中にあります。', '本は 机の下にあります。', '本は 机の横にあります。'], 'on の意味。'),
+    prompt('The ball is ___ the table.', 'under', ['in', 'on', 'at'], '場所関係。'),
+    prompt('「The dog is by the door.」を よんでみよう。', 'The dog is by the door.', ['The dog is in the door.', 'The dog by the door.', 'The dog are by the door.'], '前置詞を含む文。', { speechPrompt: { expected: 'The dog is by the door', alternates: ['The dog is by the door.'], lang: 'en-US', buttonLabel: '場所を はなす' } }),
+    prompt('The picture is ___ the wall.', 'on', ['in', 'under', 'at'], '位置を表す。'),
+    prompt('The station is near the hospital. の いみは？', '駅は 病院の近くにあります。', ['駅は 病院の中にあります。', '駅は 病院の下にあります。', '駅は 病院のうしろにあります。'], '町の語彙。'),
+  ]),
+  ENGLISH_G7_U11: cycleProblems([
+    prompt('book の ふくすう形は？', 'books', ['bookes', 'bookies', 'book'], '複数形。'),
+    prompt('three boxes の いみは？', '3つの箱', ['3つの本', '3人の男の子', '3匹の犬'], '複数の名詞。'),
+    prompt('child の ふくすう形として よく使うのは？', 'children', ['childs', 'childes', 'child'], '不規則変化。'),
+    prompt('「dogs」を いってみよう。', 'dogs', ['dog', 'doges', 'dogs are'], '語尾の s。', { speechPrompt: { expected: 'dogs', alternates: ['dogs.'], lang: 'en-US', buttonLabel: '複数形を はなす' } }),
+    prompt('bus の ふくすう形は？', 'buses', ['buss', 'buseses', 'bus'], 'es をつける。'),
+    prompt('two watches の いみは？', '2つの腕時計', ['2つの窓', '2冊の本', '2匹のねこ'], '身近な名詞の複数。'),
+  ]),
+  ENGLISH_G7_U12: cycleProblems([
+    prompt('「彼」は 英語で？', 'he', ['she', 'it', 'they'], '代名詞。'),
+    prompt('I like my teacher. の my は 何を表す？', 'わたしの', ['あなたの', '彼の', '彼らの'], '所有を表す。'),
+    prompt('This is ___ book.', 'my', ['me', 'I', 'mine'], '所有格。'),
+    prompt('「She is my friend.」を いってみよう。', 'She is my friend.', ['Her is my friend.', 'She my friend.', 'She are my friend.'], '代名詞と be動詞。', { speechPrompt: { expected: 'She is my friend', alternates: ['She is my friend.'], lang: 'en-US', buttonLabel: '代名詞の文を はなす' } }),
+    prompt('Give ___ the ball. の 空所に 入るのは？', 'me', ['my', 'I', 'mine'], '目的格。'),
+    prompt('This is our classroom. の our は 何を表す？', 'わたしたちの', ['あなたたちの', '彼らの', '彼女の'], '学校語彙。'),
+  ]),
+  ENGLISH_G7_U13: buildListeningReviewUnit(g7ReviewItems, '中1の 重要表現を きいて、あてはまる 英語を えらぼう。'),
+  ENGLISH_G7_U14: buildSpeakingReviewUnit(g7ReviewItems, '中1の 重要表現を 英語で いってみよう。'),
+  ENGLISH_G7_U15: buildRepeatReviewUnit(g7ReviewItems, '中1の 重要表現を きいて、英語を くりかえそう。'),
+  ENGLISH_G7_U16: buildResponseReviewUnit(g7ResponseItems, '中1の 会話に 英語で こたえよう。'),
+};
+
+export const ENGLISH_G7_DATA: Record<string, GeneralProblem[]> = {
+  ENGLISH_G7_1: [...Object.values(ENGLISH_G7_UNIT_DATA).flat(), ...readingPassagesG7],
+  ...ENGLISH_G7_UNIT_DATA,
+};
