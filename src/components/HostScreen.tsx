@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { socket } from '../socket';
 import { startBGM, stopBGM } from '../lib/sound';
+import { calculateGameScore } from '../lib/scoring';
 import { getAllUnits, SubjectUnit } from '../subjects';
 import { getSubjectUnitDisplayName } from '../subjects/unit-display-name-map';
 
@@ -36,12 +37,14 @@ export default function HostScreen({
   onReturnToTitle,
   mode = 'host',
   gameTitle = 'ゴルフゲーム',
+  gameType = 'golf',
   onStartSinglePlayer,
 }: {
   roomId: string;
   onReturnToTitle: () => void;
   mode?: 'host' | 'single';
   gameTitle?: string;
+  gameType?: string;
   onStartSinglePlayer?: (payload: { mode: string; questions?: any[]; timeLimit: number; gameTitle: string }) => void;
 }) {
   const [roomState, setRoomState] = useState<any>(null);
@@ -168,10 +171,15 @@ export default function HostScreen({
     .filter((u) => selectedUnits.includes(u.unit))
     .reduce((total, unit) => total + unit.questions.length, 0);
   
-  // ランキング順にソート（クリアホール数が多い順 -> 総打数が少ない順）
+  // ランキング順にソート（スコアが高い順）
+  const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
   const sortedPlayers = [...players].sort((a: any, b: any) => {
-    if (b.holesCompleted !== a.holesCompleted) {
-      return b.holesCompleted - a.holesCompleted;
+    const scoreDiff = calculateGameScore(resolvedGameType, b) - calculateGameScore(resolvedGameType, a);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+    if (resolvedGameType === 'quiz') {
+      return (b.correctAnswers || 0) - (a.correctAnswers || 0);
     }
     return a.totalStrokes - b.totalStrokes;
   });
@@ -388,7 +396,7 @@ export default function HostScreen({
 
             {!isSinglePlayer && currentRoomState.state === 'playing' && (
               <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 flex flex-col items-center justify-center min-h-[400px]">
-                <h2 className="text-3xl font-bold mb-8 text-center text-green-400">ゲーム進行中</h2>
+                <h2 className="text-3xl font-bold mb-8 text-center text-green-400">{resolvedGameType === 'quiz' ? 'クイズ進行中' : 'ゲーム進行中'}</h2>
                 
                 <div className="text-center mb-8">
                   <p className="text-xl text-slate-400 mb-2">残り時間</p>
@@ -462,16 +470,37 @@ export default function HostScreen({
                         <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color || 'white' }}></div>
                         <span className="font-bold text-base md:text-lg">{p.name}</span>
                       </div>
-                      {currentRoomState.state === 'playing' && (
+                      {(currentRoomState.state === 'playing' || currentRoomState.state === 'results') && (
                         <div className="flex space-x-4 text-right">
+                          {resolvedGameType === 'quiz' ? (
+                            <div>
+                              <div className="text-xs text-slate-400">正答数</div>
+                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{p.correctAnswers || 0}</div>
+                            </div>
+                          ) : (
+                            <>
+                              <div>
+                                <div className="text-xs text-slate-400">クリアホール</div>
+                                <div className="font-mono text-base font-bold text-green-400 md:text-lg">{p.holesCompleted}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-slate-400">打数</div>
+                                <div className="font-mono text-base font-bold md:text-lg">{p.totalStrokes}</div>
+                              </div>
+                            </>
+                          )}
                           <div>
-                            <div className="text-xs text-slate-400">クリアホール</div>
-                            <div className="font-mono text-base font-bold text-green-400 md:text-lg">{p.holesCompleted}</div>
+                            <div className="text-xs text-slate-400">{resolvedGameType === 'quiz' ? 'スコア' : '正答'}</div>
+                            <div className={`font-mono text-base font-bold md:text-lg ${resolvedGameType === 'quiz' ? 'text-yellow-300' : 'text-cyan-300'}`}>
+                              {resolvedGameType === 'quiz' ? calculateGameScore(resolvedGameType, p) : (p.correctAnswers || 0)}
+                            </div>
                           </div>
+                          {resolvedGameType !== 'quiz' && (
                           <div>
-                            <div className="text-xs text-slate-400">打数</div>
-                            <div className="font-mono text-base font-bold md:text-lg">{p.totalStrokes}</div>
+                            <div className="text-xs text-slate-400">{currentRoomState.state === 'results' ? '最終スコア' : 'スコア'}</div>
+                            <div className="font-mono text-base font-bold text-yellow-300 md:text-lg">{calculateGameScore(resolvedGameType, p)}</div>
                           </div>
+                          )}
                         </div>
                       )}
                     </div>

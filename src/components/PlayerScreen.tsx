@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { socket } from '../socket';
 import GolfGame from './GolfGame';
 import { playCorrectSound, playIncorrectSound, stopBGM } from '../lib/sound';
+import { calculateGameScore } from '../lib/scoring';
 import ProblemVisual from './ProblemVisual';
 import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
@@ -51,7 +52,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [answerResult, setAnswerResult] = useState<boolean | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const isQuizMode = roomState?.gameType === 'quiz';
 
   const speakPrompt = useCallback((text: string, lang = 'ja-JP') => {
     if (!text || !('speechSynthesis' in window)) return;
@@ -114,14 +117,19 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       setQuestion(q);
       setAnswerResult(null);
     };
+    const onTimeUpdate = (time: number) => {
+      setTimeRemaining(time);
+    };
 
     const onAnswerResult = ({ correct }: { correct: boolean }) => {
       setAnswerResult(correct);
       if (correct) {
         playCorrectSound();
         setTimeout(() => {
-          setQuestion(null);
-        }, 1000);
+          if (!isQuizMode) {
+            setQuestion(null);
+          }
+        }, 700);
       } else {
         playIncorrectSound();
       }
@@ -130,6 +138,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     socket.on('roomStateUpdate', onRoomStateUpdate);
     socket.on('personalQuestion', onPersonalQuestion);
     socket.on('answerResult', onAnswerResult);
+    socket.on('timeUpdate', onTimeUpdate);
 
     socket.emit('getRoomState', roomId);
 
@@ -142,8 +151,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       socket.off('roomStateUpdate', onRoomStateUpdate);
       socket.off('personalQuestion', onPersonalQuestion);
       socket.off('answerResult', onAnswerResult);
+      socket.off('timeUpdate', onTimeUpdate);
     };
-  }, [roomId, stopRecognition]);
+  }, [isQuizMode, roomId, stopRecognition]);
 
   useEffect(() => {
     stopBGM();
@@ -188,12 +198,20 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
           <div className="text-4xl font-bold mb-4" style={{ color: me?.color || 'white' }}>{playerName}</div>
           <div className="grid grid-cols-2 gap-8 mt-8">
             <div>
-              <div className="text-sm text-slate-400">クリアホール</div>
-              <div className="text-3xl font-mono font-bold text-green-400">{me?.holesCompleted}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : 'クリアホール'}</div>
+              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : me?.holesCompleted}</div>
             </div>
             <div>
-              <div className="text-sm text-slate-400">打数</div>
-              <div className="text-3xl font-mono font-bold text-blue-400">{me?.totalStrokes}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : '打数'}</div>
+              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : me?.totalStrokes}</div>
+            </div>
+            <div>
+              <div className="text-sm text-slate-400">正答数</div>
+              <div className="text-3xl font-mono font-bold text-cyan-300">{me?.correctAnswers || 0}</div>
+            </div>
+            <div>
+              <div className="text-sm text-slate-400">最終スコア</div>
+              <div className="text-3xl font-mono font-bold text-yellow-300">{calculateGameScore(roomState?.gameType, me || {})}</div>
             </div>
           </div>
         </div>
@@ -202,6 +220,65 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   }
 
   if (roomState.state === 'playing') {
+    if (isQuizMode) {
+      return (
+        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-800 p-4 shadow-2xl md:p-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-xl font-bold">{playerName}</div>
+                <div className="text-sm text-slate-400">クイズモード</div>
+              </div>
+              <div className="flex gap-2">
+                <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
+                <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">正答: <span className="font-bold text-cyan-300">{me?.correctAnswers || 0}</span></div>
+                <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">スコア: <span className="font-bold text-yellow-300">{calculateGameScore('quiz', me || {})}</span></div>
+              </div>
+            </div>
+            {question ? (
+              <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
+                <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>
+                {question.visual && <ProblemVisual visual={question.visual} />}
+                {(question.audioPrompt || question.speechPrompt) && (
+                  <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
+                    {question.audioPrompt && (
+                      <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-500">
+                        音声を再生
+                      </button>
+                    )}
+                    {question.speechPrompt && (
+                      <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                        {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {question.hint ? <div className="mb-4 text-center text-sm text-yellow-300">{question.hint}</div> : null}
+                {question.speechPrompt?.freeResponse ? (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center text-lg text-emerald-100">
+                    この問題は音声回答タイプです。上のボタンから話して答えてください。
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 md:gap-4">
+                    {question.options.map((opt: string, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => socket.emit('submitAnswer', { roomId, answerIndex: i })}
+                        disabled={answerResult !== null}
+                        className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed opacity-60' : 'hover:scale-105 active:scale-95'}`}
+                        style={{ backgroundColor: ['#e3342f', '#3490dc', '#f6993f', '#38c172'][i % 4] }}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
     const pendingChoices = (me?.pendingItemChoices || []) as GameItemId[];
     const inventory = (me?.items || []) as GameItemId[];
 

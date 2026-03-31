@@ -9,6 +9,7 @@ import Home from './components/Home';
 import HostScreen from './components/HostScreen';
 import PlayerScreen from './components/PlayerScreen';
 import SinglePlayScreen from './components/SinglePlayScreen';
+import SingleQuizScreen from './components/SingleQuizScreen';
 
 export default function App() {
   const [role, setRole] = useState<'none' | 'host' | 'player' | 'single_setup' | 'single_play'>('none');
@@ -49,7 +50,14 @@ export default function App() {
   }, []);
 
   if (role === 'host') {
-    return <HostScreen roomId={roomId} onReturnToTitle={returnToTitle} />;
+    return (
+      <HostScreen
+        roomId={roomId}
+        onReturnToTitle={returnToTitle}
+        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType}
+        gameType={selectedGameType}
+      />
+    );
   }
 
   if (role === 'player') {
@@ -62,7 +70,8 @@ export default function App() {
         roomId="single-player"
         onReturnToTitle={returnToTitle}
         mode="single"
-        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType}
+        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType}
+        gameType={selectedGameType}
         onStartSinglePlayer={(payload) => {
           setSinglePlayConfig(payload);
           setRole('single_play');
@@ -72,6 +81,17 @@ export default function App() {
   }
 
   if (role === 'single_play' && singlePlayConfig) {
+    if (selectedGameType === 'quiz') {
+      return (
+        <SingleQuizScreen
+          questions={singlePlayConfig.questions}
+          mode={singlePlayConfig.mode}
+          timeLimit={singlePlayConfig.timeLimit}
+          gameTitle={singlePlayConfig.gameTitle}
+          onReturnToTitle={returnToTitle}
+        />
+      );
+    }
     return (
       <SinglePlayScreen
         questions={singlePlayConfig.questions}
@@ -93,7 +113,7 @@ export default function App() {
       onCreate={(gameType) => {
         setSelectedGameType(gameType);
         setRole('host');
-        socket.emit('createRoom');
+        socket.emit('createRoom', { gameType });
       }}
       onStartSinglePlayer={(gameType) => {
         setSelectedGameType(gameType);

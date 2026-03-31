@@ -17,6 +17,7 @@ interface Player {
   holesCompleted: number; // クリアしたホール数
   totalStrokes: number;   // 全ホールの合計打数
   currentStrokes: number; // 現在のホールの打数
+  correctAnswers: number;
   canShoot: boolean;
   x: number;
   y: number;
@@ -30,6 +31,7 @@ interface Player {
 interface Room {
   id: string;
   hostId: string;
+  gameType: string;
   players: Record<string, Player>;
   state: 'waiting' | 'playing' | 'results';
   questionMode: string;
@@ -51,6 +53,7 @@ const resetPlayerState = (player: Player) => {
   player.holesCompleted = 0;
   player.totalStrokes = 0;
   player.currentStrokes = 0;
+  player.correctAnswers = 0;
   player.canShoot = false;
   player.x = 100;
   player.y = 100;
@@ -164,12 +167,13 @@ async function startServer() {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('createRoom', () => {
+    socket.on('createRoom', ({ gameType }: { gameType?: string } = {}) => {
       // Generate a 6-digit numeric PIN
       const roomId = Math.floor(100000 + Math.random() * 900000).toString();
       rooms[roomId] = {
         id: roomId,
         hostId: socket.id,
+        gameType: gameType || 'golf',
         players: {},
         state: 'waiting',
         questionMode: 'mix',
@@ -197,6 +201,7 @@ async function startServer() {
           holesCompleted: 0,
           totalStrokes: 0,
           currentStrokes: 0,
+          correctAnswers: 0,
           canShoot: false,
           x: 100,
           y: 100,
@@ -296,9 +301,26 @@ async function startServer() {
           : answerIndex === player.currentQuestion.correctIndex;
         console.log(`[submitAnswer] isCorrect: ${isCorrect}, correctIndex: ${player.currentQuestion.correctIndex}`);
         if (isCorrect) {
-          player.canShoot = true;
-          player.currentQuestion = null;
+          player.correctAnswers += 1;
+          if (room.gameType === 'quiz') {
+            player.currentQuestion = getQuestionForRoom(room);
+          } else {
+            player.canShoot = true;
+            player.currentQuestion = null;
+          }
           socket.emit('answerResult', { correct: true });
+          if (room.gameType === 'quiz') {
+            setTimeout(() => {
+              socket.emit('personalQuestion', {
+                text: player.currentQuestion.text,
+                options: player.currentQuestion.options,
+                hint: player.currentQuestion.hint,
+                visual: player.currentQuestion.visual,
+                audioPrompt: player.currentQuestion.audioPrompt,
+                speechPrompt: player.currentQuestion.speechPrompt,
+              });
+            }, 700);
+          }
         } else {
           // 不正解の場合は新しい問題を生成（当てずっぽう防止）
           player.currentQuestion = getQuestionForRoom(room);

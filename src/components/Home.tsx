@@ -3,16 +3,7 @@ import { startBGM, stopBGM } from '../lib/sound';
 
 const HOST_GAME_OPTIONS = [
   { id: 'golf', title: 'ゴルフゲーム', subtitle: '現在プレイ可能', available: true },
-  { id: 'race', title: 'レースゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'maze', title: '迷路ゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'battle', title: 'バトルゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'tower', title: 'タワーゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'runner', title: 'ランゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'puzzle', title: 'パズルゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'cards', title: 'カードゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'board', title: 'ボードゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'survival', title: 'サバイバルゲーム', subtitle: '順次追加予定', available: false },
-  { id: 'adventure', title: 'アドベンチャー', subtitle: '順次追加予定', available: false },
+  { id: 'quiz', title: 'クイズモード', subtitle: '現在プレイ可能', available: true },
 ];
 
 export default function Home({
