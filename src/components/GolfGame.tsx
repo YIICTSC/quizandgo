@@ -250,6 +250,64 @@ export default function GolfGame({
     };
   }, []);
 
+  useEffect(() => {
+    const element = sceneRef.current;
+    if (!element) return;
+
+    const handleNativeTouchStart = (event: TouchEvent) => {
+      if (activeTouchIdRef.current !== null || event.touches.length === 0) return;
+      const touch = event.touches.item(0);
+      if (!touch) return;
+      if (startDragAt(touch.clientX, touch.clientY)) {
+        activeTouchIdRef.current = touch.identifier;
+        event.preventDefault();
+      }
+    };
+
+    const handleNativeTouchMove = (event: TouchEvent) => {
+      if (activeTouchIdRef.current === null) return;
+      let touch: Touch | null = null;
+      for (let i = 0; i < event.touches.length; i += 1) {
+        const candidate = event.touches.item(i);
+        if (candidate?.identifier === activeTouchIdRef.current) {
+          touch = candidate;
+          break;
+        }
+      }
+      if (!touch) return;
+      moveDragAt(touch.clientX, touch.clientY);
+      event.preventDefault();
+    };
+
+    const handleNativeTouchEnd = (event: TouchEvent) => {
+      if (activeTouchIdRef.current === null) return;
+      let touch: Touch | null = null;
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        const candidate = event.changedTouches.item(i);
+        if (candidate?.identifier === activeTouchIdRef.current) {
+          touch = candidate;
+          break;
+        }
+      }
+      if (!touch) return;
+      activeTouchIdRef.current = null;
+      event.preventDefault();
+      releaseShot();
+    };
+
+    element.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
+    element.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
+    element.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
+    element.addEventListener('touchcancel', handleNativeTouchEnd, { passive: false });
+
+    return () => {
+      element.removeEventListener('touchstart', handleNativeTouchStart);
+      element.removeEventListener('touchmove', handleNativeTouchMove);
+      element.removeEventListener('touchend', handleNativeTouchEnd);
+      element.removeEventListener('touchcancel', handleNativeTouchEnd);
+    };
+  }, [me?.canShoot, isDragging, dragStart, dragCurrent]);
+
   const resetBallPhysics = (ball: Matter.Body) => {
     ball.restitution = DEFAULT_BALL_PHYSICS.restitution;
     ball.friction = DEFAULT_BALL_PHYSICS.friction;
@@ -580,17 +638,20 @@ export default function GolfGame({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     activePointerIdRef.current = e.pointerId;
     sceneRef.current?.setPointerCapture?.(e.pointerId);
     startDragAt(e.clientX, e.clientY);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     if (!isDragging || activePointerIdRef.current !== e.pointerId) return;
     moveDragAt(e.clientX, e.clientY);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     if (activePointerIdRef.current !== null && activePointerIdRef.current !== e.pointerId) return;
 
     sceneRef.current?.releasePointerCapture?.(e.pointerId);
@@ -649,10 +710,6 @@ export default function GolfGame({
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
       />
 
       {/* Level Indicator */}
