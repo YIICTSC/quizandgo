@@ -187,6 +187,7 @@ export default function GolfGame({
   const skipNextStopRef = useRef(false);
   const stickyHoldRef = useRef(false);
   const activePointerIdRef = useRef<number | null>(null);
+  const activeTouchIdRef = useRef<number | null>(null);
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -206,6 +207,22 @@ export default function GolfGame({
       x: (clientX - rect.left) * (800 / rect.width),
       y: (clientY - rect.top) * (600 / rect.height),
     };
+  };
+
+  const startDragAt = (clientX: number, clientY: number) => {
+    if (!me?.canShoot) return false;
+    const position = getScaledPointerPosition(clientX, clientY);
+    if (!position) return false;
+    setIsDragging(true);
+    setDragStart(position);
+    setDragCurrent(position);
+    return true;
+  };
+
+  const moveDragAt = (clientX: number, clientY: number) => {
+    const position = getScaledPointerPosition(clientX, clientY);
+    if (!position) return;
+    setDragCurrent(position);
   };
 
   useEffect(() => {
@@ -498,30 +515,7 @@ export default function GolfGame({
     }
   }, [freezeBall, me?.holesCompleted]);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (!me?.canShoot) return;
-    const position = getScaledPointerPosition(e.clientX, e.clientY);
-    if (!position) return;
-
-    activePointerIdRef.current = e.pointerId;
-    sceneRef.current?.setPointerCapture?.(e.pointerId);
-    setIsDragging(true);
-    setDragStart(position);
-    setDragCurrent(position);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || activePointerIdRef.current !== e.pointerId) return;
-    const position = getScaledPointerPosition(e.clientX, e.clientY);
-    if (!position) return;
-    setDragCurrent(position);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (activePointerIdRef.current !== null && activePointerIdRef.current !== e.pointerId) return;
-
-    sceneRef.current?.releasePointerCapture?.(e.pointerId);
-
+  const releaseShot = () => {
     if (!isDragging || !me?.canShoot || !ballRef.current) {
       clearDragState();
       return;
@@ -585,16 +579,80 @@ export default function GolfGame({
     }
   };
 
+  const handlePointerDown = (e: React.PointerEvent) => {
+    activePointerIdRef.current = e.pointerId;
+    sceneRef.current?.setPointerCapture?.(e.pointerId);
+    startDragAt(e.clientX, e.clientY);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging || activePointerIdRef.current !== e.pointerId) return;
+    moveDragAt(e.clientX, e.clientY);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (activePointerIdRef.current !== null && activePointerIdRef.current !== e.pointerId) return;
+
+    sceneRef.current?.releasePointerCapture?.(e.pointerId);
+    releaseShot();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (activeTouchIdRef.current !== null || e.touches.length === 0) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    if (startDragAt(touch.clientX, touch.clientY)) {
+      activeTouchIdRef.current = touch.identifier;
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (activeTouchIdRef.current === null) return;
+    let touch: Touch | null = null;
+    for (let i = 0; i < e.touches.length; i += 1) {
+      const candidate = e.touches.item(i);
+      if (candidate?.identifier === activeTouchIdRef.current) {
+        touch = candidate;
+        break;
+      }
+    }
+    if (!touch) return;
+    moveDragAt(touch.clientX, touch.clientY);
+    e.preventDefault();
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (activeTouchIdRef.current === null) return;
+    let touch: Touch | null = null;
+    for (let i = 0; i < e.changedTouches.length; i += 1) {
+      const candidate = e.changedTouches.item(i);
+      if (candidate?.identifier === activeTouchIdRef.current) {
+        touch = candidate;
+        break;
+      }
+    }
+    if (!touch) return;
+    activeTouchIdRef.current = null;
+    e.preventDefault();
+    releaseShot();
+  };
+
   return (
     <div className="relative w-full h-full">
       <div 
         ref={sceneRef} 
-        className="w-full h-full touch-none [&>canvas]:w-full [&>canvas]:h-full"
+        className="w-full h-full touch-none select-none [&>canvas]:w-full [&>canvas]:h-full"
+        style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       />
 
       {/* Level Indicator */}

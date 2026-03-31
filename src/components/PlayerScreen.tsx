@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { socket } from '../socket';
 import GolfGame from './GolfGame';
-import { playCorrectSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
+import { playCorrectSound, playIncorrectSound, stopBGM } from '../lib/sound';
 import ProblemVisual from './ProblemVisual';
 import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
@@ -146,15 +146,6 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   }, [roomId, stopRecognition]);
 
   useEffect(() => {
-    if (!roomState) return;
-    if (roomState.state === 'playing') {
-      startBGM('play');
-      return;
-    }
-    if (roomState.state === 'results') {
-      startBGM('results');
-      return;
-    }
     stopBGM();
   }, [roomState]);
 
