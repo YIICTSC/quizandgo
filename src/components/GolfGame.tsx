@@ -297,14 +297,14 @@ export default function GolfGame({
 
     element.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
     element.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
-    element.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
-    element.addEventListener('touchcancel', handleNativeTouchEnd, { passive: false });
+    window.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleNativeTouchEnd, { passive: false });
 
     return () => {
       element.removeEventListener('touchstart', handleNativeTouchStart);
       element.removeEventListener('touchmove', handleNativeTouchMove);
-      element.removeEventListener('touchend', handleNativeTouchEnd);
-      element.removeEventListener('touchcancel', handleNativeTouchEnd);
+      window.removeEventListener('touchend', handleNativeTouchEnd);
+      window.removeEventListener('touchcancel', handleNativeTouchEnd);
     };
   }, [me?.canShoot, isDragging, dragStart, dragCurrent]);
 
