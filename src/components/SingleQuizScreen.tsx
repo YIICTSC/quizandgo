@@ -127,9 +127,11 @@ export default function SingleQuizScreen({
   const [answeredCount, setAnsweredCount] = useState(0);
   const [question, setQuestion] = useState<QuizQuestion | null>(null);
   const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
 
   const pickQuestion = useCallback(() => {
     if (mode !== 'custom') return generateMathQuestion(mode);
@@ -156,8 +158,17 @@ export default function SingleQuizScreen({
     window.setTimeout(() => {
       setQuestion(pickQuestion());
       setAnswerResult(null);
+      setSelectedAnswerIndex(null);
     }, delay);
   }, [pickQuestion]);
+
+  const getOptionStateClass = (index: number) => {
+    const correctIndex = question?.options.findIndex((opt) => opt === question.answer) ?? -1;
+    if (answerResult === null) return 'hover:scale-105 active:scale-95';
+    if (index === correctIndex) return 'scale-[1.02] border-4 border-emerald-200 ring-4 ring-emerald-500/40 opacity-100';
+    if (!answerResult && index === selectedAnswerIndex) return 'border-4 border-rose-200 ring-4 ring-rose-500/40 opacity-100';
+    return 'opacity-35';
+  };
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -206,7 +217,7 @@ export default function SingleQuizScreen({
       return;
     }
     playIncorrectSound();
-    moveNextQuestion(1000);
+    moveNextQuestion(2200);
   };
 
   const startSpeechRecognition = useCallback(() => {
@@ -315,16 +326,24 @@ export default function SingleQuizScreen({
                 {question.options.map((opt, i) => (
                   <button
                     key={`${opt}-${i}`}
-                    onClick={() => handleResult(opt === question.answer)}
+                    onClick={() => {
+                      setSelectedAnswerIndex(i);
+                      handleResult(opt === question.answer);
+                    }}
                     disabled={answerResult !== null}
-                    className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed opacity-60' : 'hover:scale-105 active:scale-95'}`}
-                    style={{ backgroundColor: ['#e3342f', '#3490dc', '#f6993f', '#38c172'][i % 4] }}
+                    className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                    style={{ backgroundColor: optionColors[i % 4] }}
                   >
                     {opt}
                   </button>
                 ))}
               </div>
             )}
+            {answerResult === false ? (
+              <div className="mt-5 rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-3 text-center text-base font-bold text-emerald-100 md:text-lg">
+                正解は <span className="text-emerald-300">{question.answer}</span> です
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

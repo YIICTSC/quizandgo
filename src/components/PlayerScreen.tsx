@@ -50,11 +50,28 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [roomState, setRoomState] = useState<any>(null);
   const [question, setQuestion] = useState<any>(null);
   const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
+  const [correctAnswerIndex, setCorrectAnswerIndex] = useState<number | null>(null);
+  const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
+  const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
+
+  const getOptionStateClass = (index: number) => {
+    if (answerResult === null) {
+      return 'hover:scale-105 active:scale-95';
+    }
+    if (index === correctAnswerIndex) {
+      return 'scale-[1.02] border-4 border-emerald-200 ring-4 ring-emerald-500/40 opacity-100';
+    }
+    if (!answerResult && index === selectedAnswerIndex) {
+      return 'border-4 border-rose-200 ring-4 ring-rose-500/40 opacity-100';
+    }
+    return 'opacity-35';
+  };
 
   const speakPrompt = useCallback((text: string, lang = 'ja-JP') => {
     if (!text || !('speechSynthesis' in window)) return;
@@ -116,13 +133,18 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     const onPersonalQuestion = (q: any) => {
       setQuestion(q);
       setAnswerResult(null);
+      setSelectedAnswerIndex(null);
+      setCorrectAnswerIndex(null);
+      setCorrectAnswerText(null);
     };
     const onTimeUpdate = (time: number) => {
       setTimeRemaining(time);
     };
 
-    const onAnswerResult = ({ correct }: { correct: boolean }) => {
+    const onAnswerResult = ({ correct, correctIndex, correctText }: { correct: boolean; correctIndex?: number; correctText?: string }) => {
       setAnswerResult(correct);
+      setCorrectAnswerIndex(typeof correctIndex === 'number' ? correctIndex : null);
+      setCorrectAnswerText(correctText || null);
       if (correct) {
         playCorrectSound();
         setTimeout(() => {
@@ -263,16 +285,24 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                     {question.options.map((opt: string, i: number) => (
                       <button
                         key={i}
-                        onClick={() => socket.emit('submitAnswer', { roomId, answerIndex: i })}
+                        onClick={() => {
+                          setSelectedAnswerIndex(i);
+                          socket.emit('submitAnswer', { roomId, answerIndex: i });
+                        }}
                         disabled={answerResult !== null}
-                        className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed opacity-60' : 'hover:scale-105 active:scale-95'}`}
-                        style={{ backgroundColor: ['#e3342f', '#3490dc', '#f6993f', '#38c172'][i % 4] }}
+                        className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                        style={{ backgroundColor: optionColors[i % 4] }}
                       >
                         {opt}
                       </button>
                     ))}
                   </div>
                 )}
+                {!answerResult && correctAnswerText ? (
+                  <div className="mt-5 rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-3 text-center text-base font-bold text-emerald-100 md:text-lg">
+                    正解は <span className="text-emerald-300">{correctAnswerText}</span> です
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -325,7 +355,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
             {/* Question Overlay */}
             {question && pendingChoices.length === 0 && (!me?.canShoot || answerResult !== null) && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 p-4 backdrop-blur-md md:p-8">
-                {answerResult === null ? (
+                {answerResult === null || answerResult === false ? (
                   <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
                     <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>
                   {question.visual && <ProblemVisual visual={question.visual} />}
@@ -369,13 +399,16 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                       {question.options.map((opt: string, i: number) => (
                         <button
                           key={i}
-                          onClick={() => socket.emit('submitAnswer', { roomId, answerIndex: i })}
-                          disabled={answerResult !== null}
-                          className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
-                            answerResult !== null ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'
-                          }`}
+                          onClick={() => {
+                            setSelectedAnswerIndex(i);
+                            socket.emit('submitAnswer', { roomId, answerIndex: i });
+                          }}
+                        disabled={answerResult !== null}
+                        className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
+                            answerResult !== null ? 'cursor-not-allowed' : ''
+                          } ${getOptionStateClass(i)}`}
                           style={{
-                            backgroundColor: ['#e3342f', '#3490dc', '#f6993f', '#38c172'][i % 4]
+                            backgroundColor: optionColors[i % 4]
                           }}
                         >
                           {opt}
@@ -383,6 +416,11 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                       ))}
                     </div>
                   )}
+                  {answerResult === false && correctAnswerText ? (
+                    <div className="mt-6 rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-3 text-center text-lg font-bold text-emerald-100">
+                      正解は <span className="text-emerald-300">{correctAnswerText}</span> です
+                    </div>
+                  ) : null}
                   </div>
                 ) : (
                   <div className="animate-in fade-in zoom-in text-center">

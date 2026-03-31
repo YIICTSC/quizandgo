@@ -143,12 +143,14 @@ export default function SinglePlayScreen({
   const [pinBallToStart, setPinBallToStart] = useState(true);
   const [question, setQuestion] = useState<SinglePlayQuestion | null>(null);
   const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [items, setItems] = useState<GameItemId[]>([]);
   const [activeItemId, setActiveItemId] = useState<GameItemId | null>(null);
   const [pendingItemChoices, setPendingItemChoices] = useState<GameItemId[] | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
 
   const pickQuestion = useCallback(() => {
     if (mode !== 'custom') {
@@ -186,7 +188,16 @@ export default function SinglePlayScreen({
   const setNextQuestion = useCallback(() => {
     setQuestion(pickQuestion());
     setAnswerResult(null);
+    setSelectedAnswerIndex(null);
   }, [pickQuestion]);
+
+  const getOptionStateClass = (index: number) => {
+    const correctIndex = question?.options.findIndex((opt) => opt === question.answer) ?? -1;
+    if (answerResult === null) return 'hover:scale-105 active:scale-95';
+    if (index === correctIndex) return 'scale-[1.02] border-4 border-emerald-200 ring-4 ring-emerald-500/40 opacity-100';
+    if (!answerResult && index === selectedAnswerIndex) return 'border-4 border-rose-200 ring-4 ring-rose-500/40 opacity-100';
+    return 'opacity-35';
+  };
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -254,7 +265,7 @@ export default function SinglePlayScreen({
       } else {
         playIncorrectSound();
         setAnswerResult(false);
-        window.setTimeout(() => setNextQuestion(), 1500);
+        window.setTimeout(() => setNextQuestion(), 2200);
       }
     };
     recognition.onerror = () => stopRecognition();
@@ -280,7 +291,7 @@ export default function SinglePlayScreen({
       window.setTimeout(() => setQuestion(null), 1000);
     } else {
       playIncorrectSound();
-      window.setTimeout(() => setNextQuestion(), 1500);
+      window.setTimeout(() => setNextQuestion(), 2200);
     }
   };
 
@@ -405,7 +416,7 @@ export default function SinglePlayScreen({
 
           {question && !pendingItemChoices?.length && (!canShoot || answerResult !== null) && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 p-4 backdrop-blur-md md:p-8">
-              {answerResult === null ? (
+              {answerResult === null || answerResult === false ? (
                 <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
                   <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.question}</h2>
                 {question.visual && <ProblemVisual visual={question.visual} />}
@@ -446,13 +457,16 @@ export default function SinglePlayScreen({
                     {question.options.map((opt, i) => (
                       <button
                         key={i}
-                        onClick={() => submitAnswer(opt)}
+                        onClick={() => {
+                          setSelectedAnswerIndex(i);
+                          submitAnswer(opt);
+                        }}
                         disabled={answerResult !== null}
                         className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
-                          answerResult !== null ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'
-                        }`}
+                          answerResult !== null ? 'cursor-not-allowed' : ''
+                        } ${getOptionStateClass(i)}`}
                         style={{
-                          backgroundColor: ['#e3342f', '#3490dc', '#f6993f', '#38c172'][i % 4]
+                          backgroundColor: optionColors[i % 4]
                         }}
                       >
                         {opt}
@@ -460,6 +474,11 @@ export default function SinglePlayScreen({
                     ))}
                   </div>
                 )}
+                {answerResult === false ? (
+                  <div className="mt-6 rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-3 text-center text-lg font-bold text-emerald-100">
+                    正解は <span className="text-emerald-300">{question.answer}</span> です
+                  </div>
+                ) : null}
                 </div>
               ) : (
                 <div className="animate-in fade-in zoom-in text-center">
