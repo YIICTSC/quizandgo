@@ -17,137 +17,463 @@ type Level = {
   createWorld: () => Matter.Body[];
 };
 
+const COLORS = {
+  grass: '#4ade80',
+  obstacle: '#f87171',
+  dirt: '#b45309',
+  water: '#38bdf8',
+  waterDeep: '#0f766e',
+  cloud: '#bfdbfe',
+};
+
+const grassRect = (x: number, y: number, width: number, height: number, options: Matter.IBodyDefinition = {}) =>
+  Matter.Bodies.rectangle(x, y, width, height, {
+    isStatic: true,
+    label: 'grass',
+    render: { fillStyle: COLORS.grass },
+    ...options,
+  });
+
+const wallRect = (x: number, y: number, width: number, height: number, options: Matter.IBodyDefinition = {}) =>
+  Matter.Bodies.rectangle(x, y, width, height, {
+    isStatic: true,
+    label: 'wall',
+    render: { fillStyle: COLORS.obstacle },
+    ...options,
+  });
+
+const dirtRect = (x: number, y: number, width: number, height: number, options: Matter.IBodyDefinition = {}) =>
+  Matter.Bodies.rectangle(x, y, width, height, {
+    isStatic: true,
+    label: 'dirt',
+    render: { fillStyle: COLORS.dirt },
+    ...options,
+  });
+
+const waterRect = (x: number, y: number, width: number, height: number, options: Matter.IBodyDefinition = {}) =>
+  Matter.Bodies.rectangle(x, y, width, height, {
+    isStatic: true,
+    label: 'water',
+    render: { fillStyle: COLORS.water },
+    ...options,
+  });
+
+const cloudRect = (x: number, y: number, width: number, height: number, options: Matter.IBodyDefinition = {}) =>
+  Matter.Bodies.rectangle(x, y, width, height, {
+    isStatic: true,
+    label: 'cloud',
+    render: { fillStyle: COLORS.cloud },
+    ...options,
+  });
+
+const bounds = ({
+  floor = true,
+  ceiling = true,
+  left = true,
+  right = true,
+}: {
+  floor?: boolean;
+  ceiling?: boolean;
+  left?: boolean;
+  right?: boolean;
+} = {}) => {
+  const bodies: Matter.Body[] = [];
+  if (floor) bodies.push(grassRect(400, 590, 810, 60));
+  if (ceiling) bodies.push(grassRect(400, 0, 810, 60));
+  if (left) bodies.push(grassRect(0, 300, 60, 600));
+  if (right) bodies.push(grassRect(800, 300, 60, 600));
+  return bodies;
+};
+
 const LEVELS: Level[] = [
   {
-    // Level 1: Classic
+    // Level 1: Classic Gates
     startPos: { x: 100, y: 500 },
     holePos: { x: 700, y: 550 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(300, 400, 20, 200, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(500, 200, 20, 200, { isStatic: true, render: { fillStyle: '#f87171' } }),
-    ]
+      ...bounds(),
+      wallRect(300, 420, 20, 200),
+      wallRect(500, 240, 20, 240),
+    ],
   },
   {
-    // Level 2: The High Wall
+    // Level 2: High Wall
     startPos: { x: 100, y: 500 },
     holePos: { x: 700, y: 550 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 450, 40, 250, { isStatic: true, render: { fillStyle: '#f87171' } }),
-    ]
+      ...bounds(),
+      wallRect(400, 450, 40, 250),
+      dirtRect(620, 560, 160, 18),
+    ],
   },
   {
-    // Level 3: The Tunnel
+    // Level 3: Tunnel
     startPos: { x: 100, y: 500 },
     holePos: { x: 700, y: 500 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      // Lower wall (blocks direct path)
-      Matter.Bodies.rectangle(400, 430, 40, 280, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      // Upper wall (blocks path above tunnel)
-      Matter.Bodies.rectangle(400, 100, 40, 160, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      // Tunnel bottom
-      Matter.Bodies.rectangle(400, 280, 300, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      // Tunnel top
-      Matter.Bodies.rectangle(400, 190, 300, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-    ]
+      ...bounds(),
+      wallRect(400, 430, 40, 280),
+      wallRect(400, 100, 40, 160),
+      wallRect(400, 280, 300, 20),
+      wallRect(400, 190, 300, 20),
+    ],
   },
   {
-    // Level 4: The Pyramid
+    // Level 4: Pyramid
     startPos: { x: 100, y: 500 },
     holePos: { x: 700, y: 500 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(250, 500, 100, 150, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(400, 450, 100, 250, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(550, 500, 100, 150, { isStatic: true, render: { fillStyle: '#f87171' } }),
-    ]
+      ...bounds(),
+      wallRect(250, 500, 100, 150),
+      wallRect(400, 450, 100, 250),
+      wallRect(550, 500, 100, 150),
+    ],
   },
   {
     // Level 5: Floating Islands
     startPos: { x: 100, y: 200 },
     holePos: { x: 700, y: 200 },
     createWorld: () => [
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(100, 300, 200, 40, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 400, 150, 40, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(700, 300, 200, 40, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isSensor: true, isStatic: true, render: { fillStyle: '#1e293b' } }),
-    ]
+      ...bounds({ floor: false }),
+      grassRect(100, 300, 200, 40),
+      grassRect(400, 400, 150, 40),
+      grassRect(700, 300, 200, 40),
+    ],
   },
   {
-    // Level 6: The Long Drive (Horizontal)
+    // Level 6: Stair Hooks
     startPos: { x: 50, y: 500 },
     holePos: { x: 750, y: 100 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      // Platforms stepping up
-      Matter.Bodies.rectangle(200, 450, 100, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(400, 350, 100, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(600, 250, 100, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(750, 150, 100, 20, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-    ]
+      ...bounds(),
+      grassRect(200, 470, 130, 18),
+      wallRect(140, 446, 14, 48),
+      wallRect(258, 446, 14, 48),
+      grassRect(400, 360, 130, 18),
+      wallRect(340, 336, 14, 48),
+      wallRect(458, 336, 14, 48),
+      grassRect(600, 250, 130, 18),
+      wallRect(540, 226, 14, 48),
+      wallRect(658, 226, 14, 48),
+      grassRect(738, 150, 120, 18),
+      wallRect(682, 126, 14, 48),
+    ],
   },
   {
-    // Level 7: The Vertical Drop
+    // Level 7: Vertical Drop
     startPos: { x: 100, y: 100 },
     holePos: { x: 700, y: 550 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      // Starting platform
-      Matter.Bodies.rectangle(100, 150, 150, 20, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      // Bouncing walls
-      Matter.Bodies.rectangle(300, 250, 20, 150, { isStatic: true, angle: Math.PI / 4, render: { fillStyle: '#f87171' } }),
-      Matter.Bodies.rectangle(500, 400, 20, 150, { isStatic: true, angle: -Math.PI / 4, render: { fillStyle: '#f87171' } }),
-    ]
+      ...bounds(),
+      grassRect(110, 150, 150, 20),
+      wallRect(300, 250, 20, 150, { angle: Math.PI / 4 }),
+      wallRect(500, 400, 20, 150, { angle: -Math.PI / 4 }),
+    ],
   },
   {
     // Level 8: The Maze
     startPos: { x: 50, y: 50 },
     holePos: { x: 750, y: 550 },
     createWorld: () => [
-      Matter.Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(0, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(800, 300, 60, 600, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      Matter.Bodies.rectangle(400, 0, 810, 60, { isStatic: true, render: { fillStyle: '#4ade80' } }),
-      
-      // Top corridor floor (gap on right)
-      Matter.Bodies.rectangle(325, 150, 650, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      // Hurdle in top corridor
-      Matter.Bodies.rectangle(400, 120, 20, 40, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      
-      // Middle corridor floor (gap on left)
-      Matter.Bodies.rectangle(475, 300, 650, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      // Hurdle in middle corridor
-      Matter.Bodies.rectangle(400, 270, 20, 40, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      
-      // Bottom corridor floor (gap on right)
-      Matter.Bodies.rectangle(325, 450, 650, 20, { isStatic: true, render: { fillStyle: '#f87171' } }),
-      // Hurdle in bottom corridor
-      Matter.Bodies.rectangle(400, 420, 20, 40, { isStatic: true, render: { fillStyle: '#f87171' } }),
-    ]
-  }
+      ...bounds(),
+      wallRect(325, 150, 650, 20),
+      wallRect(400, 120, 20, 40),
+      wallRect(475, 300, 650, 20),
+      wallRect(400, 270, 20, 40),
+      wallRect(325, 450, 650, 20),
+      wallRect(400, 420, 20, 40),
+    ],
+  },
+  {
+    // Level 9: Water Skips
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 720, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(120, 545, 170, 18),
+      grassRect(690, 545, 170, 18),
+      waterRect(300, 555, 120, 14),
+      waterRect(430, 555, 120, 14),
+      waterRect(560, 555, 120, 14),
+    ],
+  },
+  {
+    // Level 10: Dirt Detour
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 720, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      dirtRect(270, 560, 220, 18),
+      wallRect(430, 495, 20, 110),
+      grassRect(600, 470, 180, 18),
+      wallRect(520, 380, 20, 160),
+    ],
+  },
+  {
+    // Level 11: Zigzag Terrace
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 700, y: 140 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(180, 500, 220, 18),
+      grassRect(380, 390, 220, 18),
+      grassRect(580, 280, 220, 18),
+      grassRect(710, 170, 140, 18),
+      wallRect(290, 442, 16, 90),
+      wallRect(490, 332, 16, 90),
+    ],
+  },
+  {
+    // Level 12: Twin Ramps
+    startPos: { x: 90, y: 540 },
+    holePos: { x: 710, y: 540 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(250, 470, 180, 18, { angle: -0.34 }),
+      wallRect(550, 470, 180, 18, { angle: 0.34 }),
+      grassRect(400, 330, 180, 18),
+      dirtRect(400, 560, 160, 18),
+    ],
+  },
+  {
+    // Level 13: Crater Ring
+    startPos: { x: 110, y: 500 },
+    holePos: { x: 690, y: 500 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(320, 520, 160, 18, { angle: -0.4 }),
+      wallRect(480, 520, 160, 18, { angle: 0.4 }),
+      wallRect(400, 430, 180, 18),
+      grassRect(400, 560, 110, 18),
+    ],
+  },
+  {
+    // Level 14: Split River
+    startPos: { x: 100, y: 520 },
+    holePos: { x: 710, y: 180 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(180, 545, 220, 18),
+      waterRect(380, 555, 150, 14),
+      grassRect(560, 440, 180, 18),
+      waterRect(290, 350, 160, 14),
+      grassRect(710, 205, 120, 18),
+      wallRect(470, 300, 16, 170),
+    ],
+  },
+  {
+    // Level 15: Bridge Run
+    startPos: { x: 90, y: 500 },
+    holePos: { x: 710, y: 500 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(400, 560, 760, 18),
+      wallRect(260, 520, 16, 80),
+      wallRect(400, 520, 16, 80),
+      wallRect(540, 520, 16, 80),
+      grassRect(240, 430, 120, 16),
+      grassRect(400, 380, 120, 16),
+      grassRect(560, 430, 120, 16),
+    ],
+  },
+  {
+    // Level 16: Summit Steps
+    startPos: { x: 80, y: 520 },
+    holePos: { x: 720, y: 120 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(150, 520, 160, 18),
+      grassRect(280, 430, 140, 18),
+      grassRect(420, 340, 140, 18),
+      grassRect(560, 250, 140, 18),
+      grassRect(710, 160, 120, 18),
+      dirtRect(490, 365, 60, 12),
+    ],
+  },
+  {
+    // Level 17: Pinball Lane
+    startPos: { x: 90, y: 120 },
+    holePos: { x: 710, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(110, 160, 150, 18),
+      wallRect(250, 220, 18, 130, { angle: 0.5 }),
+      wallRect(420, 320, 18, 130, { angle: -0.5 }),
+      wallRect(590, 420, 18, 130, { angle: 0.5 }),
+      dirtRect(705, 560, 120, 18),
+    ],
+  },
+  {
+    // Level 18: Canyon Hops
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 720, y: 300 },
+    createWorld: () => [
+      ...bounds({ floor: false }),
+      grassRect(110, 560, 160, 18),
+      grassRect(290, 470, 90, 18),
+      grassRect(440, 390, 90, 18),
+      grassRect(590, 330, 90, 18),
+      grassRect(720, 325, 120, 18),
+    ],
+  },
+  {
+    // Level 19: Dirt Funnel
+    startPos: { x: 100, y: 120 },
+    holePos: { x: 700, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(110, 160, 130, 18),
+      wallRect(260, 220, 220, 18, { angle: 0.42 }),
+      wallRect(540, 220, 220, 18, { angle: -0.42 }),
+      dirtRect(400, 470, 260, 18),
+    ],
+  },
+  {
+    // Level 20: Water Staircase
+    startPos: { x: 80, y: 520 },
+    holePos: { x: 730, y: 140 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(150, 520, 170, 18),
+      waterRect(270, 460, 90, 14),
+      grassRect(390, 390, 130, 18),
+      waterRect(510, 320, 90, 14),
+      grassRect(640, 230, 130, 18),
+      grassRect(730, 160, 100, 18),
+    ],
+  },
+  {
+    // Level 21: Castle Gate
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 710, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(340, 470, 30, 220),
+      wallRect(460, 470, 30, 220),
+      wallRect(400, 360, 140, 18),
+      grassRect(400, 560, 130, 18),
+      dirtRect(650, 560, 140, 18),
+    ],
+  },
+  {
+    // Level 22: Cloud Hop
+    startPos: { x: 90, y: 500 },
+    holePos: { x: 720, y: 160 },
+    createWorld: () => [
+      ...bounds({ floor: false }),
+      cloudRect(120, 540, 180, 20),
+      cloudRect(300, 430, 120, 20),
+      cloudRect(470, 320, 120, 20),
+      cloudRect(640, 230, 120, 20),
+      grassRect(730, 185, 110, 18),
+    ],
+  },
+  {
+    // Level 23: Slalom
+    startPos: { x: 80, y: 520 },
+    holePos: { x: 720, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(210, 470, 18, 170),
+      wallRect(350, 320, 18, 170),
+      wallRect(490, 470, 18, 170),
+      wallRect(630, 320, 18, 170),
+      grassRect(720, 560, 110, 18),
+    ],
+  },
+  {
+    // Level 24: Central Tower
+    startPos: { x: 100, y: 520 },
+    holePos: { x: 700, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(400, 420, 100, 280),
+      grassRect(250, 420, 120, 18),
+      grassRect(550, 420, 120, 18),
+      grassRect(400, 260, 120, 18),
+      dirtRect(400, 560, 140, 18),
+    ],
+  },
+  {
+    // Level 25: Dune Run
+    startPos: { x: 80, y: 520 },
+    holePos: { x: 730, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(190, 535, 150, 18, { angle: -0.2 }),
+      wallRect(360, 525, 150, 18, { angle: 0.18 }),
+      wallRect(530, 535, 150, 18, { angle: -0.2 }),
+      dirtRect(360, 560, 500, 18),
+    ],
+  },
+  {
+    // Level 26: Cross Roads
+    startPos: { x: 100, y: 520 },
+    holePos: { x: 700, y: 120 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(400, 460, 20, 220),
+      wallRect(400, 280, 220, 20),
+      grassRect(220, 380, 140, 18),
+      grassRect(580, 210, 140, 18),
+      grassRect(700, 145, 100, 18),
+      waterRect(210, 555, 140, 14),
+    ],
+  },
+  {
+    // Level 27: Waterfall Pond
+    startPos: { x: 100, y: 140 },
+    holePos: { x: 700, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(110, 175, 150, 18),
+      waterRect(250, 250, 90, 14),
+      waterRect(360, 340, 90, 14),
+      waterRect(470, 430, 90, 14),
+      grassRect(700, 560, 130, 18),
+    ],
+  },
+  {
+    // Level 28: Final Ascent
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 720, y: 90 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(160, 520, 160, 18),
+      wallRect(270, 430, 150, 18, { angle: -0.45 }),
+      grassRect(430, 330, 120, 18),
+      wallRect(580, 230, 150, 18, { angle: -0.45 }),
+      grassRect(720, 110, 100, 18),
+    ],
+  },
+  {
+    // Level 29: Gauntlet
+    startPos: { x: 90, y: 520 },
+    holePos: { x: 720, y: 520 },
+    createWorld: () => [
+      ...bounds(),
+      wallRect(220, 470, 20, 150),
+      waterRect(300, 555, 100, 14),
+      wallRect(390, 350, 20, 220),
+      dirtRect(500, 560, 100, 18),
+      wallRect(600, 470, 20, 150),
+      grassRect(720, 560, 110, 18),
+    ],
+  },
+  {
+    // Level 30: Celebration Circuit
+    startPos: { x: 100, y: 500 },
+    holePos: { x: 700, y: 140 },
+    createWorld: () => [
+      ...bounds(),
+      grassRect(160, 520, 180, 18),
+      waterRect(320, 455, 100, 14),
+      grassRect(460, 390, 140, 18),
+      dirtRect(600, 325, 120, 16),
+      wallRect(300, 260, 220, 18, { angle: 0.3 }),
+      grassRect(700, 165, 120, 18),
+    ],
+  },
 ];
 
 export default function GolfGame({
@@ -186,6 +512,7 @@ export default function GolfGame({
   const turboTimeoutRef = useRef<number | null>(null);
   const skipNextStopRef = useRef(false);
   const stickyHoldRef = useRef(false);
+  const lastWaterBounceRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
   const activeTouchIdRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
@@ -450,6 +777,8 @@ export default function GolfGame({
         }
 
         const speed = Math.sqrt(Math.pow(ballRef.current.velocity.x, 2) + Math.pow(ballRef.current.velocity.y, 2));
+        const surfaceContacts = Matter.Query.collides(ballRef.current, staticBodies);
+        const isOnDirt = surfaceContacts.some(({ bodyA, bodyB }) => bodyA.label === 'dirt' || bodyB.label === 'dirt');
         if (activeShotItemRef.current === 'feather_ball' && speed > 0.1) {
           Matter.Body.applyForce(ballRef.current, ballRef.current.position, { x: 0, y: -0.00016 });
         }
@@ -463,6 +792,12 @@ export default function GolfGame({
               y: (dy / distance) * 0.00028,
             });
           }
+        }
+        if (isOnDirt && speed > 0.12) {
+          Matter.Body.setVelocity(ballRef.current, {
+            x: ballRef.current.velocity.x * 0.94,
+            y: ballRef.current.velocity.y * 0.94,
+          });
         }
         if (isSinglePlayer && speed < 0.18) {
           Matter.Body.setVelocity(ballRef.current, { x: 0, y: 0 });
@@ -515,11 +850,34 @@ export default function GolfGame({
           Matter.Body.setPosition(ball, level.startPos);
           Matter.Body.setVelocity(ball, { x: 0, y: 0 });
         }
-        const collidesWithWall = pair.bodyA === ball
-          ? pair.bodyB.isStatic && !pair.bodyB.isSensor
+        const otherBody = pair.bodyA === ball
+          ? pair.bodyB
           : pair.bodyB === ball
-            ? pair.bodyA.isStatic && !pair.bodyA.isSensor
-            : false;
+            ? pair.bodyA
+            : null;
+
+        if (!otherBody) {
+          return;
+        }
+
+        if (otherBody.label === 'water') {
+          const speed = Math.sqrt(ball.velocity.x * ball.velocity.x + ball.velocity.y * ball.velocity.y);
+          const now = Date.now();
+          if (speed > 4.2 && now - lastWaterBounceRef.current > 220) {
+            lastWaterBounceRef.current = now;
+            Matter.Body.setVelocity(ball, {
+              x: ball.velocity.x * 1.03,
+              y: -Math.max(3.4, Math.abs(ball.velocity.x) * 0.2),
+            });
+          } else if (speed > 0.3) {
+            Matter.Body.setVelocity(ball, {
+              x: ball.velocity.x * 0.82,
+              y: ball.velocity.y * 0.55,
+            });
+          }
+        }
+
+        const collidesWithWall = otherBody.isStatic && !otherBody.isSensor;
 
         if (!collidesWithWall || activeShotMetaRef.current.triggered) {
           return;
@@ -737,6 +1095,34 @@ export default function GolfGame({
           発動中: {activeShotLabel}
         </div>
       ) : null}
+
+      {(() => {
+        const currentLevelIndex = (me?.holesCompleted || 0) % LEVELS.length;
+        const level = LEVELS[currentLevelIndex];
+        return (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: `${(level.holePos.x / 800) * 100}%`,
+              top: `${((level.holePos.y - 58) / 600) * 100}%`,
+              transform: 'translate(-50%, 0)',
+            }}
+          >
+            <div className="relative h-[72px] w-12">
+              <div className="absolute bottom-0 left-1/2 h-16 w-1.5 -translate-x-1/2 rounded-full bg-slate-100 shadow-[0_0_8px_rgba(255,255,255,0.35)]" />
+              <div className="absolute bottom-0 left-1/2 h-2 w-4 -translate-x-1/2 rounded-full bg-slate-300/80" />
+              <div className="absolute left-1/2 top-1 h-7 w-8 -translate-x-[1px] overflow-hidden">
+                <div className="absolute inset-0 rounded-r-sm bg-gradient-to-br from-rose-400 via-red-500 to-red-700 shadow-lg" />
+                <div
+                  className="absolute right-0 top-0 h-full w-3 bg-red-900/30"
+                  style={{ clipPath: 'polygon(100% 0, 0 18%, 0 82%, 100% 100%)' }}
+                />
+                <div className="absolute inset-0 rounded-r-sm border border-white/25" />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       
       {/* Draw drag line and trajectory prediction */}
       {isDragging && (

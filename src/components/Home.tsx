@@ -91,7 +91,7 @@ export default function Home({
               <p className="mb-4 text-sm text-slate-400">
                 {singlePlayerMode
                   ? '遊ぶゲームを選ぶと、単元選択のあとにシングルプレイが始まります。'
-                  : '遊ぶゲームを選んで部屋を作成します。現在はゴルフゲームのみ利用できます。'}
+                  : '遊ぶゲームを選んで部屋を作成します。'}
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
