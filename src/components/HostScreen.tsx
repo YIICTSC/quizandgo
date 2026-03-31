@@ -242,40 +242,42 @@ export default function HostScreen({
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
                 <h2 className="mb-4 shrink-0 text-xl font-bold">ゲーム設定</h2>
 
-                <div className="mb-4 shrink-0 rounded-xl border border-slate-600 bg-slate-700/40 p-4">
-                  <div className="text-sm text-slate-400 mb-2">選択中のゲーム</div>
-                  <div className="text-xl font-bold text-white">{gameTitle}</div>
-                </div>
-                
-                <div className="mb-4 shrink-0">
-                  <p className="mb-3 text-base text-slate-300">出題する問題の種類を選んでください:</p>
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                    {[
-                      { id: 'add', label: 'たし算 (+)' },
-                      { id: 'sub', label: 'ひき算 (-)' },
-                      { id: 'mul', label: 'かけ算 (×)' },
-                      { id: 'div', label: 'わり算 (÷)' },
-                      { id: 'mix', label: 'すべて (Mix)' },
-                      { id: 'custom', label: '教科・単元から選ぶ' }
-                    ].map(mode => (
-                      <button
-                        key={mode.id}
-                        onClick={() => setSelectedMode(mode.id as any)}
-                        className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors md:text-base ${
-                          selectedMode === mode.id 
-                            ? 'bg-blue-500 text-white border-2 border-blue-400' 
-                            : 'bg-slate-700 text-slate-300 border-2 border-transparent hover:bg-slate-600'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
+                <div className="mb-4 shrink-0 grid grid-cols-1 gap-3 xl:grid-cols-[260px_1fr]">
+                  <div className="rounded-xl border border-slate-600 bg-slate-700/40 p-4">
+                    <div className="mb-1 text-xs text-slate-400">選択中のゲーム</div>
+                    <div className="text-lg font-bold text-white md:text-xl">{gameTitle}</div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-600 bg-slate-700/30 p-3">
+                    <p className="mb-2 text-sm text-slate-300">出題する問題の種類</p>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                      {[
+                        { id: 'add', label: 'たし算' },
+                        { id: 'sub', label: 'ひき算' },
+                        { id: 'mul', label: 'かけ算' },
+                        { id: 'div', label: 'わり算' },
+                        { id: 'mix', label: 'すべて' },
+                        { id: 'custom', label: '教科・単元' }
+                      ].map(mode => (
+                        <button
+                          key={mode.id}
+                          onClick={() => setSelectedMode(mode.id as any)}
+                          className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors md:text-sm ${
+                            selectedMode === mode.id 
+                              ? 'bg-blue-500 text-white border-2 border-blue-400' 
+                              : 'bg-slate-700 text-slate-300 border-2 border-transparent hover:bg-slate-600'
+                          }`}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {selectedMode === 'custom' && (
                   <div className="mb-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-4">
-                    <h3 className="mb-3 text-lg font-bold text-white">問題の選択</h3>
+                    <h3 className="mb-3 text-lg font-bold text-white">単元の選択</h3>
                     <div className="grid h-full min-h-0 grid-cols-1 gap-4">
                     
                     {/* 教科選択 */}
@@ -325,19 +327,19 @@ export default function HostScreen({
                     {/* 単元選択 */}
                     <div className="min-h-0">
                       <label className="mb-2 block text-sm font-medium text-slate-300">単元を選ぶ（複数選択可）</label>
-                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid max-h-[22vh] grid-cols-2 gap-2 overflow-y-auto pr-1">
+                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid max-h-[34vh] grid-cols-2 gap-2 overflow-y-auto pr-1 xl:max-h-[40vh]">
                         {units.map(u => (
                           <button
                             key={u.unit}
                             onClick={() => toggleUnitSelection(u.unit)}
-                            className={`rounded-lg border px-3 py-2 text-left text-xs font-bold transition-colors line-clamp-2 ${
+                            className={`rounded-lg border px-3 py-3 text-left text-xs font-bold transition-colors ${
                               selectedUnits.includes(u.unit)
                                 ? 'bg-purple-500 text-white border-purple-400' 
                                 : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
                             }`}
                           >
-                            {getReadableUnitName(u)}
-                            <div className="mt-1 flex items-center justify-between text-[10px]">
+                            <div className="line-clamp-2 leading-snug">{getReadableUnitName(u)}</div>
+                            <div className="mt-2 flex items-center justify-between text-[10px]">
                               <span className="text-slate-400">{u.questions.length}問</span>
                               {selectedUnits.includes(u.unit) ? <span className="text-white">選択中</span> : null}
                             </div>
@@ -361,32 +363,31 @@ export default function HostScreen({
                   </div>
                 )}
 
-                <div className="mb-4 shrink-0">
-                  <p className="mb-3 text-base text-slate-300">制限時間（分）を入力してください:</p>
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={inputMinutes}
-                      onChange={(e) => setInputMinutes(e.target.value)}
-                      className="w-24 rounded-xl border-2 border-slate-600 bg-slate-700 px-3 py-2 text-center text-xl font-bold text-white focus:border-green-400 focus:outline-none"
-                    />
-                    <span className="text-lg font-bold text-slate-300">分</span>
-                  </div>
-                </div>
-
-                <div className="shrink-0 border-t border-slate-700 py-4 text-center">
-                  <p className="mb-4 text-base text-slate-400 md:text-lg">
+                <div className="shrink-0 border-t border-slate-700 py-4">
+                  <p className="mb-3 text-center text-base text-slate-400 md:text-lg">
                     {isSinglePlayer ? '単元を選んでシングルプレイを開始できます。' : (players.length === 0 ? '参加者を待っています...' : `${players.length}人が参加中`)}
                   </p>
-                  <button 
-                    onClick={startGame}
-                    disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0)}
-                    className="rounded-xl bg-green-500 px-8 py-3 text-xl font-bold text-white shadow-lg transition-colors hover:bg-green-400 disabled:cursor-not-allowed disabled:bg-slate-600"
-                  >
-                    {isSinglePlayer ? 'シングルプレイ開始' : 'ゲーム開始'}
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-700/40 px-4 py-3">
+                      <span className="text-sm font-bold text-slate-300">制限時間</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={inputMinutes}
+                        onChange={(e) => setInputMinutes(e.target.value)}
+                        className="w-20 rounded-lg border-2 border-slate-600 bg-slate-700 px-3 py-2 text-center text-lg font-bold text-white focus:border-green-400 focus:outline-none"
+                      />
+                      <span className="text-sm font-bold text-slate-300">分</span>
+                    </div>
+                    <button 
+                      onClick={startGame}
+                      disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0)}
+                      className="rounded-xl bg-green-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-colors hover:bg-green-400 disabled:cursor-not-allowed disabled:bg-slate-600"
+                    >
+                      {isSinglePlayer ? 'シングルプレイ開始' : 'ゲーム開始'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
