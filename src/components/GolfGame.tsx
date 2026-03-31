@@ -247,15 +247,19 @@ export default function GolfGame({
   }, [activeItemId]);
 
   useEffect(() => {
-    const resetOnWindowEvent = () => clearDragState();
-    window.addEventListener('pointerup', resetOnWindowEvent);
-    window.addEventListener('pointercancel', resetOnWindowEvent);
-    window.addEventListener('blur', resetOnWindowEvent);
+    const resetOnWindowPointerEvent = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      clearDragState();
+    };
+    const resetOnWindowBlur = () => clearDragState();
+    window.addEventListener('pointerup', resetOnWindowPointerEvent);
+    window.addEventListener('pointercancel', resetOnWindowPointerEvent);
+    window.addEventListener('blur', resetOnWindowBlur);
 
     return () => {
-      window.removeEventListener('pointerup', resetOnWindowEvent);
-      window.removeEventListener('pointercancel', resetOnWindowEvent);
-      window.removeEventListener('blur', resetOnWindowEvent);
+      window.removeEventListener('pointerup', resetOnWindowPointerEvent);
+      window.removeEventListener('pointercancel', resetOnWindowPointerEvent);
+      window.removeEventListener('blur', resetOnWindowBlur);
     };
   }, []);
 
@@ -298,11 +302,13 @@ export default function GolfGame({
           break;
         }
       }
-      if (!touch) return;
-      activeTouchIdRef.current = null;
-      event.preventDefault();
-      releaseShot();
-    };
+    if (!touch) return;
+    dragCurrentRef.current = getScaledPointerPosition(touch.clientX, touch.clientY) || dragCurrentRef.current;
+    setDragCurrent(dragCurrentRef.current);
+    activeTouchIdRef.current = null;
+    event.preventDefault();
+    releaseShot();
+  };
 
     element.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
     element.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
