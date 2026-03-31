@@ -24,6 +24,16 @@ export const matchesAnswerText = (input: string, answer: string) => {
   return normalizeAnswerText(input) === normalizeAnswerText(answer);
 };
 
+export const shuffleOptionsWithFirstCorrect = (options: string[], fallbackAnswer = '') => {
+  const normalizedOptions = Array.isArray(options) ? [...options] : [];
+  const correctAnswer = normalizedOptions[0] ?? fallbackAnswer;
+  const shuffledOptions = [correctAnswer, ...normalizedOptions.slice(1)].sort(() => Math.random() - 0.5);
+  return {
+    correctAnswer,
+    shuffledOptions,
+  };
+};
+
 export const findMatchingOptionIndex = (options: string[], answer: string) => {
   return options.findIndex((option) => matchesAnswerText(option, answer));
 };

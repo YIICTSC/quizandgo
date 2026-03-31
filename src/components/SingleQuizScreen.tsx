@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import ProblemVisual from './ProblemVisual';
 import { playCorrectSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
 import { calculateQuizScore } from '../lib/scoring';
-import { findMatchingOptionIndex, matchesAnswerText, matchesSpeechAnswer } from '../lib/answerMatching';
+import { findMatchingOptionIndex, matchesAnswerText, matchesSpeechAnswer, shuffleOptionsWithFirstCorrect } from '../lib/answerMatching';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -118,9 +118,7 @@ export default function SingleQuizScreen({
     if (mode !== 'custom') return generateMathQuestion(mode);
     if (!questions?.length) return null;
     const source = questions[Math.floor(Math.random() * questions.length)];
-    const originalOptions = Array.isArray(source.options) ? [...source.options] : [];
-    const correctAnswer = originalOptions[0] ?? source.answer;
-    const shuffledOptions = shuffle([correctAnswer, ...originalOptions.slice(1)]);
+    const { correctAnswer, shuffledOptions } = shuffleOptionsWithFirstCorrect(source.options, source.answer);
     return {
       ...source,
       answer: correctAnswer,

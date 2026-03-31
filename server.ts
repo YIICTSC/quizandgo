@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { addItemToInventory, GameItemId, getRandomItemChoices } from './src/gameItems.ts';
-import { findMatchingOptionIndex } from './src/lib/answerMatching.ts';
+import { findMatchingOptionIndex, shuffleOptionsWithFirstCorrect } from './src/lib/answerMatching.ts';
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -143,10 +143,7 @@ const generateMathQuestion = (type: string) => {
 const getQuestionForRoom = (room: Room) => {
   if (room.questions && room.questions.length > 0) {
     const q = room.questions[Math.floor(Math.random() * room.questions.length)];
-    const originalOptions = Array.isArray(q.options) ? [...q.options] : [];
-    const correctAnswer = originalOptions[0] ?? q.answer;
-    const distractors = originalOptions.length > 1 ? originalOptions.slice(1) : [];
-    const optionsArray = [correctAnswer, ...distractors].sort(() => Math.random() - 0.5);
+    const { correctAnswer, shuffledOptions: optionsArray } = shuffleOptionsWithFirstCorrect(q.options, q.answer);
     const correctIndex = findMatchingOptionIndex(optionsArray, correctAnswer);
     return {
       text: q.question,
