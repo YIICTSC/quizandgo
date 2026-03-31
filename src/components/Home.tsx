@@ -36,7 +36,7 @@ export default function Home({
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-5xl font-bold mb-12 text-center bg-gradient-to-r from-green-400 to-blue-500 text-transparent bg-clip-text">
-        Quiz &amp; Go!
+        Quiz & Go!
       </h1>
       
       <div className="w-full max-w-5xl bg-slate-800 rounded-2xl p-8 shadow-2xl border border-slate-700">

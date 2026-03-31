@@ -186,11 +186,27 @@ export default function GolfGame({
   const turboTimeoutRef = useRef<number | null>(null);
   const skipNextStopRef = useRef(false);
   const stickyHoldRef = useRef(false);
+  const activePointerIdRef = useRef<number | null>(null);
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragCurrent, setDragCurrent] = useState({ x: 0, y: 0 });
   const [activeShotLabel, setActiveShotLabel] = useState<string | null>(null);
+
+  const clearDragState = () => {
+    setIsDragging(false);
+    activePointerIdRef.current = null;
+  };
+
+  const getScaledPointerPosition = (clientX: number, clientY: number) => {
+    const rect = sceneRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+
+    return {
+      x: (clientX - rect.left) * (800 / rect.width),
+      y: (clientY - rect.top) * (600 / rect.height),
+    };
+  };
 
   useEffect(() => {
     singleBallStoppedRef.current = onSingleBallStopped;
@@ -203,6 +219,19 @@ export default function GolfGame({
   useEffect(() => {
     activeItemRef.current = activeItemId;
   }, [activeItemId]);
+
+  useEffect(() => {
+    const resetOnWindowEvent = () => clearDragState();
+    window.addEventListener('pointerup', resetOnWindowEvent);
+    window.addEventListener('pointercancel', resetOnWindowEvent);
+    window.addEventListener('blur', resetOnWindowEvent);
+
+    return () => {
+      window.removeEventListener('pointerup', resetOnWindowEvent);
+      window.removeEventListener('pointercancel', resetOnWindowEvent);
+      window.removeEventListener('blur', resetOnWindowEvent);
+    };
+  }, []);
 
   const resetBallPhysics = (ball: Matter.Body) => {
     ball.restitution = DEFAULT_BALL_PHYSICS.restitution;
@@ -471,41 +500,41 @@ export default function GolfGame({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!me?.canShoot) return;
-    const rect = sceneRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
-    // Calculate scale if canvas is resized
-    const scaleX = 800 / rect.width;
-    const scaleY = 600 / rect.height;
+    const position = getScaledPointerPosition(e.clientX, e.clientY);
+    if (!position) return;
 
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
+    activePointerIdRef.current = e.pointerId;
+    sceneRef.current?.setPointerCapture?.(e.pointerId);
     setIsDragging(true);
-    setDragStart({ x, y });
-    setDragCurrent({ x, y });
+    setDragStart(position);
+    setDragCurrent(position);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    const rect = sceneRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const scaleX = 800 / rect.width;
-    const scaleY = 600 / rect.height;
-
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    setDragCurrent({ x, y });
+    if (!isDragging || activePointerIdRef.current !== e.pointerId) return;
+    const position = getScaledPointerPosition(e.clientX, e.clientY);
+    if (!position) return;
+    setDragCurrent(position);
   };
 
-  const handlePointerUp = () => {
-    if (!isDragging || !me?.canShoot || !ballRef.current) return;
-    setIsDragging(false);
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (activePointerIdRef.current !== null && activePointerIdRef.current !== e.pointerId) return;
+
+    sceneRef.current?.releasePointerCapture?.(e.pointerId);
+
+    if (!isDragging || !me?.canShoot || !ballRef.current) {
+      clearDragState();
+      return;
+    }
 
     const dx = dragStart.x - dragCurrent.x;
     const dy = dragStart.y - dragCurrent.y;
+    const dragDistance = Math.hypot(dx, dy);
+
+    if (dragDistance < 6) {
+      clearDragState();
+      return;
+    }
     
     // Cap velocity
     const maxForce = 0.08;
@@ -543,6 +572,7 @@ export default function GolfGame({
     }
 
     Matter.Body.applyForce(ballRef.current, ballRef.current.position, { x: forceX, y: forceY });
+    clearDragState();
     playHitSound();
 
     if (isSinglePlayer) {
@@ -564,6 +594,7 @@ export default function GolfGame({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       />
 
       {/* Level Indicator */}

@@ -224,32 +224,32 @@ export default function HostScreen({
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-12">
-          <h1 className="text-4xl font-bold">{isSinglePlayer ? `Quiz &amp; Go! シングル設定` : 'Quiz &amp; Go! ホスト画面'}</h1>
+    <div className="h-screen overflow-hidden bg-slate-900 text-white p-3 md:p-4">
+      <div className="mx-auto flex h-full max-w-6xl flex-col">
+        <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold md:text-3xl">{isSinglePlayer ? 'Quiz & Go! シングル設定' : 'Quiz & Go! ホスト画面'}</h1>
           {!isSinglePlayer && (
-            <div className="bg-slate-800 px-8 py-4 rounded-xl border border-slate-700">
-              <span className="text-slate-400 text-lg mr-4">ゲームPIN:</span>
-              <span className="text-5xl font-mono font-bold tracking-widest text-green-400">{roomId}</span>
+            <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 md:px-6 md:py-3">
+              <span className="mr-3 text-sm text-slate-400 md:text-lg">ゲームPIN:</span>
+              <span className="text-2xl font-mono font-bold tracking-widest text-green-400 md:text-4xl">{roomId}</span>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="min-h-0 space-y-4 lg:col-span-2">
             {currentRoomState.state === 'waiting' && (
-              <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700">
-                <h2 className="text-2xl font-bold mb-6">ゲーム設定</h2>
+              <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
+                <h2 className="mb-4 shrink-0 text-xl font-bold">ゲーム設定</h2>
 
-                <div className="mb-8 rounded-xl border border-slate-600 bg-slate-700/40 p-5">
+                <div className="mb-4 shrink-0 rounded-xl border border-slate-600 bg-slate-700/40 p-4">
                   <div className="text-sm text-slate-400 mb-2">選択中のゲーム</div>
-                  <div className="text-2xl font-bold text-white">{gameTitle}</div>
+                  <div className="text-xl font-bold text-white">{gameTitle}</div>
                 </div>
                 
-                <div className="mb-8">
-                  <p className="text-lg text-slate-300 mb-4">出題する問題の種類を選んでください:</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="mb-4 shrink-0">
+                  <p className="mb-3 text-base text-slate-300">出題する問題の種類を選んでください:</p>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                     {[
                       { id: 'add', label: 'たし算 (+)' },
                       { id: 'sub', label: 'ひき算 (-)' },
@@ -261,7 +261,7 @@ export default function HostScreen({
                       <button
                         key={mode.id}
                         onClick={() => setSelectedMode(mode.id as any)}
-                        className={`py-3 px-4 rounded-xl font-bold text-lg transition-colors ${
+                        className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors md:text-base ${
                           selectedMode === mode.id 
                             ? 'bg-blue-500 text-white border-2 border-blue-400' 
                             : 'bg-slate-700 text-slate-300 border-2 border-transparent hover:bg-slate-600'
@@ -274,18 +274,19 @@ export default function HostScreen({
                 </div>
 
                 {selectedMode === 'custom' && (
-                  <div className="mb-8 p-6 bg-slate-700/50 rounded-xl border border-slate-600 space-y-6">
-                    <h3 className="text-xl font-bold text-white mb-4">問題の選択</h3>
+                  <div className="mb-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-4">
+                    <h3 className="mb-3 text-lg font-bold text-white">問題の選択</h3>
+                    <div className="grid h-full min-h-0 grid-cols-1 gap-4">
                     
                     {/* 教科選択 */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-3">教科を選ぶ</label>
+                    <div className="shrink-0">
+                      <label className="mb-2 block text-sm font-medium text-slate-300">教科を選ぶ</label>
                       <div className="grid grid-cols-3 gap-2">
                         {availableSubjects.map(s => (
                           <button
                             key={s}
                             onClick={() => handleSubjectChange(s)}
-                            className={`py-2 px-3 rounded-lg font-bold text-sm transition-colors border ${
+                            className={`rounded-lg border px-2 py-2 text-xs font-bold transition-colors md:text-sm ${
                               selectedSubject === s 
                                 ? 'bg-blue-500 text-white border-blue-400' 
                                 : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
@@ -299,15 +300,15 @@ export default function HostScreen({
 
                     {/* 学年選択 */}
                     {subjectUsesGrades && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-3">学年を選ぶ</label>
+                    <div className="shrink-0">
+                      <label className="mb-2 block text-sm font-medium text-slate-300">学年を選ぶ</label>
                       <div className="grid grid-cols-9 gap-1">
                         {grades.map(g => {
                           return (
                             <button
                               key={g}
                               onClick={() => handleGradeChange(g)}
-                              className={`py-2 px-1 rounded-lg font-bold text-xs transition-colors border ${
+                              className={`rounded-lg border px-1 py-2 text-[11px] font-bold transition-colors ${
                                 selectedGrade === g 
                                   ? 'bg-green-500 text-white border-green-400' 
                                   : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
@@ -322,14 +323,14 @@ export default function HostScreen({
                     )}
 
                     {/* 単元選択 */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-3">単元を選ぶ（複数選択可）</label>
-                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    <div className="min-h-0">
+                      <label className="mb-2 block text-sm font-medium text-slate-300">単元を選ぶ（複数選択可）</label>
+                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid max-h-[22vh] grid-cols-2 gap-2 overflow-y-auto pr-1">
                         {units.map(u => (
                           <button
                             key={u.unit}
                             onClick={() => toggleUnitSelection(u.unit)}
-                            className={`py-2 px-3 rounded-lg font-bold text-xs transition-colors border text-left line-clamp-2 ${
+                            className={`rounded-lg border px-3 py-2 text-left text-xs font-bold transition-colors line-clamp-2 ${
                               selectedUnits.includes(u.unit)
                                 ? 'bg-purple-500 text-white border-purple-400' 
                                 : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
@@ -346,9 +347,9 @@ export default function HostScreen({
                     </div>
 
                     {selectedUnits.length > 0 && (
-                      <p className="text-sm text-slate-200 bg-slate-800 p-3 rounded-lg">
+                      <p className="rounded-lg bg-slate-800 p-3 text-xs text-slate-200 md:text-sm">
                         ✓ 選択中: <span className="font-bold">{selectedUnits.length}単元 / {selectedQuestionCount}問</span>
-                        <span className="block mt-2 text-slate-300">
+                        <span className="mt-1 block text-slate-300 line-clamp-2">
                           {units
                             .filter((u) => selectedUnits.includes(u.unit))
                             .map((unit) => getReadableUnitName(unit))
@@ -356,11 +357,12 @@ export default function HostScreen({
                         </span>
                       </p>
                     )}
+                    </div>
                   </div>
                 )}
 
-                <div className="mb-8">
-                  <p className="text-lg text-slate-300 mb-4">制限時間（分）を入力してください:</p>
+                <div className="mb-4 shrink-0">
+                  <p className="mb-3 text-base text-slate-300">制限時間（分）を入力してください:</p>
                   <div className="flex items-center space-x-4">
                     <input
                       type="number"
@@ -368,20 +370,20 @@ export default function HostScreen({
                       max="60"
                       value={inputMinutes}
                       onChange={(e) => setInputMinutes(e.target.value)}
-                      className="bg-slate-700 text-white text-2xl font-bold py-3 px-4 rounded-xl border-2 border-slate-600 focus:border-green-400 focus:outline-none w-32 text-center"
+                      className="w-24 rounded-xl border-2 border-slate-600 bg-slate-700 px-3 py-2 text-center text-xl font-bold text-white focus:border-green-400 focus:outline-none"
                     />
-                    <span className="text-xl text-slate-300 font-bold">分</span>
+                    <span className="text-lg font-bold text-slate-300">分</span>
                   </div>
                 </div>
 
-                <div className="text-center py-8 border-t border-slate-700">
-                  <p className="text-xl text-slate-400 mb-6">
+                <div className="shrink-0 border-t border-slate-700 py-4 text-center">
+                  <p className="mb-4 text-base text-slate-400 md:text-lg">
                     {isSinglePlayer ? '単元を選んでシングルプレイを開始できます。' : (players.length === 0 ? '参加者を待っています...' : `${players.length}人が参加中`)}
                   </p>
                   <button 
                     onClick={startGame}
                     disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0)}
-                    className="px-12 py-4 bg-green-500 hover:bg-green-400 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold text-2xl rounded-xl transition-colors shadow-lg"
+                    className="rounded-xl bg-green-500 px-8 py-3 text-xl font-bold text-white shadow-lg transition-colors hover:bg-green-400 disabled:cursor-not-allowed disabled:bg-slate-600"
                   >
                     {isSinglePlayer ? 'シングルプレイ開始' : 'ゲーム開始'}
                   </button>
@@ -440,16 +442,16 @@ export default function HostScreen({
           </div>
 
           {!isSinglePlayer && (
-          <div className="space-y-8">
-            <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700">
-              <h2 className="text-2xl font-bold mb-6 flex justify-between items-center">
+          <div className="min-h-0">
+            <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
+              <h2 className="mb-4 flex shrink-0 items-center justify-between text-xl font-bold">
                 <span>{currentRoomState.state === 'playing' ? '現在の順位' : '参加者一覧'}</span>
                 <span className="bg-slate-700 px-3 py-1 rounded-full text-sm">{players.length}</span>
               </h2>
               
-              <div className="space-y-4">
+              <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
                 {sortedPlayers.map((p: any, index: number) => (
-                  <div key={p.id} className="flex items-center justify-between bg-slate-700 p-4 rounded-xl relative overflow-hidden">
+                  <div key={p.id} className="relative overflow-hidden rounded-xl bg-slate-700 p-3">
                     {currentRoomState.state === 'playing' && (
                       <div className={`absolute left-0 top-0 bottom-0 w-2 ${
                         index === 0 ? 'bg-yellow-400' : 
@@ -457,25 +459,27 @@ export default function HostScreen({
                         index === 2 ? 'bg-amber-600' : 'bg-transparent'
                       }`}></div>
                     )}
-                    <div className="flex items-center space-x-3 pl-2">
-                      {currentRoomState.state === 'playing' && (
-                        <span className="font-bold text-slate-400 w-6">{index + 1}.</span>
-                      )}
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color || 'white' }}></div>
-                      <span className="font-bold text-lg">{p.name}</span>
-                    </div>
-                    {currentRoomState.state === 'playing' && (
-                      <div className="text-right flex space-x-4">
-                        <div>
-                          <div className="text-xs text-slate-400">クリアホール</div>
-                          <div className="font-mono font-bold text-lg text-green-400">{p.holesCompleted}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400">打数</div>
-                          <div className="font-mono font-bold text-lg">{p.totalStrokes}</div>
-                        </div>
+                    <div className="flex items-center justify-between gap-3 pl-2">
+                      <div className="flex items-center space-x-3">
+                        {currentRoomState.state === 'playing' && (
+                          <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
+                        )}
+                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color || 'white' }}></div>
+                        <span className="font-bold text-base md:text-lg">{p.name}</span>
                       </div>
-                    )}
+                      {currentRoomState.state === 'playing' && (
+                        <div className="flex space-x-4 text-right">
+                          <div>
+                            <div className="text-xs text-slate-400">クリアホール</div>
+                            <div className="font-mono text-base font-bold text-green-400 md:text-lg">{p.holesCompleted}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-400">打数</div>
+                            <div className="font-mono text-base font-bold md:text-lg">{p.totalStrokes}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
                 

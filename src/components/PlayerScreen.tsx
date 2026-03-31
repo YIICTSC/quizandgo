@@ -215,50 +215,51 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     const inventory = (me?.items || []) as GameItemId[];
 
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-5xl mb-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center space-x-4">
+      <div className="h-screen overflow-hidden bg-slate-900 text-white">
+        <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-3 p-3 md:p-4">
+          <div className="shrink-0">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center space-x-3">
               <div className="w-6 h-6 rounded-full" style={{ backgroundColor: me?.color || 'white' }}></div>
-              <span className="truncate text-2xl font-bold">{playerName}</span>
-            </div>
-            <div className="flex flex-1 items-start justify-end gap-3">
-              <div className="flex gap-2">
-                <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-mono">
-                  クリア: <span className="font-bold text-green-400">{me?.holesCompleted}</span>
-                </div>
-                <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-mono">
-                  打数: <span className="font-bold text-blue-400">{me?.totalStrokes}</span>
-                </div>
+                <span className="truncate text-xl font-bold md:text-2xl">{playerName}</span>
               </div>
-              <div className="w-[360px] max-w-full">
-                <ItemSlots
-                  items={inventory}
-                  activeItemId={me?.activeItemId || null}
-                  disabled={pendingChoices.length > 0}
-                  onSelectItem={(itemId) => socket.emit('selectActiveItem', { roomId, itemId })}
-                />
+              <div className="flex flex-1 flex-wrap items-start justify-end gap-2">
+                <div className="flex gap-2">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono md:text-sm">
+                    クリア: <span className="font-bold text-green-400">{me?.holesCompleted}</span>
+                  </div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono md:text-sm">
+                    打数: <span className="font-bold text-blue-400">{me?.totalStrokes}</span>
+                  </div>
+                </div>
+                <div className="w-full max-w-[360px] flex-none">
+                  <ItemSlots
+                    items={inventory}
+                    activeItemId={me?.activeItemId || null}
+                    disabled={pendingChoices.length > 0}
+                    onSelectItem={(itemId) => socket.emit('selectActiveItem', { roomId, itemId })}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        <div className="w-full max-w-5xl aspect-video bg-slate-800 rounded-2xl border-4 border-slate-700 overflow-hidden relative shadow-2xl">
-          <GolfGame roomId={roomId} me={me} players={roomState.players} activeItemId={me?.activeItemId || null} />
-
-          {pendingChoices.length > 0 && (
-            <ItemRewardOverlay
-              choices={pendingChoices}
-              onChoose={(itemId) => socket.emit('chooseRewardItem', { roomId, itemId })}
-            />
-          )}
           
-          {/* Question Overlay */}
-          {question && pendingChoices.length === 0 && (!me?.canShoot || answerResult !== null) && (
-            <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-8 backdrop-blur-md z-10">
-              {answerResult === null ? (
-                <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
-                  <h2 className="text-4xl font-bold mb-4 text-center">{question.text}</h2>
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border-4 border-slate-700 bg-slate-800 shadow-2xl">
+            <GolfGame roomId={roomId} me={me} players={roomState.players} activeItemId={me?.activeItemId || null} />
+
+            {pendingChoices.length > 0 && (
+              <ItemRewardOverlay
+                choices={pendingChoices}
+                onChoose={(itemId) => socket.emit('chooseRewardItem', { roomId, itemId })}
+              />
+            )}
+          
+            {/* Question Overlay */}
+            {question && pendingChoices.length === 0 && (!me?.canShoot || answerResult !== null) && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 p-4 backdrop-blur-md md:p-8">
+                {answerResult === null ? (
+                  <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
+                    <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>
                   {question.visual && <ProblemVisual visual={question.visual} />}
                   {(question.audioPrompt || question.speechPrompt) && (
                     <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
@@ -296,13 +297,13 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                       ) : null}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-3 md:gap-6">
                       {question.options.map((opt: string, i: number) => (
                         <button
                           key={i}
                           onClick={() => socket.emit('submitAnswer', { roomId, answerIndex: i })}
                           disabled={answerResult !== null}
-                          className={`p-8 text-3xl font-bold rounded-2xl transition-transform shadow-lg ${
+                          className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
                             answerResult !== null ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'
                           }`}
                           style={{
@@ -314,19 +315,20 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                       ))}
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="text-center animate-in fade-in zoom-in">
-                  <h1 className={`text-6xl font-bold mb-4 ${answerResult ? 'text-green-500' : 'text-red-500'}`}>
-                    {answerResult ? '正解！' : 'ざんねん！'}
-                  </h1>
-                  <p className="text-2xl text-slate-300">
-                    {answerResult ? 'ボールを引っ張ってショット！' : '次の問題を待ってね...'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+                  </div>
+                ) : (
+                  <div className="animate-in fade-in zoom-in text-center">
+                    <h1 className={`mb-4 text-4xl font-bold md:text-6xl ${answerResult ? 'text-green-500' : 'text-red-500'}`}>
+                      {answerResult ? '正解！' : 'ざんねん！'}
+                    </h1>
+                    <p className="text-lg text-slate-300 md:text-2xl">
+                      {answerResult ? 'ボールを引っ張ってショット！' : '次の問題を待ってね...'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
