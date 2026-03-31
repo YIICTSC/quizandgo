@@ -297,14 +297,14 @@ export default function HostScreen({
                     {/* 学年選択 */}
                     {subjectUsesGrades && (
                     <div className="shrink-0">
-                      <label className="mb-2 block text-sm font-medium text-slate-300">学年を選ぶ</label>
-                      <div className="grid grid-cols-9 gap-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                        <label className="mr-2 text-sm font-medium text-slate-300">学年を選ぶ</label>
                         {grades.map(g => {
                           return (
                             <button
                               key={g}
                               onClick={() => handleGradeChange(g)}
-                              className={`rounded-lg border px-1 py-2 text-[11px] font-bold transition-colors ${
+                              className={`rounded-full border px-2.5 py-1 text-[10px] font-bold transition-colors md:text-xs ${
                                 selectedGrade === g 
                                   ? 'bg-green-500 text-white border-green-400' 
                                   : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
@@ -321,15 +321,15 @@ export default function HostScreen({
                     {/* 単元選択 */}
                     <div className="min-h-0">
                       <label className="mb-2 block text-sm font-medium text-slate-300">単元を選ぶ（複数選択可）</label>
-                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid max-h-[34vh] grid-cols-2 gap-2 overflow-y-auto pr-1 xl:max-h-[40vh]">
+                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid max-h-[34vh] grid-cols-2 gap-2 overflow-y-auto rounded-lg pr-1 xl:max-h-[40vh]">
                         {units.map(u => (
                           <button
                             key={u.unit}
                             onClick={() => toggleUnitSelection(u.unit)}
                             className={`rounded-lg border px-3 py-3 text-left text-xs font-bold transition-colors ${
                               selectedUnits.includes(u.unit)
-                                ? 'bg-purple-500 text-white border-purple-400' 
-                                : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                                ? 'bg-purple-500/40 text-white border-purple-400' 
+                                : 'bg-slate-700/40 text-slate-200 border-slate-600 hover:bg-slate-700/70'
                             }`}
                           >
                             <div className="line-clamp-2 leading-snug">{getReadableUnitName(u)}</div>
