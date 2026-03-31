@@ -3,6 +3,7 @@ import { socket } from '../socket';
 import GolfGame from './GolfGame';
 import { playCorrectSound, playIncorrectSound, stopBGM } from '../lib/sound';
 import { calculateGameScore } from '../lib/scoring';
+import { matchesSpeechAnswer } from '../lib/answerMatching';
 import ProblemVisual from './ProblemVisual';
 import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
@@ -25,26 +26,6 @@ declare global {
     webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
   }
 }
-
-const normalizeSpeech = (value: string) => value.toLowerCase().replace(/[.,!?'"`]/g, '').replace(/\s+/g, ' ').trim();
-
-const matchesSpeechPrompt = (transcript: string, speechPrompt: any) => {
-  const normalizedTranscript = normalizeSpeech(transcript);
-  const candidates = [speechPrompt.expected, ...(speechPrompt.alternates || [])]
-    .map((value) => normalizeSpeech(value))
-    .filter(Boolean);
-
-  if (candidates.some((value) => value === normalizedTranscript)) {
-    return true;
-  }
-
-  if (speechPrompt.keywords?.length) {
-    const hits = speechPrompt.keywords.filter((keyword: string) => normalizedTranscript.includes(normalizeSpeech(keyword))).length;
-    return hits >= (speechPrompt.minKeywordHits || speechPrompt.keywords.length);
-  }
-
-  return false;
-};
 
 export default function PlayerScreen({ roomId, playerName }: { roomId: string, playerName: string }) {
   const [roomState, setRoomState] = useState<any>(null);
@@ -107,7 +88,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
         .join(' ')
         .trim();
 
-      const correct = matchesSpeechPrompt(transcript, question.speechPrompt);
+      const correct = matchesSpeechAnswer(transcript, question.speechPrompt);
       socket.emit('submitAnswer', { roomId, isSpeechCorrect: correct });
     };
     recognition.onerror = () => {

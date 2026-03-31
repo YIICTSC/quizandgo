@@ -3,6 +3,7 @@ import GolfGame from './GolfGame';
 import ProblemVisual from './ProblemVisual';
 import { playCorrectSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
 import { addItemToInventory, GameItemId, getRandomItemChoices } from '../gameItems';
+import { findMatchingOptionIndex, matchesAnswerText, matchesSpeechAnswer } from '../lib/answerMatching';
 import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
 
@@ -23,26 +24,6 @@ declare global {
     webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
   }
 }
-
-const normalizeSpeech = (value: string) => value.toLowerCase().replace(/[.,!?'"`]/g, '').replace(/\s+/g, ' ').trim();
-
-const matchesSpeechPrompt = (transcript: string, speechPrompt: any) => {
-  const normalizedTranscript = normalizeSpeech(transcript);
-  const candidates = [speechPrompt.expected, ...(speechPrompt.alternates || [])]
-    .map((value) => normalizeSpeech(value))
-    .filter(Boolean);
-
-  if (candidates.some((value) => value === normalizedTranscript)) {
-    return true;
-  }
-
-  if (speechPrompt.keywords?.length) {
-    const hits = speechPrompt.keywords.filter((keyword: string) => normalizedTranscript.includes(normalizeSpeech(keyword))).length;
-    return hits >= (speechPrompt.minKeywordHits || speechPrompt.keywords.length);
-  }
-
-  return false;
-};
 
 type SinglePlayQuestion = {
   question: string;
@@ -157,7 +138,15 @@ export default function SinglePlayScreen({
       return generateMathQuestion(mode);
     }
     if (!questions?.length) return null;
-    return questions[Math.floor(Math.random() * questions.length)];
+    const source = questions[Math.floor(Math.random() * questions.length)];
+    const originalOptions = Array.isArray(source.options) ? [...source.options] : [];
+    const correctAnswer = originalOptions[0] ?? source.answer;
+    const shuffledOptions = shuffle([correctAnswer, ...originalOptions.slice(1)]);
+    return {
+      ...source,
+      answer: correctAnswer,
+      options: shuffledOptions,
+    };
   }, [mode, questions]);
 
   const me = useMemo(() => ({
@@ -192,7 +181,7 @@ export default function SinglePlayScreen({
   }, [pickQuestion]);
 
   const getOptionStateClass = (index: number) => {
-    const correctIndex = question?.options.findIndex((opt) => opt === question.answer) ?? -1;
+    const correctIndex = question ? findMatchingOptionIndex(question.options, question.answer) : -1;
     if (answerResult === null) return 'hover:scale-105 active:scale-95';
     if (index === correctIndex) return 'scale-[1.02] border-4 border-emerald-200 ring-4 ring-emerald-500/40 opacity-100';
     if (!answerResult && index === selectedAnswerIndex) return 'border-4 border-rose-200 ring-4 ring-rose-500/40 opacity-100';
@@ -255,7 +244,7 @@ export default function SinglePlayScreen({
         .join(' ')
         .trim();
 
-      const correct = matchesSpeechPrompt(transcript, question.speechPrompt);
+      const correct = matchesSpeechAnswer(transcript, question.speechPrompt);
       if (correct) {
         playCorrectSound();
         setAnswerResult(true);
@@ -281,7 +270,7 @@ export default function SinglePlayScreen({
 
   const submitAnswer = (option: string) => {
     if (!question) return;
-    const correct = option === question.answer;
+    const correct = matchesAnswerText(option, question.answer);
     setAnswerResult(correct);
 
     if (correct) {

@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { addItemToInventory, GameItemId, getRandomItemChoices } from './src/gameItems.ts';
+import { findMatchingOptionIndex } from './src/lib/answerMatching.ts';
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -129,25 +130,29 @@ const generateMathQuestion = (type: string) => {
   }
   
   const optionsArray = Array.from(options).sort(() => Math.random() - 0.5);
-  const correctIndex = optionsArray.indexOf(answer);
+  const correctIndex = findMatchingOptionIndex(optionsArray.map(String), String(answer));
 
   return {
     text,
     options: optionsArray.map(String),
-    correctIndex
+    correctIndex,
+    correctText: String(answer),
   };
 };
 
 const getQuestionForRoom = (room: Room) => {
   if (room.questions && room.questions.length > 0) {
     const q = room.questions[Math.floor(Math.random() * room.questions.length)];
-    // q is GeneralProblem: { question, answer, options, hint, visual }
-    const optionsArray = [...q.options].sort(() => Math.random() - 0.5);
-    const correctIndex = optionsArray.indexOf(q.answer);
+    const originalOptions = Array.isArray(q.options) ? [...q.options] : [];
+    const correctAnswer = originalOptions[0] ?? q.answer;
+    const distractors = originalOptions.length > 1 ? originalOptions.slice(1) : [];
+    const optionsArray = [correctAnswer, ...distractors].sort(() => Math.random() - 0.5);
+    const correctIndex = findMatchingOptionIndex(optionsArray, correctAnswer);
     return {
       text: q.question,
       options: optionsArray,
       correctIndex,
+      correctText: correctAnswer,
       hint: q.hint,
       visual: q.visual,
       audioPrompt: q.audioPrompt,
@@ -296,10 +301,11 @@ async function startServer() {
       const player = room?.players[socket.id];
       
       if (room && player && player.currentQuestion) {
+        const currentQuestion = player.currentQuestion;
         const isCorrect = typeof isSpeechCorrect === 'boolean'
           ? isSpeechCorrect
-          : answerIndex === player.currentQuestion.correctIndex;
-        console.log(`[submitAnswer] isCorrect: ${isCorrect}, correctIndex: ${player.currentQuestion.correctIndex}`);
+          : answerIndex === currentQuestion.correctIndex;
+        console.log(`[submitAnswer] isCorrect: ${isCorrect}, correctIndex: ${currentQuestion.correctIndex}`);
         if (isCorrect) {
           player.correctAnswers += 1;
           if (room.gameType === 'quiz') {
@@ -308,7 +314,11 @@ async function startServer() {
             player.canShoot = true;
             player.currentQuestion = null;
           }
-          socket.emit('answerResult', { correct: true });
+          socket.emit('answerResult', {
+            correct: true,
+            correctIndex: currentQuestion.correctIndex,
+            correctText: currentQuestion.correctText,
+          });
           if (room.gameType === 'quiz') {
             setTimeout(() => {
               socket.emit('personalQuestion', {
@@ -324,7 +334,11 @@ async function startServer() {
         } else {
           // 不正解の場合は新しい問題を生成（当てずっぽう防止）
           player.currentQuestion = getQuestionForRoom(room);
-          socket.emit('answerResult', { correct: false });
+          socket.emit('answerResult', {
+            correct: false,
+            correctIndex: currentQuestion.correctIndex,
+            correctText: currentQuestion.correctText,
+          });
           setTimeout(() => {
             socket.emit('personalQuestion', {
               text: player.currentQuestion.text,
@@ -334,7 +348,7 @@ async function startServer() {
               audioPrompt: player.currentQuestion.audioPrompt,
               speechPrompt: player.currentQuestion.speechPrompt,
             });
-          }, 1500); // 1.5秒後に次の問題を表示
+          }, 2200); // 正解を確認する時間を少し長めに確保
         }
         io.to(roomId).emit('roomStateUpdate', room);
       } else {
