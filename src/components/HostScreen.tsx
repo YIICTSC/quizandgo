@@ -277,29 +277,23 @@ export default function HostScreen({
 
                 {selectedMode === 'custom' && (
                   <div className="mb-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-4">
-                    <h3 className="mb-3 text-lg font-bold text-white">単元の選択</h3>
-                    <div className="grid h-full min-h-0 grid-cols-1 gap-4">
-                    
-                    {/* 教科選択 */}
-                    <div className="shrink-0">
-                      <label className="mb-2 block text-sm font-medium text-slate-300">教科を選ぶ</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {availableSubjects.map(s => (
-                          <button
-                            key={s}
-                            onClick={() => handleSubjectChange(s)}
-                            className={`rounded-lg border px-2 py-2 text-xs font-bold transition-colors md:text-sm ${
-                              selectedSubject === s 
-                                ? 'bg-blue-500 text-white border-blue-400' 
-                                : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
-                            }`}
-                          >
-                            {SUBJECT_LABELS[s] || s}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <h3 className="mr-2 text-lg font-bold text-white">単元の選択</h3>
+                      {availableSubjects.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => handleSubjectChange(s)}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-bold transition-colors md:text-xs ${
+                            selectedSubject === s
+                              ? 'border-blue-400 bg-blue-500 text-white'
+                              : 'border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          }`}
+                        >
+                          {SUBJECT_LABELS[s] || s}
+                        </button>
+                      ))}
                     </div>
-
+                    <div className="grid h-full min-h-0 grid-cols-1 gap-4">
                     {/* 学年選択 */}
                     {subjectUsesGrades && (
                     <div className="shrink-0">
