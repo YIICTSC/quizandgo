@@ -28,9 +28,9 @@ const getAutoZoomScale = (width: number, height: number) => {
   const maxSide = Math.max(width, height);
   const area = width * height;
   if (maxSide <= 21 && area <= 400) return 1;
-  if (maxSide <= 31 && area <= 800) return 1.2;
-  if (maxSide <= 45 && area <= 1600) return 1.45;
-  return 1.8;
+  if (maxSide <= 31 && area <= 800) return 1.25;
+  if (maxSide <= 45 && area <= 1600) return 1.55;
+  return 1.95;
 };
 
 export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb, onDetonateRemote, canUseRemote = false }: BomberGameProps) {
@@ -79,8 +79,10 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   const meYPercent = ((me?.bomberY || 0) + 0.5) * cellHeightPercent;
   const minTranslateX = 100 * (1 / zoomScale - 1);
   const minTranslateY = 100 * (1 / zoomScale - 1);
-  const translateX = zoomScale === 1 ? 0 : clamp(50 / zoomScale - meXPercent, minTranslateX, 0);
-  const translateY = zoomScale === 1 ? 0 : clamp(50 / zoomScale - meYPercent, minTranslateY, 0);
+  const focusXPercent = 50;
+  const focusYPercent = 42;
+  const translateX = zoomScale === 1 ? 0 : clamp(focusXPercent / zoomScale - meXPercent, minTranslateX, 0);
+  const translateY = zoomScale === 1 ? 0 : clamp(focusYPercent / zoomScale - meYPercent, minTranslateY, 0);
 
   const alivePlayers = Object.values(players || {});
 

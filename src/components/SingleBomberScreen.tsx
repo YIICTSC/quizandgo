@@ -1004,7 +1004,7 @@ function BomberMapDebugScreen({
               }}
             />
           </div>
-          <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">
+          <div className="hidden min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3 lg:block">
             <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-3">
               <div className="text-sm font-bold text-cyan-200">確認内容</div>
               <div className="mt-2 text-sm text-slate-200">サーバー計算式と同じ寸法でマップを生成し、{playerCount}人分のダミープレイヤーを配置しています。</div>
