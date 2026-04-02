@@ -110,6 +110,20 @@ const getTeamInitial = (name: string) => {
   return Array.from(trimmed)[0];
 };
 
+const toOddSize = (value: number) => {
+  const rounded = Math.max(5, Math.ceil(value));
+  return rounded % 2 === 1 ? rounded : rounded + 1;
+};
+
+const getBomberDimensions = (playerCount: number) => {
+  const normalizedCount = Math.max(4, playerCount);
+  const targetArea = normalizedCount * 79;
+  const aspect = BOMBER_WIDTH / BOMBER_HEIGHT;
+  const width = Math.max(BOMBER_WIDTH, toOddSize(Math.sqrt(targetArea * aspect)));
+  const height = Math.max(BOMBER_HEIGHT, toOddSize(targetArea / width));
+  return { width, height };
+};
+
 const randomFloorPosition = (grid: BomberCell[][], used: Set<string>) => {
   const candidates: { x: number; y: number }[] = [];
   for (let y = 1; y < grid.length - 1; y += 1) {
@@ -149,7 +163,8 @@ const clearBomberSpawnArea = (grid: BomberCell[][], x: number, y: number) => {
 };
 
 const createBomberState = (players: Player[]): BomberState => {
-  const grid = createBomberGrid();
+  const { width, height } = getBomberDimensions(players.length);
+  const grid = createBomberGrid(width, height);
   const used = new Set<string>();
 
   players.forEach((player) => {
@@ -163,8 +178,8 @@ const createBomberState = (players: Player[]): BomberState => {
   });
 
   return {
-    width: BOMBER_WIDTH,
-    height: BOMBER_HEIGHT,
+    width,
+    height,
     grid,
     bombs: [],
     explosions: [],
