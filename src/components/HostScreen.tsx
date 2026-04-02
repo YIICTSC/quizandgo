@@ -284,7 +284,7 @@ export default function HostScreen({
                 </div>
 
                 {selectedMode === 'custom' && (
-                  <div className="mb-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-2.5">
+                  <div className="mb-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-2.5 flex flex-col">
                     <div className="mb-2 flex flex-wrap items-center gap-1">
                       <h3 className="mr-1 text-sm font-bold text-white md:text-base">単元の選択</h3>
                       {availableSubjects.map(s => (
@@ -301,7 +301,7 @@ export default function HostScreen({
                         </button>
                       ))}
                     </div>
-                    <div className="grid h-full min-h-0 grid-cols-1 gap-2">
+                    <div className="grid min-h-0 flex-1 grid-cols-1 gap-2">
                     {/* 学年選択 */}
                     {subjectUsesGrades && (
                     <div className="shrink-0">
@@ -327,9 +327,9 @@ export default function HostScreen({
                     )}
 
                     {/* 単元選択 */}
-                    <div className="min-h-0">
+                    <div className="min-h-0 flex flex-col">
                       <label className="mb-1 block text-[11px] font-medium text-slate-300">単元を選ぶ（複数選択可）</label>
-                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto rounded-lg pr-1 xl:max-h-[58vh]">
+                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid min-h-0 flex-1 auto-rows-max grid-cols-2 gap-2 overflow-y-auto rounded-lg pr-1 content-start">
                         {units.map(u => (
                           <button
                             key={u.unit}
