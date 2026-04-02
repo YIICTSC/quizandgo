@@ -12,7 +12,7 @@ type BomberGameProps = {
 };
 
 const CONTROL_BUTTON =
-  'flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-600 bg-slate-800 text-xl font-black text-white active:scale-95 active:bg-slate-700';
+  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-slate-900/65 text-lg font-black text-white shadow-lg backdrop-blur-sm active:scale-95 active:bg-slate-800/90 md:h-12 md:w-12 md:text-xl';
 
 export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb }: BomberGameProps) {
   useEffect(() => {
@@ -56,9 +56,9 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   const alivePlayers = Object.values(players || {});
 
   return (
-    <div className="flex h-full min-h-0 flex-col items-center gap-3">
-      <div className="w-full overflow-auto rounded-2xl border border-slate-700 bg-slate-950/70 p-2">
-        <div className="mx-auto grid relative" style={boardStyle}>
+    <div className="relative flex h-full min-h-0 flex-col items-center">
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/70 p-2">
+        <div className="relative mx-auto grid max-h-full max-w-full" style={boardStyle}>
           {bomberState.grid.flatMap((row: string[], y: number) =>
             row.map((cell: string, x: number) => {
               const className =
@@ -127,17 +127,24 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
           ))}
         </div>
       </div>
-
-      <div className="grid w-full max-w-sm grid-cols-3 gap-2">
-        <div />
-        <button className={CONTROL_BUTTON} onClick={() => onMove('up')}>↑</button>
-        <div />
-        <button className={CONTROL_BUTTON} onClick={() => onMove('left')}>←</button>
-        <button className={`${CONTROL_BUTTON} border-rose-400 bg-rose-500/20 text-rose-100`} onClick={onPlaceBomb}>爆</button>
-        <button className={CONTROL_BUTTON} onClick={() => onMove('right')}>→</button>
-        <div />
-        <button className={CONTROL_BUTTON} onClick={() => onMove('down')}>↓</button>
-        <div />
+      <div className="pointer-events-none absolute inset-0 z-20">
+        <div className="absolute bottom-3 left-3 grid grid-cols-3 gap-2 md:bottom-4 md:left-4">
+          <div />
+          <button className={CONTROL_BUTTON} onClick={() => onMove('up')}>↑</button>
+          <div />
+          <button className={CONTROL_BUTTON} onClick={() => onMove('left')}>←</button>
+          <div className="h-11 w-11 md:h-12 md:w-12" />
+          <button className={CONTROL_BUTTON} onClick={() => onMove('right')}>→</button>
+          <div />
+          <button className={CONTROL_BUTTON} onClick={() => onMove('down')}>↓</button>
+          <div />
+        </div>
+        <button
+          className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-20 items-center justify-center rounded-2xl border border-rose-300/30 bg-rose-600/80 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(244,63,94,0.35)] backdrop-blur-sm active:scale-95 active:bg-rose-500 md:bottom-5 md:right-4"
+          onClick={onPlaceBomb}
+        >
+          BOMB
+        </button>
       </div>
     </div>
   );
