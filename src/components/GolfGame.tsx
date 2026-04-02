@@ -620,16 +620,22 @@ export default function GolfGame({
   const waterRespawnTimeoutRef = useRef<number | null>(null);
   const waterRespawningRef = useRef(false);
   const lastDirtCrunchRef = useRef(0);
+  const wasOnDirtRef = useRef(false);
+  const dirtEmbedTimeoutRef = useRef<number | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const activeTouchIdRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const dragCurrentRef = useRef({ x: 0, y: 0 });
+  const remoteBallTargetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const remoteBallDisplayRef = useRef<Record<string, { x: number; y: number }>>({});
+  const remoteBallAnimationFrameRef = useRef<number | null>(null);
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragCurrent, setDragCurrent] = useState({ x: 0, y: 0 });
   const [activeShotLabel, setActiveShotLabel] = useState<string | null>(null);
+  const [remoteBallDisplay, setRemoteBallDisplay] = useState<Record<string, { x: number; y: number }>>({});
 
   const clearDragState = () => {
     setIsDragging(false);
@@ -679,6 +685,66 @@ export default function GolfGame({
   useEffect(() => {
     activeItemRef.current = activeItemId;
   }, [activeItemId]);
+
+  useEffect(() => {
+    if (isSinglePlayer) return;
+
+    const animateRemoteBalls = () => {
+      const next: Record<string, { x: number; y: number }> = {};
+      let hasActiveTarget = false;
+
+      Object.entries(remoteBallTargetsRef.current).forEach(([playerId, target]) => {
+        const current = remoteBallDisplayRef.current[playerId] || target;
+        const dx = target.x - current.x;
+        const dy = target.y - current.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 0.2) {
+          hasActiveTarget = true;
+          next[playerId] = {
+            x: current.x + dx * 0.35,
+            y: current.y + dy * 0.35,
+          };
+        } else {
+          next[playerId] = target;
+        }
+      });
+
+      remoteBallDisplayRef.current = next;
+      setRemoteBallDisplay(next);
+
+      if (hasActiveTarget) {
+        remoteBallAnimationFrameRef.current = window.setTimeout(animateRemoteBalls, 50);
+      } else {
+        remoteBallAnimationFrameRef.current = null;
+      }
+    };
+
+    const ensureAnimationLoop = () => {
+      if (remoteBallAnimationFrameRef.current !== null) return;
+      remoteBallAnimationFrameRef.current = window.setTimeout(animateRemoteBalls, 50);
+    };
+
+    const onPlayerMoved = ({ playerId, x, y }: { playerId: string; x: number; y: number }) => {
+      if (playerId === me?.id) return;
+      remoteBallTargetsRef.current[playerId] = { x, y };
+      if (!remoteBallDisplayRef.current[playerId]) {
+        remoteBallDisplayRef.current[playerId] = { x, y };
+        setRemoteBallDisplay({ ...remoteBallDisplayRef.current });
+      }
+      ensureAnimationLoop();
+    };
+
+    socket.on('playerMoved', onPlayerMoved);
+
+    return () => {
+      socket.off('playerMoved', onPlayerMoved);
+      if (remoteBallAnimationFrameRef.current !== null) {
+        window.clearTimeout(remoteBallAnimationFrameRef.current);
+        remoteBallAnimationFrameRef.current = null;
+      }
+    };
+  }, [isSinglePlayer, me?.id]);
 
   useEffect(() => {
     const resetOnWindowPointerEvent = (event: PointerEvent) => {
@@ -964,6 +1030,28 @@ export default function GolfGame({
         const speed = Math.sqrt(Math.pow(ballRef.current.velocity.x, 2) + Math.pow(ballRef.current.velocity.y, 2));
         const surfaceContacts = Matter.Query.collides(ballRef.current, staticBodies);
         const isOnDirt = surfaceContacts.some(({ bodyA, bodyB }) => bodyA.label === 'dirt' || bodyB.label === 'dirt');
+        const justEnteredDirt = isOnDirt && !wasOnDirtRef.current;
+        if (justEnteredDirt && speed > 1.6) {
+          if (Date.now() - lastDirtCrunchRef.current > 150) {
+            lastDirtCrunchRef.current = Date.now();
+            playSandTrapSound();
+          }
+          const entrySinkRate = speed > 3 ? 0.02 : 0.06;
+          Matter.Body.setVelocity(ballRef.current, {
+            x: ballRef.current.velocity.x * entrySinkRate,
+            y: ballRef.current.velocity.y * entrySinkRate,
+          });
+          Matter.Body.setAngularVelocity(ballRef.current, ballRef.current.angularVelocity * 0.02);
+          if (dirtEmbedTimeoutRef.current) {
+            window.clearTimeout(dirtEmbedTimeoutRef.current);
+          }
+          Matter.Body.setStatic(ballRef.current, true);
+          dirtEmbedTimeoutRef.current = window.setTimeout(() => {
+            if (!ballRef.current || stickyHoldRef.current || freezeBall) return;
+            Matter.Body.setStatic(ballRef.current, false);
+            dirtEmbedTimeoutRef.current = null;
+          }, 180);
+        }
         if (activeShotItemRef.current === 'feather_ball' && speed > 0.1) {
           Matter.Body.applyForce(ballRef.current, ballRef.current.position, { x: 0, y: -0.00016 });
         }
@@ -990,6 +1078,7 @@ export default function GolfGame({
           });
           Matter.Body.setAngularVelocity(ballRef.current, ballRef.current.angularVelocity * 0.08);
         }
+        wasOnDirtRef.current = isOnDirt;
         if (isSinglePlayer && speed < 0.18) {
           Matter.Body.setVelocity(ballRef.current, { x: 0, y: 0 });
           Matter.Body.setAngularVelocity(ballRef.current, 0);
@@ -1103,10 +1192,15 @@ export default function GolfGame({
 
     return () => {
       clearInterval(syncInterval);
+      if (dirtEmbedTimeoutRef.current) {
+        window.clearTimeout(dirtEmbedTimeoutRef.current);
+        dirtEmbedTimeoutRef.current = null;
+      }
       if (waterRespawnTimeoutRef.current) {
         window.clearTimeout(waterRespawnTimeoutRef.current);
         waterRespawnTimeoutRef.current = null;
       }
+      wasOnDirtRef.current = false;
       waterRespawningRef.current = false;
       clearShotEffect();
       Matter.Render.stop(render);
@@ -1403,13 +1497,16 @@ export default function GolfGame({
       {/* Draw other players */}
       {Object.values(players).map((p: any) => {
         if (p.id === me?.id || p.holesCompleted !== me?.holesCompleted) return null;
+        const remoteDisplayPos = remoteBallDisplay[p.id];
+        const drawX = remoteDisplayPos?.x ?? p.x;
+        const drawY = remoteDisplayPos?.y ?? p.y;
         return (
           <div
             key={p.id}
             className="absolute w-5 h-5 rounded-full -ml-2.5 -mt-2.5 pointer-events-none transition-all duration-100"
             style={{
-              left: `${(p.x / 800) * 100}%`,
-              top: `${(p.y / 600) * 100}%`,
+              left: `${(drawX / 800) * 100}%`,
+              top: `${(drawY / 600) * 100}%`,
               backgroundColor: p.color || 'white',
               opacity: 0.5
             }}
