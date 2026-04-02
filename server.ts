@@ -29,9 +29,47 @@ interface Player {
   pendingItemChoices: GameItemId[] | null;
   shotsRemaining: number;
   teamId: number | null;
+  bomberX: number;
+  bomberY: number;
+  bomberSpawnX: number;
+  bomberSpawnY: number;
+  alive: boolean;
+  respawnAt: number | null;
+  kills: number;
+  blocksDestroyed: number;
+  deaths: number;
+  timeAliveMs: number;
+  bombsAvailable: number;
+  bombRange: number;
   lastBroadcastX?: number;
   lastBroadcastY?: number;
   lastBroadcastAt?: number;
+}
+
+type BomberCell = 'solid' | 'breakable' | 'floor';
+
+interface BomberBomb {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  explodeAt: number;
+  range: number;
+}
+
+interface BomberExplosion {
+  id: string;
+  ownerId: string;
+  cells: { x: number; y: number }[];
+  expiresAt: number;
+}
+
+interface BomberState {
+  width: number;
+  height: number;
+  grid: BomberCell[][];
+  bombs: BomberBomb[];
+  explosions: BomberExplosion[];
 }
 
 interface Room {
@@ -48,10 +86,17 @@ interface Room {
   teamMode?: boolean;
   teamCount?: number;
   teamNames?: Record<number, string>;
+  bomberState?: BomberState | null;
 }
 
 const rooms: Record<string, Room> = {};
 const COLORS = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF3', '#FFB533'];
+const BOMBER_WIDTH = 21;
+const BOMBER_HEIGHT = 15;
+const BOMBER_RESPAWN_MS = 2500;
+const BOMBER_EXPLOSION_MS = 500;
+const BOMBER_BOMB_DELAY_MS = 2000;
+const BOMBER_MAX_BOMBS = 3;
 
 const consumeOneInventoryItem = (inventory: GameItemId[], itemId: GameItemId) => {
   const index = inventory.indexOf(itemId);
@@ -63,6 +108,97 @@ const getTeamInitial = (name: string) => {
   const trimmed = String(name || '').trim();
   if (!trimmed) return '?';
   return Array.from(trimmed)[0];
+};
+
+const randomFloorPosition = (grid: BomberCell[][], used: Set<string>) => {
+  const candidates: { x: number; y: number }[] = [];
+  for (let y = 1; y < grid.length - 1; y += 1) {
+    for (let x = 1; x < grid[y].length - 1; x += 1) {
+      if (grid[y][x] === 'floor' && !used.has(`${x},${y}`)) {
+        candidates.push({ x, y });
+      }
+    }
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)] || { x: 1, y: 1 };
+};
+
+const createBomberGrid = (width = BOMBER_WIDTH, height = BOMBER_HEIGHT) => {
+  const grid: BomberCell[][] = Array.from({ length: height }, (_, y) =>
+    Array.from({ length: width }, (_, x) => {
+      const isBorder = x === 0 || y === 0 || x === width - 1 || y === height - 1;
+      if (isBorder) return 'solid';
+      if (x % 2 === 0 && y % 2 === 0) return 'solid';
+      return Math.random() < 0.42 ? 'breakable' : 'floor';
+    })
+  );
+
+  return grid;
+};
+
+const clearBomberSpawnArea = (grid: BomberCell[][], x: number, y: number) => {
+  const deltas = [
+    [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1],
+  ];
+  deltas.forEach(([dx, dy]) => {
+    const nextX = x + dx;
+    const nextY = y + dy;
+    if (grid[nextY]?.[nextX] && grid[nextY][nextX] !== 'solid') {
+      grid[nextY][nextX] = 'floor';
+    }
+  });
+};
+
+const createBomberState = (players: Player[]): BomberState => {
+  const grid = createBomberGrid();
+  const used = new Set<string>();
+
+  players.forEach((player) => {
+    const spawn = randomFloorPosition(grid, used);
+    clearBomberSpawnArea(grid, spawn.x, spawn.y);
+    used.add(`${spawn.x},${spawn.y}`);
+    player.bomberX = spawn.x;
+    player.bomberY = spawn.y;
+    player.bomberSpawnX = spawn.x;
+    player.bomberSpawnY = spawn.y;
+  });
+
+  return {
+    width: BOMBER_WIDTH,
+    height: BOMBER_HEIGHT,
+    grid,
+    bombs: [],
+    explosions: [],
+  };
+};
+
+const isBomberCellBlocked = (room: Room, x: number, y: number) => {
+  const grid = room.bomberState?.grid;
+  if (!grid || !grid[y] || !grid[y][x]) return true;
+  if (grid[y][x] !== 'floor') return true;
+  return Boolean(room.bomberState?.bombs.some((bomb) => bomb.x === x && bomb.y === y));
+};
+
+const buildExplosionCells = (room: Room, originX: number, originY: number, range: number) => {
+  const cells: { x: number; y: number }[] = [{ x: originX, y: originY }];
+  const grid = room.bomberState?.grid;
+  if (!grid) return cells;
+
+  const directions = [
+    [1, 0], [-1, 0], [0, 1], [0, -1],
+  ];
+
+  for (const [dx, dy] of directions) {
+    for (let step = 1; step <= range; step += 1) {
+      const x = originX + dx * step;
+      const y = originY + dy * step;
+      const cell = grid[y]?.[x];
+      if (!cell || cell === 'solid') break;
+      cells.push({ x, y });
+      if (cell === 'breakable') break;
+    }
+  }
+
+  return cells;
 };
 
 const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) => {
@@ -81,6 +217,18 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   if (!options?.preserveTeam) {
     player.teamId = null;
   }
+  player.bomberX = 1;
+  player.bomberY = 1;
+  player.bomberSpawnX = 1;
+  player.bomberSpawnY = 1;
+  player.alive = true;
+  player.respawnAt = null;
+  player.kills = 0;
+  player.blocksDestroyed = 0;
+  player.deaths = 0;
+  player.timeAliveMs = 0;
+  player.bombsAvailable = 1;
+  player.bombRange = 2;
   player.lastBroadcastX = 100;
   player.lastBroadcastY = 100;
   player.lastBroadcastAt = 0;
@@ -137,11 +285,16 @@ const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questi
   room.timeRemaining = room.timeLimit;
   room.questions = questions;
   room.shotsPerQuestion = room.shotsPerQuestion || 3;
+  room.bomberState = null;
 
   Object.values(room.players).forEach((player) => {
     resetPlayerState(player, { preserveTeam: options?.preserveTeams });
     player.currentQuestion = getQuestionForRoom(room);
   });
+
+  if (room.gameType === 'bomber') {
+    room.bomberState = createBomberState(Object.values(room.players));
+  }
 };
 
 const resetRoomToWaiting = (room: Room) => {
@@ -149,6 +302,7 @@ const resetRoomToWaiting = (room: Room) => {
   room.timeRemaining = room.timeLimit || 300;
   room.questions = undefined;
   room.teamNames = {};
+  room.bomberState = null;
   Object.values(room.players).forEach((player) => resetPlayerState(player));
 };
 
@@ -167,6 +321,77 @@ const startRoomTimer = (io: Server, roomId: string) => {
       clearInterval(timerInterval);
     }
   }, 1000);
+};
+
+const explodeBomb = (room: Room, bomb: BomberBomb, now: number) => {
+  if (!room.bomberState) return;
+
+  room.bomberState.bombs = room.bomberState.bombs.filter((candidate) => candidate.id !== bomb.id);
+  const cells = buildExplosionCells(room, bomb.x, bomb.y, bomb.range);
+  room.bomberState.explosions.push({
+    id: `${bomb.id}-explosion`,
+    ownerId: bomb.ownerId,
+    cells,
+    expiresAt: now + BOMBER_EXPLOSION_MS,
+  });
+
+  const owner = room.players[bomb.ownerId];
+  cells.forEach(({ x, y }) => {
+    if (room.bomberState?.grid[y]?.[x] === 'breakable') {
+      room.bomberState.grid[y][x] = 'floor';
+      if (owner) owner.blocksDestroyed += 1;
+    }
+  });
+
+  const touchedBombs = room.bomberState.bombs.filter((candidate) =>
+    cells.some((cell) => cell.x === candidate.x && cell.y === candidate.y)
+  );
+  touchedBombs.forEach((candidate) => {
+    candidate.explodeAt = Math.min(candidate.explodeAt, now);
+  });
+
+  Object.values(room.players).forEach((player) => {
+    if (!player.alive) return;
+    const hit = cells.some((cell) => cell.x === player.bomberX && cell.y === player.bomberY);
+    if (!hit) return;
+
+    player.alive = false;
+    player.deaths += 1;
+    player.respawnAt = now + BOMBER_RESPAWN_MS;
+    player.bomberX = player.bomberSpawnX;
+    player.bomberY = player.bomberSpawnY;
+    if (bomb.ownerId !== player.id && owner) {
+      owner.kills += 1;
+    }
+  });
+};
+
+const startBomberLoop = (io: Server, roomId: string) => {
+  const interval = setInterval(() => {
+    const room = rooms[roomId];
+    if (!room || room.state !== 'playing' || room.gameType !== 'bomber' || !room.bomberState) {
+      clearInterval(interval);
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = 100;
+    Object.values(room.players).forEach((player) => {
+      if (player.alive) {
+        player.timeAliveMs += elapsed;
+      } else if (player.respawnAt && now >= player.respawnAt) {
+        player.alive = true;
+        player.respawnAt = null;
+        player.bomberX = player.bomberSpawnX;
+        player.bomberY = player.bomberSpawnY;
+      }
+    });
+
+    const dueBombs = room.bomberState.bombs.filter((bomb) => bomb.explodeAt <= now);
+    dueBombs.forEach((bomb) => explodeBomb(room, bomb, now));
+    room.bomberState.explosions = room.bomberState.explosions.filter((explosion) => explosion.expiresAt > now);
+    io.to(roomId).emit('roomStateUpdate', room);
+  }, 100);
 };
 
 // 四則演算の問題を生成する関数
@@ -270,6 +495,7 @@ async function startServer() {
         teamMode: false,
         teamCount: 2,
         teamNames: {},
+        bomberState: null,
       };
       socket.join(roomId);
       socket.emit('roomCreated', roomId);
@@ -302,6 +528,18 @@ async function startServer() {
           pendingItemChoices: null,
           shotsRemaining: 0,
           teamId: null,
+          bomberX: 1,
+          bomberY: 1,
+          bomberSpawnX: 1,
+          bomberSpawnY: 1,
+          alive: true,
+          respawnAt: null,
+          kills: 0,
+          blocksDestroyed: 0,
+          deaths: 0,
+          timeAliveMs: 0,
+          bombsAvailable: 1,
+          bombRange: 2,
           lastBroadcastX: 100,
           lastBroadcastY: 100,
           lastBroadcastAt: 0,
@@ -313,6 +551,24 @@ async function startServer() {
         }
 
         if (room.state === 'playing') {
+          if (room.gameType === 'bomber' && room.bomberState) {
+            const used = new Set(
+              Object.values(room.players)
+                .filter((player) => player.id !== socket.id)
+                .map((player) => `${player.bomberSpawnX},${player.bomberSpawnY}`)
+            );
+            const spawn = randomFloorPosition(room.bomberState.grid, used);
+            clearBomberSpawnArea(room.bomberState.grid, spawn.x, spawn.y);
+            Object.assign(room.players[socket.id], {
+              bomberX: spawn.x,
+              bomberY: spawn.y,
+              bomberSpawnX: spawn.x,
+              bomberSpawnY: spawn.y,
+              alive: true,
+              bombsAvailable: 1,
+              bombRange: 2,
+            });
+          }
           room.players[socket.id].currentQuestion = getQuestionForRoom(room);
           emitPersonalQuestion(io, room.players[socket.id]);
         }
@@ -353,6 +609,9 @@ async function startServer() {
         Object.values(room.players).forEach((player) => emitPersonalQuestion(io, player));
         io.to(roomId).emit('roomStateUpdate', room);
         startRoomTimer(io, roomId);
+        if (room.gameType === 'bomber') {
+          startBomberLoop(io, roomId);
+        }
       }
     });
 
@@ -372,6 +631,9 @@ async function startServer() {
       Object.values(room.players).forEach((player) => emitPersonalQuestion(io, player));
       io.to(roomId).emit('roomStateUpdate', room);
       startRoomTimer(io, roomId);
+      if (room.gameType === 'bomber') {
+        startBomberLoop(io, roomId);
+      }
     });
 
     socket.on('returnToLobby', ({ roomId }) => {
@@ -405,6 +667,9 @@ async function startServer() {
           player.correctAnswers += 1;
           if (room.gameType === 'quiz') {
             player.currentQuestion = getQuestionForRoom(room);
+          } else if (room.gameType === 'bomber') {
+            player.bombsAvailable = Math.min(BOMBER_MAX_BOMBS, (player.bombsAvailable || 0) + 1);
+            player.currentQuestion = getQuestionForRoom(room);
           } else {
             player.canShoot = true;
             player.currentQuestion = null;
@@ -415,16 +680,9 @@ async function startServer() {
             correctIndex: currentQuestion.correctIndex,
             correctText: currentQuestion.correctText,
           });
-          if (room.gameType === 'quiz') {
+          if (room.gameType === 'quiz' || room.gameType === 'bomber') {
             setTimeout(() => {
-              socket.emit('personalQuestion', {
-                text: player.currentQuestion.text,
-                options: player.currentQuestion.options,
-                hint: player.currentQuestion.hint,
-                visual: player.currentQuestion.visual,
-                audioPrompt: player.currentQuestion.audioPrompt,
-                speechPrompt: player.currentQuestion.speechPrompt,
-              });
+              emitPersonalQuestion(io, player);
             }, 700);
           }
         } else {
@@ -436,14 +694,7 @@ async function startServer() {
             correctText: currentQuestion.correctText,
           });
           setTimeout(() => {
-            socket.emit('personalQuestion', {
-              text: player.currentQuestion.text,
-              options: player.currentQuestion.options,
-              hint: player.currentQuestion.hint,
-              visual: player.currentQuestion.visual,
-              audioPrompt: player.currentQuestion.audioPrompt,
-              speechPrompt: player.currentQuestion.speechPrompt,
-            });
+            emitPersonalQuestion(io, player);
           }, 2200); // 正解を確認する時間を少し長めに確保
         }
         io.to(roomId).emit('roomStateUpdate', room);
@@ -525,6 +776,46 @@ async function startServer() {
         x,
         y
       });
+    });
+
+    socket.on('moveBomber', ({ roomId, direction }: { roomId: string; direction: 'up' | 'down' | 'left' | 'right' }) => {
+      const room = rooms[roomId];
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing' || room.gameType !== 'bomber' || !room.bomberState || !player.alive) return;
+
+      const deltas = {
+        up: [0, -1],
+        down: [0, 1],
+        left: [-1, 0],
+        right: [1, 0],
+      } as const;
+      const [dx, dy] = deltas[direction] || [0, 0];
+      const nextX = player.bomberX + dx;
+      const nextY = player.bomberY + dy;
+      if (isBomberCellBlocked(room, nextX, nextY)) return;
+
+      player.bomberX = nextX;
+      player.bomberY = nextY;
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
+    socket.on('placeBomberBomb', ({ roomId }: { roomId: string }) => {
+      const room = rooms[roomId];
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing' || room.gameType !== 'bomber' || !room.bomberState || !player.alive) return;
+      if ((player.bombsAvailable || 0) <= 0) return;
+      if (room.bomberState.bombs.some((bomb) => bomb.x === player.bomberX && bomb.y === player.bomberY)) return;
+
+      room.bomberState.bombs.push({
+        id: `${socket.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ownerId: socket.id,
+        x: player.bomberX,
+        y: player.bomberY,
+        explodeAt: Date.now() + BOMBER_BOMB_DELAY_MS,
+        range: player.bombRange,
+      });
+      player.bombsAvailable -= 1;
+      io.to(roomId).emit('roomStateUpdate', room);
     });
 
     socket.on('holeCompleted', (roomId) => {
