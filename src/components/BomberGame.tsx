@@ -12,7 +12,7 @@ type BomberGameProps = {
 };
 
 const CONTROL_BUTTON =
-  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-slate-900/65 text-lg font-black text-white shadow-lg backdrop-blur-sm active:scale-95 active:bg-slate-800/90 md:h-12 md:w-12 md:text-xl';
+  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/40 text-lg font-black text-white shadow-lg backdrop-blur-sm active:scale-95 active:bg-slate-800/65 md:h-12 md:w-12 md:text-xl';
 
 const itemLabelMap: Record<string, string> = {
   fire_up: '🔥',
@@ -20,6 +20,17 @@ const itemLabelMap: Record<string, string> = {
   shield: '🛡️',
   remote_bomb: '📡',
   pierce_fire: '💥',
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const getAutoZoomScale = (width: number, height: number) => {
+  const maxSide = Math.max(width, height);
+  const area = width * height;
+  if (maxSide <= 21 && area <= 400) return 1;
+  if (maxSide <= 31 && area <= 800) return 1.2;
+  if (maxSide <= 45 && area <= 1600) return 1.45;
+  return 1.8;
 };
 
 export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb, onDetonateRemote, canUseRemote = false }: BomberGameProps) {
@@ -57,19 +68,35 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
 
   const width = bomberState.width || 21;
   const height = bomberState.height || 15;
+  const zoomScale = getAutoZoomScale(width, height);
   const cellWidthPercent = 100 / width;
   const cellHeightPercent = 100 / height;
   const boardStyle = {
     gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
     gridTemplateRows: `repeat(${height}, minmax(0, 1fr))`,
   } as const;
+  const meXPercent = ((me?.bomberX || 0) + 0.5) * cellWidthPercent;
+  const meYPercent = ((me?.bomberY || 0) + 0.5) * cellHeightPercent;
+  const minTranslateX = 100 * (1 / zoomScale - 1);
+  const minTranslateY = 100 * (1 / zoomScale - 1);
+  const translateX = zoomScale === 1 ? 0 : clamp(50 / zoomScale - meXPercent, minTranslateX, 0);
+  const translateY = zoomScale === 1 ? 0 : clamp(50 / zoomScale - meYPercent, minTranslateY, 0);
 
   const alivePlayers = Object.values(players || {});
 
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center">
       <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/70 p-2">
-        <div className="relative mx-auto grid h-full max-h-full w-full max-w-full" style={{ ...boardStyle, aspectRatio: `${width} / ${height}` }}>
+        <div className="relative h-full w-full overflow-hidden">
+          <div
+            className="absolute inset-0 mx-auto grid h-full max-h-full w-full max-w-full transition-transform duration-200 ease-out"
+            style={{
+              ...boardStyle,
+              aspectRatio: `${width} / ${height}`,
+              transformOrigin: 'top left',
+              transform: `translate(${translateX}%, ${translateY}%) scale(${zoomScale})`,
+            }}
+          >
           {bomberState.grid.flatMap((row: string[], y: number) =>
             row.map((cell: string, x: number) => {
               const className =
@@ -151,8 +178,14 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               {String(player.name || '?').slice(0, 1)}
             </div>
           ))}
+          </div>
         </div>
       </div>
+      {zoomScale > 1 ? (
+        <div className="pointer-events-none absolute right-3 top-3 z-20 rounded-full border border-cyan-400/30 bg-slate-900/75 px-3 py-1 text-[10px] font-bold tracking-wide text-cyan-100 backdrop-blur-sm md:right-4 md:top-4">
+          AUTO ZOOM x{zoomScale.toFixed(2)}
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute inset-0 z-20">
         <div className="absolute bottom-3 left-3 grid grid-cols-3 gap-2 md:bottom-4 md:left-4">
           <div />
@@ -166,14 +199,14 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
           <div />
         </div>
         <button
-          className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-20 items-center justify-center rounded-2xl border border-rose-300/30 bg-rose-600/80 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(244,63,94,0.35)] backdrop-blur-sm active:scale-95 active:bg-rose-500 md:bottom-5 md:right-4"
+          className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-20 items-center justify-center rounded-2xl border border-rose-300/20 bg-rose-600/55 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(244,63,94,0.25)] backdrop-blur-sm active:scale-95 active:bg-rose-500/75 md:bottom-5 md:right-4"
           onClick={onPlaceBomb}
         >
           BOMB
         </button>
         {canUseRemote && onDetonateRemote ? (
           <button
-            className="pointer-events-auto absolute bottom-20 right-3 flex h-12 w-20 items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-600/80 text-xs font-black tracking-wide text-white shadow-[0_0_18px_rgba(34,211,238,0.35)] backdrop-blur-sm active:scale-95 active:bg-cyan-500 md:bottom-22 md:right-4"
+            className="pointer-events-auto absolute bottom-20 right-3 flex h-12 w-20 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-600/55 text-xs font-black tracking-wide text-white shadow-[0_0_18px_rgba(34,211,238,0.25)] backdrop-blur-sm active:scale-95 active:bg-cyan-500/75 md:bottom-22 md:right-4"
             onClick={onDetonateRemote}
           >
             REMOTE

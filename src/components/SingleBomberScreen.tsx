@@ -829,6 +829,8 @@ function BomberMapDebugScreen({
   const { width, height } = getBomberDimensions(playerCount);
   const [grid, setGrid] = useState<BomberCell[][]>([]);
   const [playerPos, setPlayerPos] = useState({ x: 1, y: 1 });
+  const [bombs, setBombs] = useState<Bomb[]>([]);
+  const [explosions, setExplosions] = useState<Explosion[]>([]);
 
   const demoPlayers = useMemo(() => {
     if (!grid.length) return {} as Record<string, any>;
@@ -869,6 +871,59 @@ function BomberMapDebugScreen({
 
     return () => stopBGM();
   }, [height, width]);
+
+  useEffect(() => {
+    if (!grid.length) return;
+
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      setBombs((currentBombs) => {
+        const dueBombs = currentBombs.filter((bomb) => bomb.explodeAt <= now);
+        if (dueBombs.length === 0) return advanceMovingBombs(grid, currentBombs);
+
+        const pendingBombs = [...dueBombs];
+        const explodedIds = new Set<string>();
+        const pendingById = new Map(pendingBombs.map((bomb) => [bomb.id, bomb]));
+        let remainingBombs = advanceMovingBombs(grid, currentBombs.filter((bomb) => bomb.explodeAt > now));
+
+        setGrid((currentGrid) => {
+          const nextGrid = currentGrid.map((row) => [...row]);
+          while (pendingBombs.length > 0) {
+            const bomb = pendingBombs.shift();
+            if (!bomb || explodedIds.has(bomb.id)) continue;
+            explodedIds.add(bomb.id);
+            const cells = buildExplosionCells(nextGrid, bomb.x, bomb.y, bomb.range, bomb.pierce);
+            setExplosions((current) => [...current, { id: `${bomb.id}-exp`, ownerId: bomb.ownerId, cells, expiresAt: now + EXPLOSION_MS }]);
+
+            const chainTargets = remainingBombs.filter((target) => cells.some((cell) => cell.x === target.x && cell.y === target.y));
+            if (chainTargets.length > 0) {
+              chainTargets.forEach((target) => {
+                if (!explodedIds.has(target.id) && !pendingById.has(target.id)) {
+                  pendingBombs.push(target);
+                  pendingById.set(target.id, target);
+                }
+              });
+              const chainTargetIds = new Set(chainTargets.map((target) => target.id));
+              remainingBombs = remainingBombs.filter((target) => !chainTargetIds.has(target.id));
+            }
+
+            cells.forEach(({ x, y }) => {
+              if (nextGrid[y]?.[x] === 'breakable') {
+                nextGrid[y][x] = 'floor';
+              }
+            });
+          }
+          return nextGrid;
+        });
+
+        return remainingBombs.filter((bomb) => !explodedIds.has(bomb.id));
+      });
+
+      setExplosions((current) => current.filter((explosion) => explosion.expiresAt > now));
+    }, 100);
+
+    return () => window.clearInterval(interval);
+  }, [grid]);
 
   const occupied = useMemo(() => {
     const taken = new Set<string>();
@@ -918,7 +973,7 @@ function BomberMapDebugScreen({
               roomId="debug-bomber-map"
               me={me}
               players={players}
-              bomberState={{ width, height, grid, bombs: [], explosions: [], itemDrops: [] }}
+              bomberState={{ width, height, grid, bombs, explosions, itemDrops: [] }}
               onMove={(direction) => {
                 const deltas = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as const;
                 const [dx, dy] = deltas[direction];
@@ -928,7 +983,25 @@ function BomberMapDebugScreen({
                 if (occupied.has(`${nextX},${nextY}`)) return;
                 setPlayerPos({ x: nextX, y: nextY });
               }}
-              onPlaceBomb={() => undefined}
+              onPlaceBomb={() => {
+                if (!grid[playerPos.y]?.[playerPos.x] || grid[playerPos.y][playerPos.x] !== 'floor') return;
+                if (bombs.some((bomb) => bomb.x === playerPos.x && bomb.y === playerPos.y)) return;
+                setBombs((current) => [
+                  ...current,
+                  {
+                    id: `debug-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    ownerId: me.id,
+                    x: playerPos.x,
+                    y: playerPos.y,
+                    explodeAt: Date.now() + BOMB_DELAY_MS,
+                    range: 2,
+                    remote: false,
+                    pierce: false,
+                    movingDx: 0,
+                    movingDy: 0,
+                  },
+                ]);
+              }}
             />
           </div>
           <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">

@@ -178,10 +178,11 @@ export default function HostScreen({
     }
     return a.totalStrokes - b.totalStrokes;
   });
+  const supportsPodiumReveal = resolvedGameType === 'golf' || resolvedGameType === 'bomber';
   const podiumPlayers = useMemo(() => {
-    if (resolvedGameType !== 'golf') return [];
+    if (!supportsPodiumReveal) return [];
     return sortedPlayers.slice(0, 3);
-  }, [resolvedGameType, sortedPlayers]);
+  }, [sortedPlayers, supportsPodiumReveal]);
   const teamGroups = useMemo(() => {
     const count = Math.max(2, Number(currentRoomState.teamCount) || teamCount || 2);
     return Array.from({ length: count }, (_, index) => ({
@@ -240,7 +241,7 @@ export default function HostScreen({
         ? currentRoomState.state === 'results'
           ? 'bomber_results'
           : currentRoomState.state === 'playing'
-            ? 'bomber_play'
+            ? ((timeRemaining ?? currentRoomState.timeRemaining ?? 0) <= 10 ? 'bomber_last10' : 'bomber_play')
             : 'bomber_host'
         : currentRoomState.state === 'results'
           ? 'results'
@@ -250,10 +251,10 @@ export default function HostScreen({
 
     startBGM(scene);
     return () => stopBGM();
-  }, [isSinglePlayer, currentRoomState.state, resolvedGameType]);
+  }, [isSinglePlayer, currentRoomState.state, currentRoomState.timeRemaining, resolvedGameType, timeRemaining]);
 
   useEffect(() => {
-    if (isSinglePlayer || currentRoomState.state !== 'results' || resolvedGameType !== 'golf') {
+    if (isSinglePlayer || currentRoomState.state !== 'results' || (!supportsPodiumReveal && !isGolfTeamResults)) {
       setResultsRevealStep(0);
       return;
     }
@@ -274,7 +275,7 @@ export default function HostScreen({
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [isSinglePlayer, currentRoomState.state, resolvedGameType, podiumPlayers.length, podiumTeams.length, isGolfTeamResults]);
+  }, [isSinglePlayer, currentRoomState.state, podiumPlayers.length, podiumTeams.length, isGolfTeamResults, supportsPodiumReveal]);
 
   const startGame = () => {
     const timeLimit = (parseInt(inputMinutes) || 5) * 60;
@@ -650,7 +651,7 @@ export default function HostScreen({
             {!isSinglePlayer && currentRoomState.state === 'results' && (
               <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 text-center">
                 <h2 className="text-4xl font-bold mb-4 text-yellow-400">ゲーム終了</h2>
-                {resolvedGameType === 'golf' && (isGolfTeamResults ? podiumTeams.length > 0 : podiumPlayers.length > 0) ? (
+                {supportsPodiumReveal && (isGolfTeamResults ? podiumTeams.length > 0 : podiumPlayers.length > 0) ? (
                   <div className="mb-8">
                     <p className="text-xl text-slate-300 mb-4">{isGolfTeamResults ? '最終チームランキング発表' : '最終ランキング発表'}</p>
                     <div className="mx-auto mb-4 flex max-w-3xl items-end justify-center gap-3 md:gap-5">
@@ -823,7 +824,7 @@ export default function HostScreen({
                   <div
                     key={p.id}
                     className={`relative overflow-hidden rounded-xl bg-slate-700 p-3 transition-all duration-700 ${
-                      currentRoomState.state === 'results' && resolvedGameType === 'golf'
+                      currentRoomState.state === 'results' && supportsPodiumReveal
                         ? (() => {
                             const podiumIndex = podiumPlayers.findIndex((player: any) => player.id === p.id);
                             if (podiumIndex === -1) return 'opacity-100';
