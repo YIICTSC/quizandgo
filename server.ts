@@ -64,6 +64,8 @@ interface BomberBomb {
   range: number;
   remote: boolean;
   pierce: boolean;
+  movingDx?: number;
+  movingDy?: number;
 }
 
 interface BomberExplosion {
@@ -295,7 +297,26 @@ const tryKickBomb = (room: Room, bomb: BomberBomb, dx: number, dy: number) => {
   if (!isFloorWithoutBomb(room, nextX, nextY)) return false;
   bomb.x = nextX;
   bomb.y = nextY;
+  bomb.movingDx = dx;
+  bomb.movingDy = dy;
   return true;
+};
+
+const advanceRoomMovingBombs = (room: Room) => {
+  if (!room.bomberState) return;
+  room.bomberState.bombs = room.bomberState.bombs.map((bomb, index, bombs) => {
+    if (!bomb.movingDx && !bomb.movingDy) return bomb;
+    const nextX = bomb.x + (bomb.movingDx || 0);
+    const nextY = bomb.y + (bomb.movingDy || 0);
+    const blocked =
+      !room.bomberState?.grid[nextY]?.[nextX] ||
+      room.bomberState.grid[nextY][nextX] !== 'floor' ||
+      bombs.some((otherBomb, otherIndex) => otherIndex !== index && otherBomb.x === nextX && otherBomb.y === nextY);
+    if (blocked) {
+      return { ...bomb, movingDx: 0, movingDy: 0 };
+    }
+    return { ...bomb, x: nextX, y: nextY };
+  });
 };
 
 const buildExplosionCells = (room: Room, originX: number, originY: number, range: number, pierce = false) => {
@@ -520,6 +541,7 @@ const startBomberLoop = (io: Server, roomId: string) => {
 
     const now = Date.now();
     const elapsed = 100;
+    advanceRoomMovingBombs(room);
     Object.values(room.players).forEach((player) => {
       if (player.alive) {
         player.timeAliveMs += elapsed;
@@ -1011,6 +1033,8 @@ async function startServer() {
         range: player.bombRange,
         remote: player.hasRemoteBomb,
         pierce: player.hasPierceFire,
+        movingDx: 0,
+        movingDy: 0,
       });
       player.bombsAvailable -= 1;
       io.to(roomId).emit('roomStateUpdate', room);
