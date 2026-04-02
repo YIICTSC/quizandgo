@@ -15,7 +15,7 @@ export default function ItemRewardOverlay({
           <h2 className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-4xl">アイテムをえらぼう</h2>
           <p className="mt-2 text-sm text-slate-300 md:mt-3 md:text-lg">ランダムに出た2つのうち、1つだけ獲得できます。</p>
         </div>
-        <div className="grid min-h-0 grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 md:gap-4">
+        <div className="grid min-h-0 grid-cols-1 gap-3 overflow-x-hidden overflow-y-auto md:grid-cols-2 md:gap-4">
           {choices.map((itemId) => {
             const item = GAME_ITEM_MAP[itemId];
             return (
@@ -23,7 +23,7 @@ export default function ItemRewardOverlay({
                 key={itemId}
                 type="button"
                 onClick={() => onChoose(itemId)}
-                className="rounded-2xl border border-white/10 p-4 text-left text-white transition hover:scale-[1.01] hover:border-white/30 md:p-6"
+                className="rounded-2xl border border-white/10 p-4 text-left text-white transition hover:border-white/30 hover:brightness-110 md:p-6"
                 style={{ background: `linear-gradient(135deg, ${item.color}, #0f172a)` }}
               >
                 <div className="text-[10px] font-bold tracking-[0.24em] text-white/70 md:text-xs md:tracking-[0.3em]">ITEM</div>
