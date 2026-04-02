@@ -40,6 +40,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [speechTranscript, setSpeechTranscript] = useState('');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const ignoreNextServerAnswerRef = useRef(false);
+  const ignoreNextServerQuestionRef = useRef(false);
   const isQuizMode = roomState?.gameType === 'quiz';
   const isBomberMode = roomState?.gameType === 'bomber';
   const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
@@ -72,6 +74,44 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     setIsListening(false);
   }, []);
 
+  const applyLocalAnswerResult = useCallback((payload: { correct: boolean; correctIndex?: number; correctText?: string; nextQuestion?: any; nextDelayMs?: number | null }) => {
+    setAnswerResult(payload.correct);
+    setCorrectAnswerIndex(typeof payload.correctIndex === 'number' ? payload.correctIndex : null);
+    setCorrectAnswerText(payload.correctText || null);
+    if (payload.correct) {
+      playCorrectSound();
+    } else {
+      playIncorrectSound();
+    }
+
+    if (payload.nextQuestion) {
+      window.setTimeout(() => {
+        setQuestion(payload.nextQuestion);
+        setAnswerResult(null);
+        setSelectedAnswerIndex(null);
+        setCorrectAnswerIndex(null);
+        setCorrectAnswerText(null);
+        setSpeechTranscript('');
+      }, payload.nextDelayMs || (payload.correct ? 700 : 2200));
+    }
+  }, []);
+
+  const submitAnswer = useCallback((payload: { answerIndex?: number; isSpeechCorrect?: boolean }) => {
+    if (isBomberMode) {
+      socket.emit('submitAnswer', { roomId, ...payload }, (response?: any) => {
+        if (!response?.ok) return;
+        ignoreNextServerAnswerRef.current = true;
+        if (response.nextQuestion) {
+          ignoreNextServerQuestionRef.current = true;
+        }
+        applyLocalAnswerResult(response);
+      });
+      return;
+    }
+
+    socket.emit('submitAnswer', { roomId, ...payload });
+  }, [applyLocalAnswerResult, isBomberMode, roomId]);
+
   const startSpeechRecognition = useCallback(() => {
     if (!question?.speechPrompt || answerResult !== null || isListening) return;
 
@@ -94,7 +134,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
 
       setSpeechTranscript(transcript);
       const correct = matchesSpeechAnswer(transcript, question.speechPrompt);
-      socket.emit('submitAnswer', { roomId, isSpeechCorrect: correct });
+      submitAnswer({ isSpeechCorrect: correct });
     };
     recognition.onerror = () => {
       stopRecognition();
@@ -107,7 +147,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     recognitionRef.current = recognition;
     setIsListening(true);
     recognition.start();
-  }, [answerResult, isListening, question, roomId, stopRecognition]);
+  }, [answerResult, isListening, question, stopRecognition, submitAnswer]);
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -117,6 +157,10 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     };
 
     const onPersonalQuestion = (q: any) => {
+      if (ignoreNextServerQuestionRef.current) {
+        ignoreNextServerQuestionRef.current = false;
+        return;
+      }
       setQuestion(q);
       setAnswerResult(null);
       setSelectedAnswerIndex(null);
@@ -129,6 +173,10 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     };
 
     const onAnswerResult = ({ correct, correctIndex, correctText }: { correct: boolean; correctIndex?: number; correctText?: string }) => {
+      if (ignoreNextServerAnswerRef.current) {
+        ignoreNextServerAnswerRef.current = false;
+        return;
+      }
       setAnswerResult(correct);
       setCorrectAnswerIndex(typeof correctIndex === 'number' ? correctIndex : null);
       setCorrectAnswerText(correctText || null);
@@ -421,7 +469,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                             key={i}
                             onClick={() => {
                               setSelectedAnswerIndex(i);
-                              socket.emit('submitAnswer', { roomId, answerIndex: i });
+                              submitAnswer({ answerIndex: i });
                             }}
                             disabled={answerResult !== null}
                             className={`rounded-2xl p-4 text-lg font-bold shadow-lg transition-transform ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
@@ -567,8 +615,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                           key={i}
                           onClick={() => {
                             setSelectedAnswerIndex(i);
-                            socket.emit('submitAnswer', { roomId, answerIndex: i });
-                          }}
+                          submitAnswer({ answerIndex: i });
+                        }}
                         disabled={answerResult !== null}
                         className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
                             answerResult !== null ? 'cursor-not-allowed' : ''

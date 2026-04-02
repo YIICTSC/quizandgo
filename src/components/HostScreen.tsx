@@ -195,6 +195,39 @@ export default function HostScreen({
     resolvedGameType === 'golf' &&
     teamMode &&
     players.length < teamCount;
+  const isGolfTeamResults = !isSinglePlayer && resolvedGameType === 'golf' && currentRoomState.teamMode;
+  const teamRankings = useMemo(() => {
+    if (!isGolfTeamResults) return [];
+    return teamGroups
+      .filter(({ members }) => members.length > 0)
+      .map(({ teamId, teamName, members }) => {
+        const teamStats = members.reduce(
+          (acc, player: any) => {
+            acc.holesCompleted += player.holesCompleted || 0;
+            acc.totalStrokes += player.totalStrokes || 0;
+            acc.correctAnswers += player.correctAnswers || 0;
+            return acc;
+          },
+          { holesCompleted: 0, totalStrokes: 0, correctAnswers: 0 }
+        );
+        return {
+          teamId,
+          teamName,
+          members,
+          teamStats,
+          teamScore: calculateGameScore('golf', teamStats),
+        };
+      })
+      .sort((a, b) => {
+        const scoreDiff = b.teamScore - a.teamScore;
+        if (scoreDiff !== 0) return scoreDiff;
+        return a.teamStats.totalStrokes - b.teamStats.totalStrokes;
+      });
+  }, [isGolfTeamResults, teamGroups]);
+  const podiumTeams = useMemo(() => {
+    if (!isGolfTeamResults) return [];
+    return teamRankings.slice(0, 3);
+  }, [isGolfTeamResults, teamRankings]);
 
   useEffect(() => {
     if (isSinglePlayer) {
@@ -219,7 +252,7 @@ export default function HostScreen({
       return;
     }
 
-    const count = Math.min(3, podiumPlayers.length);
+    const count = Math.min(3, isGolfTeamResults ? podiumTeams.length : podiumPlayers.length);
     if (count === 0) {
       setResultsRevealStep(0);
       return;
@@ -235,7 +268,7 @@ export default function HostScreen({
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [isSinglePlayer, currentRoomState.state, resolvedGameType, podiumPlayers.length]);
+  }, [isSinglePlayer, currentRoomState.state, resolvedGameType, podiumPlayers.length, podiumTeams.length, isGolfTeamResults]);
 
   const startGame = () => {
     const timeLimit = (parseInt(inputMinutes) || 5) * 60;
@@ -611,18 +644,16 @@ export default function HostScreen({
             {!isSinglePlayer && currentRoomState.state === 'results' && (
               <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 text-center">
                 <h2 className="text-4xl font-bold mb-4 text-yellow-400">ゲーム終了</h2>
-                {resolvedGameType === 'golf' && podiumPlayers.length > 0 ? (
+                {resolvedGameType === 'golf' && (isGolfTeamResults ? podiumTeams.length > 0 : podiumPlayers.length > 0) ? (
                   <div className="mb-8">
-                    <p className="text-xl text-slate-300 mb-4">最終ランキング発表</p>
+                    <p className="text-xl text-slate-300 mb-4">{isGolfTeamResults ? '最終チームランキング発表' : '最終ランキング発表'}</p>
                     <div className="mx-auto mb-4 flex max-w-3xl items-end justify-center gap-3 md:gap-5">
-                      {podiumPlayers
+                      {(isGolfTeamResults ? podiumTeams : podiumPlayers)
                         .slice()
                         .reverse()
-                        .map((player: any, revealIndexFromBottom: number) => {
-                          const rank = getRevealRankLabel(revealIndexFromBottom, podiumPlayers.length);
+                        .map((entry: any, revealIndexFromBottom: number) => {
+                          const rank = getRevealRankLabel(revealIndexFromBottom, isGolfTeamResults ? podiumTeams.length : podiumPlayers.length);
                           const revealed = resultsRevealStep > revealIndexFromBottom;
-                          const teamName = getTeamName(player.teamId);
-                          const teamMembers = getTeamMemberNames(player.teamId);
                           const accent =
                             rank === 1 ? 'border-yellow-400 bg-yellow-500/15 text-yellow-100' :
                             rank === 2 ? 'border-slate-300 bg-slate-400/10 text-slate-100' :
@@ -634,7 +665,7 @@ export default function HostScreen({
 
                           return (
                             <div
-                              key={player.id}
+                              key={isGolfTeamResults ? `team-${entry.teamId}` : entry.id}
                               className={`flex w-28 flex-col justify-between rounded-2xl border px-3 py-4 text-center transition-all duration-700 md:w-40 ${heightClass} ${
                                 revealed
                                   ? `${accent} opacity-100 translate-y-0 scale-100 shadow-[0_0_30px_rgba(250,204,21,0.15)]`
@@ -643,31 +674,50 @@ export default function HostScreen({
                             >
                               <div>
                                 <div className="text-3xl font-black md:text-4xl">{rank}位</div>
-                                <div className="mt-2 flex justify-center">
-                                  <div
-                                    className="h-4 w-4 rounded-full border border-white/30"
-                                    style={{ backgroundColor: player.color || 'white' }}
-                                  />
-                                </div>
+                                {!isGolfTeamResults && (
+                                  <div className="mt-2 flex justify-center">
+                                    <div
+                                      className="h-4 w-4 rounded-full border border-white/30"
+                                      style={{ backgroundColor: entry.color || 'white' }}
+                                    />
+                                  </div>
+                                )}
                               </div>
                               <div className="space-y-1">
-                                <div className="text-lg font-bold leading-tight md:text-2xl">{player.name}</div>
-                                {teamName ? (
+                                <div className="text-lg font-bold leading-tight md:text-2xl">{isGolfTeamResults ? entry.teamName : entry.name}</div>
+                                {isGolfTeamResults ? (
                                   <div className="space-y-1">
-                                    <div className="rounded-full bg-cyan-500/15 px-2 py-1 text-[10px] font-bold text-cyan-100 md:text-xs">
-                                      {teamName}
-                                    </div>
                                     <div className="text-[10px] leading-snug opacity-80 md:text-xs">
-                                      {teamMembers.join(' / ')}
+                                      {entry.members.map((member: any) => member.name).join(' / ')}
                                     </div>
                                   </div>
-                                ) : null}
+                                ) : (() => {
+                                  const teamName = getTeamName(entry.teamId);
+                                  const teamMembers = getTeamMemberNames(entry.teamId);
+                                  return teamName ? (
+                                    <div className="space-y-1">
+                                      <div className="rounded-full bg-cyan-500/15 px-2 py-1 text-[10px] font-bold text-cyan-100 md:text-xs">
+                                        {teamName}
+                                      </div>
+                                      <div className="text-[10px] leading-snug opacity-80 md:text-xs">
+                                        {teamMembers.join(' / ')}
+                                      </div>
+                                    </div>
+                                  ) : null;
+                                })()}
                                 <div className="text-xs opacity-80 md:text-sm">
                                   {rank === 1 ? 'チャンピオン' : rank === 2 ? 'あと一歩' : 'ナイスラン'}
                                 </div>
                                 <div className="pt-2">
                                   <div className="text-[10px] opacity-70 md:text-xs">最終スコア</div>
-                                  <div className="text-2xl font-black md:text-3xl">{calculateGameScore(resolvedGameType, player)}</div>
+                                  <div className="text-2xl font-black md:text-3xl">
+                                    {isGolfTeamResults ? entry.teamScore : calculateGameScore(resolvedGameType, entry)}
+                                  </div>
+                                  {isGolfTeamResults ? (
+                                    <div className="pt-1 text-[10px] opacity-80 md:text-xs">
+                                      合計打数 {entry.teamStats.totalStrokes}
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
                             </div>
@@ -712,7 +762,15 @@ export default function HostScreen({
           <div className="min-h-0">
             <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
               <h2 className="mb-4 flex shrink-0 items-center justify-between text-xl font-bold">
-                <span>{currentRoomState.state === 'playing' ? '現在の順位' : currentRoomState.state === 'teamReveal' ? 'チーム一覧' : '参加者一覧'}</span>
+                <span>
+                  {currentRoomState.state === 'playing'
+                    ? '現在の順位'
+                    : currentRoomState.state === 'teamReveal'
+                      ? 'チーム一覧'
+                      : isGolfTeamResults
+                        ? '最終チーム順位'
+                        : '参加者一覧'}
+                </span>
                 <span className="bg-slate-700 px-3 py-1 rounded-full text-sm">{players.length}</span>
               </h2>
               
@@ -722,7 +780,40 @@ export default function HostScreen({
                     {renderTeamBoard(true)}
                   </div>
                 )}
-                {currentRoomState.state !== 'teamReveal' && sortedPlayers.map((p: any, index: number) => (
+                {currentRoomState.state === 'results' && isGolfTeamResults && teamRankings.map((team: any, index: number) => (
+                  <div key={`result-team-${team.teamId}`} className="rounded-xl bg-slate-700 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
+                          <span className="font-bold text-base text-cyan-200 md:text-lg">{team.teamName}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-300">
+                          {team.members.map((member: any) => member.name).join(' / ')}
+                        </div>
+                      </div>
+                      <div className="flex space-x-4 text-right">
+                        <div>
+                          <div className="text-xs text-slate-400">合計ホール</div>
+                          <div className="font-mono text-base font-bold text-green-400 md:text-lg">{team.teamStats.holesCompleted}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400">合計打数</div>
+                          <div className="font-mono text-base font-bold md:text-lg">{team.teamStats.totalStrokes}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400">合計正答</div>
+                          <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400">チームスコア</div>
+                          <div className="font-mono text-base font-bold text-yellow-300 md:text-lg">{team.teamScore}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {currentRoomState.state !== 'teamReveal' && !(currentRoomState.state === 'results' && isGolfTeamResults) && sortedPlayers.map((p: any, index: number) => (
                   <div
                     key={p.id}
                     className={`relative overflow-hidden rounded-xl bg-slate-700 p-3 transition-all duration-700 ${
