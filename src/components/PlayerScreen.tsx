@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { socket } from '../socket';
 import GolfGame from './GolfGame';
-import { playCorrectSound, playIncorrectSound, stopBGM } from '../lib/sound';
+import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, stopBGM } from '../lib/sound';
 import { calculateGameScore } from '../lib/scoring';
 import { matchesSpeechAnswer } from '../lib/answerMatching';
 import ProblemVisual from './ProblemVisual';
@@ -42,6 +42,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const ignoreNextServerAnswerRef = useRef(false);
   const ignoreNextServerQuestionRef = useRef(false);
+  const previousExplosionCountRef = useRef(0);
+  const previousAliveRef = useRef<boolean | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
   const isBomberMode = roomState?.gameType === 'bomber';
   const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
@@ -215,6 +217,22 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   useEffect(() => {
     stopBGM();
   }, [roomState]);
+
+  useEffect(() => {
+    if (!isBomberMode || !roomState) return;
+
+    const explosionCount = roomState.bomberState?.explosions?.length || 0;
+    if (explosionCount > previousExplosionCountRef.current) {
+      playExplosionSound();
+    }
+    previousExplosionCountRef.current = explosionCount;
+
+    const alive = roomState.players?.[socket.id]?.alive;
+    if (previousAliveRef.current === true && alive === false) {
+      playDefeatSound();
+    }
+    previousAliveRef.current = typeof alive === 'boolean' ? alive : null;
+  }, [isBomberMode, roomState]);
 
   useEffect(() => {
     if (!question?.audioPrompt || answerResult !== null) return;

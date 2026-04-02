@@ -1,6 +1,6 @@
 let audioCtx: AudioContext | null = null;
 
-type BgmScene = 'title' | 'host' | 'play' | 'results';
+type BgmScene = 'title' | 'host' | 'play' | 'results' | 'bomber_host' | 'bomber_play' | 'bomber_results';
 
 const withBase = (path: string) => {
   const normalizedBase = import.meta.env.BASE_URL || '/';
@@ -26,6 +26,9 @@ const BGM_SOURCES: Record<BgmScene, string[]> = {
   host: [withBase('/bgm/host/host_lobby.mp3')],
   play: [withBase('/bgm/play/gameplay_main.mp3')],
   results: [withBase('/bgm/results/results_win.mp3')],
+  bomber_host: [withBase('/bgm/bomber/bomber_lobby.mp3')],
+  bomber_play: [withBase('/bgm/bomber/bomber_battle.mp3')],
+  bomber_results: [withBase('/bgm/bomber/bomber_results.mp3')],
 };
 
 const getCtx = () => {
@@ -146,6 +149,56 @@ export const playCupInSound = () => {
 
     osc.start();
     osc.stop(ctx.currentTime + 0.5);
+  } catch (e) { console.error(e); }
+};
+
+export const playExplosionSound = () => {
+  try {
+    const ctx = getCtx();
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.18, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = noiseBuffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1400, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.18);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.55, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.18);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    source.start();
+    source.stop(ctx.currentTime + 0.18);
+  } catch (e) { console.error(e); }
+};
+
+export const playDefeatSound = () => {
+  try {
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(280, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.32);
+
+    gain.gain.setValueAtTime(0.28, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.32);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.32);
   } catch (e) { console.error(e); }
 };
 

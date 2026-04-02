@@ -10,6 +10,7 @@ import HostScreen from './components/HostScreen';
 import PlayerScreen from './components/PlayerScreen';
 import SinglePlayScreen from './components/SinglePlayScreen';
 import SingleQuizScreen from './components/SingleQuizScreen';
+import SingleBomberScreen from './components/SingleBomberScreen';
 
 export default function App() {
   const [role, setRole] = useState<'none' | 'host' | 'player' | 'single_setup' | 'single_play'>('none');
@@ -84,6 +85,17 @@ export default function App() {
     if (selectedGameType === 'quiz') {
       return (
         <SingleQuizScreen
+          questions={singlePlayConfig.questions}
+          mode={singlePlayConfig.mode}
+          timeLimit={singlePlayConfig.timeLimit}
+          gameTitle={singlePlayConfig.gameTitle}
+          onReturnToTitle={returnToTitle}
+        />
+      );
+    }
+    if (selectedGameType === 'bomber') {
+      return (
+        <SingleBomberScreen
           questions={singlePlayConfig.questions}
           mode={singlePlayConfig.mode}
           timeLimit={singlePlayConfig.timeLimit}

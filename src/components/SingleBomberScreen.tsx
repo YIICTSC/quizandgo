@@ -1,0 +1,642 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import BomberGame from './BomberGame';
+import ProblemVisual from './ProblemVisual';
+import { calculateGameScore } from '../lib/scoring';
+import { findMatchingOptionIndex, matchesSpeechAnswer, shuffleOptionsWithFirstCorrect } from '../lib/answerMatching';
+import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: any) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => BrowserSpeechRecognition;
+    webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
+  }
+}
+
+type SingleBomberQuestion = {
+  question?: string;
+  text?: string;
+  answer: string;
+  options: string[];
+  hint?: string;
+  visual?: any;
+  audioPrompt?: any;
+  speechPrompt?: any;
+};
+
+type BomberCell = 'solid' | 'breakable' | 'floor';
+type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean };
+type Bomb = { id: string; ownerId: string; x: number; y: number; explodeAt: number; range: number };
+type Explosion = { id: string; ownerId: string; cells: { x: number; y: number }[]; expiresAt: number };
+
+const BASE_WIDTH = 21;
+const BASE_HEIGHT = 15;
+const BOMB_DELAY_MS = 2000;
+const EXPLOSION_MS = 500;
+const RESPAWN_MS = 2200;
+const MAX_BOMBS = 3;
+
+const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
+const toOddSize = (value: number) => {
+  const rounded = Math.max(5, Math.ceil(value));
+  return rounded % 2 === 1 ? rounded : rounded + 1;
+};
+
+const getDimensionsForFloor = (floor: number) => ({
+  width: Math.max(BASE_WIDTH, toOddSize(BASE_WIDTH + Math.floor((floor - 1) / 2) * 2)),
+  height: Math.max(BASE_HEIGHT, toOddSize(BASE_HEIGHT + Math.floor((floor - 1) / 3) * 2)),
+});
+
+const createGrid = (width: number, height: number) =>
+  Array.from({ length: height }, (_, y) =>
+    Array.from({ length: width }, (_, x) => {
+      const isBorder = x === 0 || y === 0 || x === width - 1 || y === height - 1;
+      if (isBorder) return 'solid' as BomberCell;
+      if (x % 2 === 0 && y % 2 === 0) return 'solid' as BomberCell;
+      return Math.random() < 0.42 ? 'breakable' : 'floor';
+    })
+  );
+
+const clearSpawnArea = (grid: BomberCell[][], x: number, y: number) => {
+  [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (grid[ny]?.[nx] && grid[ny][nx] !== 'solid') {
+      grid[ny][nx] = 'floor';
+    }
+  });
+};
+
+const randomFloorPosition = (grid: BomberCell[][], used: Set<string>) => {
+  const candidates: { x: number; y: number }[] = [];
+  for (let y = 1; y < grid.length - 1; y += 1) {
+    for (let x = 1; x < grid[y].length - 1; x += 1) {
+      if (grid[y][x] === 'floor' && !used.has(`${x},${y}`)) candidates.push({ x, y });
+    }
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)] || { x: 1, y: 1 };
+};
+
+const isBlocked = (grid: BomberCell[][], bombs: Bomb[], x: number, y: number) => {
+  if (!grid[y]?.[x]) return true;
+  if (grid[y][x] !== 'floor') return true;
+  return bombs.some((bomb) => bomb.x === x && bomb.y === y);
+};
+
+const buildExplosionCells = (grid: BomberCell[][], originX: number, originY: number, range: number) => {
+  const cells = [{ x: originX, y: originY }];
+  const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (const [dx, dy] of directions) {
+    for (let step = 1; step <= range; step += 1) {
+      const x = originX + dx * step;
+      const y = originY + dy * step;
+      const cell = grid[y]?.[x];
+      if (!cell || cell === 'solid') break;
+      cells.push({ x, y });
+      if (cell === 'breakable') break;
+    }
+  }
+  return cells;
+};
+
+const generateMathQuestion = (type: string): SingleBomberQuestion => {
+  const resolvedType = type === 'mix' ? ['add', 'sub', 'mul', 'div'][Math.floor(Math.random() * 4)] : type;
+  let num1 = 0;
+  let num2 = 0;
+  let answer = 0;
+  let text = '';
+  switch (resolvedType) {
+    case 'add':
+      num1 = Math.floor(Math.random() * 20) + 1;
+      num2 = Math.floor(Math.random() * 20) + 1;
+      answer = num1 + num2;
+      text = `${num1} + ${num2} = ?`;
+      break;
+    case 'sub':
+      num1 = Math.floor(Math.random() * 20) + 10;
+      num2 = Math.floor(Math.random() * num1);
+      answer = num1 - num2;
+      text = `${num1} - ${num2} = ?`;
+      break;
+    case 'mul':
+      num1 = Math.floor(Math.random() * 9) + 2;
+      num2 = Math.floor(Math.random() * 9) + 2;
+      answer = num1 * num2;
+      text = `${num1} × ${num2} = ?`;
+      break;
+    case 'div':
+      num2 = Math.floor(Math.random() * 9) + 2;
+      answer = Math.floor(Math.random() * 9) + 2;
+      num1 = num2 * answer;
+      text = `${num1} ÷ ${num2} = ?`;
+      break;
+    default:
+      num1 = Math.floor(Math.random() * 20) + 1;
+      num2 = Math.floor(Math.random() * 20) + 1;
+      answer = num1 + num2;
+      text = `${num1} + ${num2} = ?`;
+      break;
+  }
+
+  const options = new Set<number>([answer]);
+  while (options.size < 4) {
+    const offset = Math.floor(Math.random() * 11) - 5;
+    if (offset !== 0 && answer + offset >= 0) options.add(answer + offset);
+  }
+
+  return {
+    question: text,
+    answer: String(answer),
+    options: shuffle(Array.from(options).map(String)),
+  };
+};
+
+export default function SingleBomberScreen({
+  questions,
+  mode,
+  timeLimit,
+  gameTitle,
+  onReturnToTitle,
+}: {
+  questions?: SingleBomberQuestion[];
+  mode: string;
+  timeLimit: number;
+  gameTitle: string;
+  onReturnToTitle: () => void;
+}) {
+  const [timeRemaining, setTimeRemaining] = useState(timeLimit);
+  const [floor, setFloor] = useState(1);
+  const [grid, setGrid] = useState<BomberCell[][]>([]);
+  const [bombs, setBombs] = useState<Bomb[]>([]);
+  const [explosions, setExplosions] = useState<Explosion[]>([]);
+  const [enemies, setEnemies] = useState<Enemy[]>([]);
+  const [playerPos, setPlayerPos] = useState({ x: 1, y: 1, spawnX: 1, spawnY: 1, alive: true, respawnAt: null as number | null });
+  const [bombsAvailable, setBombsAvailable] = useState(1);
+  const [bombRange] = useState(2);
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [kills, setKills] = useState(0);
+  const [blocksDestroyed, setBlocksDestroyed] = useState(0);
+  const [deaths, setDeaths] = useState(0);
+  const [timeAliveMs, setTimeAliveMs] = useState(0);
+  const [question, setQuestion] = useState<SingleBomberQuestion | null>(null);
+  const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
+  const [correctAnswerIndex, setCorrectAnswerIndex] = useState<number | null>(null);
+  const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechTranscript, setSpeechTranscript] = useState('');
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const enemyTickRef = useRef(0);
+  const prevExplosionCountRef = useRef(0);
+  const prevAliveRef = useRef<boolean | null>(null);
+  const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
+
+  const pickQuestion = useCallback(() => {
+    if (mode !== 'custom') return generateMathQuestion(mode);
+    if (!questions?.length) return null;
+    const source = questions[Math.floor(Math.random() * questions.length)];
+    const { correctAnswer, shuffledOptions } = shuffleOptionsWithFirstCorrect(source.options, source.answer);
+    return { ...source, answer: correctAnswer, options: shuffledOptions };
+  }, [mode, questions]);
+
+  const stopRecognition = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+  }, []);
+
+  const speakPrompt = useCallback((text: string, lang = 'ja-JP') => {
+    if (!text || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = lang.startsWith('en') ? 0.95 : 1;
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  const prepareFloor = useCallback((nextFloor: number) => {
+    const { width, height } = getDimensionsForFloor(nextFloor);
+    const nextGrid = createGrid(width, height);
+    const used = new Set<string>();
+    const playerSpawn = randomFloorPosition(nextGrid, used);
+    clearSpawnArea(nextGrid, playerSpawn.x, playerSpawn.y);
+    used.add(`${playerSpawn.x},${playerSpawn.y}`);
+
+    const enemyCount = Math.min(3 + nextFloor, 12);
+    const nextEnemies: Enemy[] = Array.from({ length: enemyCount }, (_, index) => {
+      const spawn = randomFloorPosition(nextGrid, used);
+      clearSpawnArea(nextGrid, spawn.x, spawn.y);
+      used.add(`${spawn.x},${spawn.y}`);
+      return {
+        id: `enemy-${nextFloor}-${index}`,
+        name: `E${index + 1}`,
+        color: ['#fb7185', '#f59e0b', '#a78bfa', '#34d399'][index % 4],
+        x: spawn.x,
+        y: spawn.y,
+        alive: true,
+      };
+    });
+
+    setGrid(nextGrid);
+    setBombs([]);
+    setExplosions([]);
+    setEnemies(nextEnemies);
+    setPlayerPos({ x: playerSpawn.x, y: playerSpawn.y, spawnX: playerSpawn.x, spawnY: playerSpawn.y, alive: true, respawnAt: null });
+    setBombsAvailable(1);
+    setQuestion(pickQuestion());
+    setAnswerResult(null);
+    setSelectedAnswerIndex(null);
+    setCorrectAnswerIndex(null);
+    setCorrectAnswerText(null);
+    setSpeechTranscript('');
+  }, [pickQuestion]);
+
+  useEffect(() => {
+    setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+    prepareFloor(1);
+    startBGM('bomber_play');
+
+    const timer = window.setInterval(() => {
+      setTimeRemaining((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          stopBGM();
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+      stopRecognition();
+      stopBGM();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    };
+  }, [prepareFloor, stopRecognition]);
+
+  useEffect(() => {
+    if (!question?.audioPrompt || answerResult !== null) return;
+    if (question.audioPrompt.autoPlay === false) return;
+    const timer = window.setTimeout(() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP'), 250);
+    return () => window.clearTimeout(timer);
+  }, [answerResult, question, speakPrompt]);
+
+  useEffect(() => {
+    if (!grid.length || timeRemaining <= 0) return;
+
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      setTimeAliveMs((current) => current + (playerPos.alive ? 100 : 0));
+      setBombs((currentBombs) => {
+        const dueBombs = currentBombs.filter((bomb) => bomb.explodeAt <= now);
+        let remainingBombs = currentBombs.filter((bomb) => bomb.explodeAt > now);
+        if (dueBombs.length === 0) return currentBombs;
+
+        setGrid((currentGrid) => {
+          const nextGrid = currentGrid.map((row) => [...row]);
+          dueBombs.forEach((bomb) => {
+            const cells = buildExplosionCells(nextGrid, bomb.x, bomb.y, bomb.range);
+            setExplosions((current) => [...current, { id: `${bomb.id}-exp`, ownerId: bomb.ownerId, cells, expiresAt: now + EXPLOSION_MS }]);
+
+            let destroyed = 0;
+            cells.forEach(({ x, y }) => {
+              if (nextGrid[y]?.[x] === 'breakable') {
+                nextGrid[y][x] = 'floor';
+                destroyed += 1;
+              }
+            });
+            if (destroyed > 0) setBlocksDestroyed((current) => current + destroyed);
+
+            setEnemies((currentEnemies) => {
+              let killsThisBomb = 0;
+              const nextEnemies = currentEnemies.map((enemy) => {
+                if (!enemy.alive) return enemy;
+                const hit = cells.some((cell) => cell.x === enemy.x && cell.y === enemy.y);
+                if (!hit) return enemy;
+                killsThisBomb += 1;
+                return { ...enemy, alive: false };
+              });
+              if (killsThisBomb > 0) setKills((current) => current + killsThisBomb);
+              return nextEnemies;
+            });
+
+            setPlayerPos((currentPlayer) => {
+              if (!currentPlayer.alive) return currentPlayer;
+              const hit = cells.some((cell) => cell.x === currentPlayer.x && cell.y === currentPlayer.y);
+              if (!hit) return currentPlayer;
+              setDeaths((current) => current + 1);
+              return { ...currentPlayer, x: currentPlayer.spawnX, y: currentPlayer.spawnY, alive: false, respawnAt: now + RESPAWN_MS };
+            });
+          });
+          return nextGrid;
+        });
+
+        dueBombs.forEach(() => setBombsAvailable((current) => Math.min(MAX_BOMBS, current + 1)));
+        remainingBombs = remainingBombs.filter((bomb) => !dueBombs.some((due) => due.id === bomb.id));
+        return remainingBombs;
+      });
+
+      setExplosions((current) => current.filter((explosion) => explosion.expiresAt > now));
+      setPlayerPos((current) => {
+        if (!current.alive && current.respawnAt && now >= current.respawnAt) {
+          return { ...current, alive: true, respawnAt: null, x: current.spawnX, y: current.spawnY };
+        }
+        return current;
+      });
+
+      enemyTickRef.current += 1;
+      if (enemyTickRef.current % 5 === 0) {
+        setEnemies((currentEnemies) =>
+          currentEnemies.map((enemy) => {
+            if (!enemy.alive) return enemy;
+            const dirs = shuffle([
+              { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 },
+            ]);
+            const next = dirs.find((dir) => !isBlocked(grid, bombs, enemy.x + dir.x, enemy.y + dir.y));
+            if (!next) return enemy;
+            return { ...enemy, x: enemy.x + next.x, y: enemy.y + next.y };
+          })
+        );
+      }
+
+      setPlayerPos((current) => {
+        if (!current.alive) return current;
+        const touchedEnemy = enemies.some((enemy) => enemy.alive && enemy.x === current.x && enemy.y === current.y);
+        if (!touchedEnemy) return current;
+        setDeaths((value) => value + 1);
+        return { ...current, x: current.spawnX, y: current.spawnY, alive: false, respawnAt: now + RESPAWN_MS };
+      });
+    }, 100);
+
+    return () => window.clearInterval(interval);
+  }, [bombs, enemies, grid, playerPos.alive, prepareFloor, timeRemaining]);
+
+  useEffect(() => {
+    const aliveEnemies = enemies.filter((enemy) => enemy.alive);
+    if (grid.length > 0 && aliveEnemies.length === 0 && timeRemaining > 0) {
+      const nextFloor = floor + 1;
+      setFloor(nextFloor);
+      prepareFloor(nextFloor);
+    }
+  }, [enemies, floor, grid.length, prepareFloor, timeRemaining]);
+
+  useEffect(() => {
+    const explosionCount = explosions.length;
+    if (explosionCount > prevExplosionCountRef.current) playExplosionSound();
+    prevExplosionCountRef.current = explosionCount;
+    if (prevAliveRef.current === true && playerPos.alive === false) playDefeatSound();
+    prevAliveRef.current = playerPos.alive;
+  }, [explosions.length, playerPos.alive]);
+
+  const getOptionStateClass = (index: number) => {
+    if (answerResult === null) return 'hover:scale-105 active:scale-95';
+    if (index === correctAnswerIndex) return 'scale-[1.02] border-4 border-emerald-200 ring-4 ring-emerald-500/40 opacity-100';
+    if (!answerResult && index === selectedAnswerIndex) return 'border-4 border-rose-200 ring-4 ring-rose-500/40 opacity-100';
+    return 'opacity-35';
+  };
+
+  const moveToNextQuestion = useCallback((delay: number) => {
+    window.setTimeout(() => {
+      setQuestion(pickQuestion());
+      setAnswerResult(null);
+      setSelectedAnswerIndex(null);
+      setCorrectAnswerIndex(null);
+      setCorrectAnswerText(null);
+      setSpeechTranscript('');
+    }, delay);
+  }, [pickQuestion]);
+
+  const submitAnswer = useCallback((answerIndex?: number, isSpeechCorrect?: boolean) => {
+    if (!question) return;
+    const correctIndex = findMatchingOptionIndex(question.options, question.answer);
+    const correct = typeof isSpeechCorrect === 'boolean' ? isSpeechCorrect : answerIndex === correctIndex;
+    setAnswerResult(correct);
+    setCorrectAnswerIndex(correctIndex);
+    setCorrectAnswerText(question.answer);
+    if (correct) {
+      setCorrectAnswers((current) => current + 1);
+      setBombsAvailable((current) => Math.min(MAX_BOMBS, current + 1));
+      playCorrectSound();
+      moveToNextQuestion(700);
+    } else {
+      playIncorrectSound();
+      moveToNextQuestion(2200);
+    }
+  }, [moveToNextQuestion, question]);
+
+  const startSpeechRecognition = useCallback(() => {
+    if (!question?.speechPrompt || answerResult !== null || isListening) return;
+    const RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!RecognitionCtor) {
+      alert('このブラウザは音声入力に対応していません。');
+      return;
+    }
+
+    setSpeechTranscript('');
+    const recognition = new RecognitionCtor();
+    recognition.lang = question.speechPrompt.lang || 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results || [])
+        .map((result: any) => result?.[0]?.transcript || '')
+        .join(' ')
+        .trim();
+      setSpeechTranscript(transcript);
+      submitAnswer(undefined, matchesSpeechAnswer(transcript, question.speechPrompt));
+    };
+    recognition.onerror = () => stopRecognition();
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  }, [answerResult, isListening, question, stopRecognition, submitAnswer]);
+
+  const me = useMemo(() => ({
+    id: 'single-player',
+    name: 'あなた',
+    color: '#38bdf8',
+    bomberX: playerPos.x,
+    bomberY: playerPos.y,
+    alive: playerPos.alive,
+    kills,
+    blocksDestroyed,
+    correctAnswers,
+    deaths,
+    timeAliveMs,
+    bombsAvailable,
+  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, kills, playerPos.alive, playerPos.x, playerPos.y, timeAliveMs]);
+
+  const combinedPlayers = useMemo(() => {
+    const players: Record<string, any> = { [me.id]: me };
+    enemies.forEach((enemy) => {
+      players[enemy.id] = {
+        id: enemy.id,
+        name: enemy.name,
+        color: enemy.color,
+        bomberX: enemy.x,
+        bomberY: enemy.y,
+        alive: enemy.alive,
+      };
+    });
+    return players;
+  }, [enemies, me]);
+
+  if (timeRemaining <= 0) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+        <h1 className="text-5xl font-bold mb-8 text-yellow-400">クイズボンバー終了</h1>
+        <p className="text-2xl text-slate-300 mb-12">{gameTitle} の結果です。</p>
+        <div className="bg-slate-800 px-12 py-8 rounded-2xl border border-slate-700 shadow-2xl text-center">
+          <div className="text-xl text-slate-400 mb-2">あなたの成績</div>
+          <div className="text-4xl font-bold mb-4 text-sky-400">Floor {floor}</div>
+          <div className="grid grid-cols-2 gap-8 mt-8">
+            <div><div className="text-sm text-slate-400">撃破</div><div className="text-3xl font-mono font-bold text-rose-300">{kills}</div></div>
+            <div><div className="text-sm text-slate-400">破壊</div><div className="text-3xl font-mono font-bold text-amber-300">{blocksDestroyed}</div></div>
+            <div><div className="text-sm text-slate-400">正答数</div><div className="text-3xl font-mono font-bold text-cyan-300">{correctAnswers}</div></div>
+            <div><div className="text-sm text-slate-400">最終スコア</div><div className="text-3xl font-mono font-bold text-yellow-300">{calculateGameScore('bomber', { kills, blocksDestroyed, correctAnswers, deaths, timeAliveMs })}</div></div>
+          </div>
+          <button onClick={onReturnToTitle} className="mt-8 rounded-xl bg-slate-700 px-6 py-3 text-lg font-bold text-white hover:bg-slate-600">タイトル画面に戻る</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen overflow-hidden bg-slate-900 text-white">
+      <div className="mx-auto flex h-full max-w-7xl flex-col gap-2 p-2 md:p-3">
+        <div className="rounded-2xl border border-slate-700 bg-slate-800 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-6 w-6 rounded-full bg-sky-400" />
+              <div>
+                <div className="text-lg font-bold md:text-xl">あなた</div>
+                <div className="text-xs text-slate-400">クイズボンバー シングル / Floor {floor}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">残り: <span className="font-bold text-yellow-300">{timeRemaining}</span></div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">爆弾: <span className="font-bold text-rose-300">{bombsAvailable}</span></div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">敵: <span className="font-bold text-red-300">{enemies.filter((enemy) => enemy.alive).length}</span></div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{kills}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
+          <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">
+            <BomberGame
+              roomId="single-bomber"
+              me={me}
+              players={combinedPlayers}
+              bomberState={{ width: grid[0]?.length || BASE_WIDTH, height: grid.length || BASE_HEIGHT, grid, bombs, explosions }}
+              onMove={(direction) => {
+                if (!playerPos.alive) return;
+                const deltas = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as const;
+                const [dx, dy] = deltas[direction];
+                const nextX = playerPos.x + dx;
+                const nextY = playerPos.y + dy;
+                if (isBlocked(grid, bombs, nextX, nextY)) return;
+                setPlayerPos((current) => ({ ...current, x: nextX, y: nextY }));
+              }}
+              onPlaceBomb={() => {
+                if (!playerPos.alive || bombsAvailable <= 0) return;
+                if (bombs.some((bomb) => bomb.x === playerPos.x && bomb.y === playerPos.y)) return;
+                setBombs((current) => [
+                  ...current,
+                  { id: `single-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ownerId: me.id, x: playerPos.x, y: playerPos.y, explodeAt: Date.now() + BOMB_DELAY_MS, range: bombRange },
+                ]);
+                setBombsAvailable((current) => current - 1);
+              }}
+            />
+          </div>
+          <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">
+            {!playerPos.alive ? (
+              <div className="mb-3 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-3 text-center">
+                <div className="text-xl font-black text-rose-300">やられた！</div>
+                <div className="mt-1 text-xs text-rose-100">少し待つと復活します。</div>
+              </div>
+            ) : null}
+            {question ? (
+              <div className="flex h-full min-h-0 flex-col gap-3">
+                <div className="rounded-2xl bg-slate-900/50 p-3">
+                  <div className="mb-2 text-[11px] font-bold text-slate-400">正解すると爆弾を1個補充</div>
+                  <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text || question.question}</h2>
+                </div>
+                {question.visual ? <ProblemVisual visual={question.visual} /> : null}
+                {(question.audioPrompt || question.speechPrompt) && (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {question.audioPrompt && (
+                      <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-3 py-2 text-sm font-bold text-white hover:bg-sky-500">
+                        音声を再生
+                      </button>
+                    )}
+                    {question.speechPrompt && (
+                      <div className="flex flex-col items-center gap-2">
+                        <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                          {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                        </button>
+                        {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {question.hint ? <div className="text-xs text-yellow-300">ヒント: {question.hint}</div> : null}
+                {question.speechPrompt?.freeResponse ? (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center text-base text-emerald-100">
+                    この問題は音声回答タイプです。上のボタンから話して答えてください。
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {question.options.map((opt: string, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setSelectedAnswerIndex(i);
+                          submitAnswer(i);
+                        }}
+                        disabled={answerResult !== null}
+                        className={`rounded-2xl p-3 text-base font-bold shadow-lg transition-transform md:text-lg ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                        style={{ backgroundColor: optionColors[i % 4] }}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {answerResult === false && correctAnswerText ? (
+                  <div className="rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center text-sm font-bold text-emerald-100">
+                    正解は <span className="text-emerald-300">{correctAnswerText}</span> です
+                  </div>
+                ) : null}
+                {answerResult === true ? (
+                  <div className="rounded-2xl border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-center text-sm font-bold text-cyan-100">
+                    正解。爆弾を1個補充しました。
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-slate-400">問題を準備しています...</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

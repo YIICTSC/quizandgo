@@ -236,15 +236,21 @@ export default function HostScreen({
     }
 
     const scene =
-      currentRoomState.state === 'results'
-        ? 'results'
-        : currentRoomState.state === 'playing'
-          ? 'play'
-          : 'host';
+      resolvedGameType === 'bomber'
+        ? currentRoomState.state === 'results'
+          ? 'bomber_results'
+          : currentRoomState.state === 'playing'
+            ? 'bomber_play'
+            : 'bomber_host'
+        : currentRoomState.state === 'results'
+          ? 'results'
+          : currentRoomState.state === 'playing'
+            ? 'play'
+            : 'host';
 
     startBGM(scene);
     return () => stopBGM();
-  }, [isSinglePlayer, currentRoomState.state]);
+  }, [isSinglePlayer, currentRoomState.state, resolvedGameType]);
 
   useEffect(() => {
     if (isSinglePlayer || currentRoomState.state !== 'results' || resolvedGameType !== 'golf') {
