@@ -96,7 +96,6 @@ const BOMBER_HEIGHT = 15;
 const BOMBER_RESPAWN_MS = 2500;
 const BOMBER_EXPLOSION_MS = 500;
 const BOMBER_BOMB_DELAY_MS = 2000;
-const BOMBER_MAX_BOMBS = 3;
 
 const consumeOneInventoryItem = (inventory: GameItemId[], itemId: GameItemId) => {
   const index = inventory.indexOf(itemId);
@@ -687,7 +686,7 @@ async function startServer() {
             nextQuestion = player.currentQuestion;
             nextDelayMs = 700;
           } else if (room.gameType === 'bomber') {
-            player.bombsAvailable = Math.min(BOMBER_MAX_BOMBS, (player.bombsAvailable || 0) + 1);
+            player.bombsAvailable = (player.bombsAvailable || 0) + 1;
             player.currentQuestion = getQuestionForRoom(room);
             nextQuestion = player.currentQuestion;
             nextDelayMs = 700;

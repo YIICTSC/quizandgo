@@ -44,7 +44,7 @@ const BASE_HEIGHT = 15;
 const BOMB_DELAY_MS = 2000;
 const EXPLOSION_MS = 500;
 const RESPAWN_MS = 2200;
-const MAX_BOMBS = 3;
+const getEnemyMoveTickInterval = (floor: number) => Math.max(2, 7 - Math.floor((floor - 1) / 2));
 
 const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
 const toOddSize = (value: number) => {
@@ -301,14 +301,33 @@ export default function SingleBomberScreen({
       setTimeAliveMs((current) => current + (playerPos.alive ? 100 : 0));
       setBombs((currentBombs) => {
         const dueBombs = currentBombs.filter((bomb) => bomb.explodeAt <= now);
-        let remainingBombs = currentBombs.filter((bomb) => bomb.explodeAt > now);
         if (dueBombs.length === 0) return currentBombs;
+
+        const pendingBombs = [...dueBombs];
+        const explodedIds = new Set<string>();
+        const pendingById = new Map(pendingBombs.map((bomb) => [bomb.id, bomb]));
+        let remainingBombs = currentBombs.filter((bomb) => bomb.explodeAt > now);
 
         setGrid((currentGrid) => {
           const nextGrid = currentGrid.map((row) => [...row]);
-          dueBombs.forEach((bomb) => {
+          while (pendingBombs.length > 0) {
+            const bomb = pendingBombs.shift();
+            if (!bomb || explodedIds.has(bomb.id)) continue;
+            explodedIds.add(bomb.id);
             const cells = buildExplosionCells(nextGrid, bomb.x, bomb.y, bomb.range);
             setExplosions((current) => [...current, { id: `${bomb.id}-exp`, ownerId: bomb.ownerId, cells, expiresAt: now + EXPLOSION_MS }]);
+
+            const chainTargets = remainingBombs.filter((target) => cells.some((cell) => cell.x === target.x && cell.y === target.y));
+            if (chainTargets.length > 0) {
+              chainTargets.forEach((target) => {
+                if (!explodedIds.has(target.id) && !pendingById.has(target.id)) {
+                  pendingBombs.push(target);
+                  pendingById.set(target.id, target);
+                }
+              });
+              const chainTargetIds = new Set(chainTargets.map((target) => target.id));
+              remainingBombs = remainingBombs.filter((target) => !chainTargetIds.has(target.id));
+            }
 
             let destroyed = 0;
             cells.forEach(({ x, y }) => {
@@ -339,13 +358,11 @@ export default function SingleBomberScreen({
               setDeaths((current) => current + 1);
               return { ...currentPlayer, x: currentPlayer.spawnX, y: currentPlayer.spawnY, alive: false, respawnAt: now + RESPAWN_MS };
             });
-          });
+          }
           return nextGrid;
         });
 
-        dueBombs.forEach(() => setBombsAvailable((current) => Math.min(MAX_BOMBS, current + 1)));
-        remainingBombs = remainingBombs.filter((bomb) => !dueBombs.some((due) => due.id === bomb.id));
-        return remainingBombs;
+        return remainingBombs.filter((bomb) => !explodedIds.has(bomb.id));
       });
 
       setExplosions((current) => current.filter((explosion) => explosion.expiresAt > now));
@@ -357,7 +374,7 @@ export default function SingleBomberScreen({
       });
 
       enemyTickRef.current += 1;
-      if (enemyTickRef.current % 5 === 0) {
+      if (enemyTickRef.current % getEnemyMoveTickInterval(floor) === 0) {
         setEnemies((currentEnemies) =>
           currentEnemies.map((enemy) => {
             if (!enemy.alive) return enemy;
@@ -381,7 +398,7 @@ export default function SingleBomberScreen({
     }, 100);
 
     return () => window.clearInterval(interval);
-  }, [bombs, enemies, grid, playerPos.alive, prepareFloor, timeRemaining]);
+  }, [bombs, enemies, floor, grid, playerPos.alive, prepareFloor, timeRemaining]);
 
   useEffect(() => {
     const aliveEnemies = enemies.filter((enemy) => enemy.alive);
@@ -427,7 +444,7 @@ export default function SingleBomberScreen({
     setCorrectAnswerText(question.answer);
     if (correct) {
       setCorrectAnswers((current) => current + 1);
-      setBombsAvailable((current) => Math.min(MAX_BOMBS, current + 1));
+      setBombsAvailable((current) => current + 1);
       playCorrectSound();
       moveToNextQuestion(700);
     } else {
@@ -576,7 +593,7 @@ export default function SingleBomberScreen({
             {question ? (
               <div className="flex h-full min-h-0 flex-col gap-3">
                 <div className="rounded-2xl bg-slate-900/50 p-3">
-                  <div className="mb-2 text-[11px] font-bold text-slate-400">正解すると爆弾を1個補充</div>
+                  <div className="mb-2 text-[11px] font-bold text-slate-400">爆弾は使うと減る（正解で1個補充）</div>
                   <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text || question.question}</h2>
                 </div>
                 {question.visual ? <ProblemVisual visual={question.visual} /> : null}
