@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { addItemToInventory, GameItemId, getRandomItemChoices } from './src/gameItems.ts';
 import { findMatchingOptionIndex, shuffleOptionsWithFirstCorrect } from './src/lib/answerMatching.ts';
+import { BOMBER_BASE_HEIGHT, BOMBER_BASE_WIDTH, getBomberDimensions } from './src/lib/bomberDimensions.ts';
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -91,8 +92,8 @@ interface Room {
 
 const rooms: Record<string, Room> = {};
 const COLORS = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF3', '#FFB533'];
-const BOMBER_WIDTH = 21;
-const BOMBER_HEIGHT = 15;
+const BOMBER_WIDTH = BOMBER_BASE_WIDTH;
+const BOMBER_HEIGHT = BOMBER_BASE_HEIGHT;
 const BOMBER_RESPAWN_MS = 2500;
 const BOMBER_EXPLOSION_MS = 500;
 const BOMBER_BOMB_DELAY_MS = 2000;
@@ -107,20 +108,6 @@ const getTeamInitial = (name: string) => {
   const trimmed = String(name || '').trim();
   if (!trimmed) return '?';
   return Array.from(trimmed)[0];
-};
-
-const toOddSize = (value: number) => {
-  const rounded = Math.max(5, Math.ceil(value));
-  return rounded % 2 === 1 ? rounded : rounded + 1;
-};
-
-const getBomberDimensions = (playerCount: number) => {
-  const normalizedCount = Math.max(4, playerCount);
-  const targetArea = normalizedCount * 79;
-  const aspect = BOMBER_WIDTH / BOMBER_HEIGHT;
-  const width = Math.max(BOMBER_WIDTH, toOddSize(Math.sqrt(targetArea * aspect)));
-  const height = Math.max(BOMBER_HEIGHT, toOddSize(targetArea / width));
-  return { width, height };
 };
 
 const randomFloorPosition = (grid: BomberCell[][], used: Set<string>) => {
