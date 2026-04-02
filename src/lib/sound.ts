@@ -8,6 +8,19 @@ const withBase = (path: string) => {
   return new URL(path.replace(/^\//, ''), baseUrl).toString();
 };
 
+
+const BGM_ENABLED_STORAGE_KEY = 'quizandgo_bgm_enabled';
+
+let bgmEnabled = (() => {
+  try {
+    const saved = window.localStorage.getItem(BGM_ENABLED_STORAGE_KEY);
+    if (saved === null) return true;
+    return saved !== '0';
+  } catch (e) {
+    return true;
+  }
+})();
+
 const BGM_SOURCES: Record<BgmScene, string[]> = {
   title: [withBase('/bgm/title/title_main.mp3')],
   host: [withBase('/bgm/host/host_lobby.mp3')],
@@ -235,6 +248,8 @@ const stopAudioBGM = () => {
 };
 
 export const startBGM = (scene: BgmScene = 'host') => {
+  if (!bgmEnabled) return;
+
   const preferredSources = BGM_SOURCES[scene];
   if (currentScene === scene && (bgmAudio || bgmInterval || unlockHandler)) return;
 
@@ -272,4 +287,18 @@ export const stopBGM = () => {
   currentScene = null;
   stopAudioBGM();
   stopSynthBGM();
+};
+
+
+export const isBGMEnabled = () => bgmEnabled;
+
+export const setBGMEnabled = (enabled: boolean) => {
+  bgmEnabled = enabled;
+  try {
+    window.localStorage.setItem(BGM_ENABLED_STORAGE_KEY, enabled ? '1' : '0');
+  } catch (e) {}
+
+  if (!enabled) {
+    stopBGM();
+  }
 };
