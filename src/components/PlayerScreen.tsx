@@ -8,6 +8,7 @@ import ProblemVisual from './ProblemVisual';
 import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
 import { GameItemId } from '../gameItems';
+import BomberGame from './BomberGame';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -40,6 +41,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
+  const isBomberMode = roomState?.gameType === 'bomber';
   const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
 
   const getOptionStateClass = (index: number) => {
@@ -133,7 +135,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       if (correct) {
         playCorrectSound();
         setTimeout(() => {
-          if (!isQuizMode) {
+          if (!isQuizMode && !isBomberMode) {
             setQuestion(null);
           }
         }, 700);
@@ -160,7 +162,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       socket.off('answerResult', onAnswerResult);
       socket.off('timeUpdate', onTimeUpdate);
     };
-  }, [isQuizMode, roomId, stopRecognition]);
+  }, [isBomberMode, isQuizMode, roomId, stopRecognition]);
 
   useEffect(() => {
     stopBGM();
@@ -251,15 +253,15 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
           </div>
           <div className="grid grid-cols-2 gap-8 mt-8">
             <div>
-              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : 'クリアホール'}</div>
-              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : me?.holesCompleted}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : isBomberMode ? '撃破' : 'クリアホール'}</div>
+              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : isBomberMode ? (me?.kills || 0) : me?.holesCompleted}</div>
             </div>
             <div>
-              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : '打数'}</div>
-              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : me?.totalStrokes}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : isBomberMode ? '破壊' : '打数'}</div>
+              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : isBomberMode ? (me?.blocksDestroyed || 0) : me?.totalStrokes}</div>
             </div>
             <div>
-              <div className="text-sm text-slate-400">正答数</div>
+              <div className="text-sm text-slate-400">{isBomberMode ? '正答数' : '正答数'}</div>
               <div className="text-3xl font-mono font-bold text-cyan-300">{me?.correctAnswers || 0}</div>
             </div>
             <div>
@@ -339,6 +341,113 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 ) : null}
               </div>
             ) : null}
+          </div>
+        </div>
+      );
+    }
+    if (isBomberMode) {
+      return (
+        <div className="h-screen overflow-hidden bg-slate-900 text-white">
+          <div className="mx-auto flex h-full max-w-7xl flex-col gap-3 p-3 md:p-4">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 rounded-full" style={{ backgroundColor: me?.color || 'white' }} />
+                  <div>
+                    <div className="text-xl font-bold">{playerName}</div>
+                    <div className="text-xs text-slate-400">クイズボンバー</div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs md:text-sm">
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">爆弾: <span className="font-bold text-rose-300">{me?.bombsAvailable || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">撃破: <span className="font-bold text-emerald-300">{me?.kills || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">破壊: <span className="font-bold text-amber-300">{me?.blocksDestroyed || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">スコア: <span className="font-bold text-cyan-300">{calculateGameScore('bomber', me || {})}</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1.3fr_0.9fr]">
+              <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-3">
+                <BomberGame
+                  roomId={roomId}
+                  me={me}
+                  players={roomState.players}
+                  bomberState={roomState.bomberState}
+                  onMove={(direction) => socket.emit('moveBomber', { roomId, direction })}
+                  onPlaceBomb={() => socket.emit('placeBomberBomb', { roomId })}
+                />
+              </div>
+              <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-4">
+                {!me?.alive ? (
+                  <div className="mb-4 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-center">
+                    <div className="text-2xl font-black text-rose-300">やられた！</div>
+                    <div className="mt-2 text-sm text-rose-100">少し待つと復活します。復活地点から再開です。</div>
+                  </div>
+                ) : null}
+                {question ? (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl bg-slate-900/50 p-4">
+                      <div className="mb-3 text-sm font-bold text-slate-400">正解すると爆弾を1個補充</div>
+                      <h2 className="text-2xl font-black leading-snug">{question.text}</h2>
+                    </div>
+                    {question.visual ? <ProblemVisual visual={question.visual} /> : null}
+                    {(question.audioPrompt || question.speechPrompt) && (
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                        {question.audioPrompt && (
+                          <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-500">
+                            音声を再生
+                          </button>
+                        )}
+                        {question.speechPrompt && (
+                          <div className="flex flex-col items-center gap-2">
+                            <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                              {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                            </button>
+                            {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {question.hint ? <div className="text-sm text-yellow-300">ヒント: {question.hint}</div> : null}
+                    {question.speechPrompt?.freeResponse ? (
+                      <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center text-lg text-emerald-100">
+                        この問題は音声回答タイプです。上のボタンから話して答えてください。
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        {question.options.map((opt: string, i: number) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setSelectedAnswerIndex(i);
+                              socket.emit('submitAnswer', { roomId, answerIndex: i });
+                            }}
+                            disabled={answerResult !== null}
+                            className={`rounded-2xl p-4 text-lg font-bold shadow-lg transition-transform ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                            style={{ backgroundColor: optionColors[i % 4] }}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {answerResult === false && correctAnswerText ? (
+                      <div className="rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-3 text-center text-base font-bold text-emerald-100">
+                        正解は <span className="text-emerald-300">{correctAnswerText}</span> です
+                      </div>
+                    ) : null}
+                    {answerResult === true ? (
+                      <div className="rounded-2xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-3 text-center text-base font-bold text-cyan-100">
+                        正解。爆弾を1個補充しました。
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-slate-400">問題を準備しています...</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       );

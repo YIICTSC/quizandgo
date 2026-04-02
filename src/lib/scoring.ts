@@ -2,6 +2,10 @@ export type ScorePlayerLike = {
   holesCompleted?: number;
   totalStrokes?: number;
   correctAnswers?: number;
+  kills?: number;
+  blocksDestroyed?: number;
+  deaths?: number;
+  timeAliveMs?: number;
 };
 
 export const calculateGolfScore = (player: ScorePlayerLike) => {
@@ -17,9 +21,22 @@ export const calculateQuizScore = (player: ScorePlayerLike) => {
   return correctAnswers * 100;
 };
 
+export const calculateBomberScore = (player: ScorePlayerLike) => {
+  const kills = player.kills || 0;
+  const blocksDestroyed = player.blocksDestroyed || 0;
+  const correctAnswers = player.correctAnswers || 0;
+  const deaths = player.deaths || 0;
+  const timeAliveMs = player.timeAliveMs || 0;
+
+  return (kills * 500) + (blocksDestroyed * 40) + (correctAnswers * 100) + Math.floor(timeAliveMs / 1000) * 2 - (deaths * 120);
+};
+
 export const calculateGameScore = (gameType: string | undefined, player: ScorePlayerLike) => {
   if (gameType === 'quiz') {
     return calculateQuizScore(player);
+  }
+  if (gameType === 'bomber') {
+    return calculateBomberScore(player);
   }
   return calculateGolfScore(player);
 };

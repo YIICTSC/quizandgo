@@ -54,7 +54,7 @@ export default function App() {
       <HostScreen
         roomId={roomId}
         onReturnToTitle={returnToTitle}
-        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType}
+        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType === 'bomber' ? 'クイズボンバー' : selectedGameType}
         gameType={selectedGameType}
       />
     );
@@ -70,7 +70,7 @@ export default function App() {
         roomId="single-player"
         onReturnToTitle={returnToTitle}
         mode="single"
-        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType}
+        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType === 'bomber' ? 'クイズボンバー' : selectedGameType}
         gameType={selectedGameType}
         onStartSinglePlayer={(payload) => {
           setSinglePlayConfig(payload);

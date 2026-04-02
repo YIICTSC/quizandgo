@@ -587,6 +587,11 @@ export default function HostScreen({
             {!isSinglePlayer && currentRoomState.state === 'playing' && (
               <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 flex flex-col items-center justify-center min-h-[400px]">
                 <h2 className="text-3xl font-bold mb-8 text-center text-green-400">{resolvedGameType === 'quiz' ? 'クイズ進行中' : 'ゲーム進行中'}</h2>
+                {resolvedGameType === 'bomber' && (
+                  <p className="mb-6 max-w-xl text-center text-slate-300">
+                    正解で爆弾を補充し、移動と爆風で相手を倒します。途中参加もこのPINから可能です。
+                  </p>
+                )}
                 
                 <div className="text-center mb-8">
                   <p className="text-xl text-slate-400 mb-2">残り時間</p>
@@ -767,6 +772,17 @@ export default function HostScreen({
                               <div className="text-xs text-slate-400">正答数</div>
                               <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{p.correctAnswers || 0}</div>
                             </div>
+                          ) : resolvedGameType === 'bomber' ? (
+                            <>
+                              <div>
+                                <div className="text-xs text-slate-400">撃破</div>
+                                <div className="font-mono text-base font-bold text-rose-300 md:text-lg">{p.kills || 0}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-slate-400">破壊</div>
+                                <div className="font-mono text-base font-bold text-amber-300 md:text-lg">{p.blocksDestroyed || 0}</div>
+                              </div>
+                            </>
                           ) : (
                             <>
                               <div>
@@ -780,9 +796,13 @@ export default function HostScreen({
                             </>
                           )}
                           <div>
-                            <div className="text-xs text-slate-400">{resolvedGameType === 'quiz' ? 'スコア' : '正答'}</div>
-                            <div className={`font-mono text-base font-bold md:text-lg ${resolvedGameType === 'quiz' ? 'text-yellow-300' : 'text-cyan-300'}`}>
-                              {resolvedGameType === 'quiz' ? calculateGameScore(resolvedGameType, p) : (p.correctAnswers || 0)}
+                            <div className="text-xs text-slate-400">{resolvedGameType === 'golf' ? '正答' : resolvedGameType === 'bomber' ? '生存' : 'スコア'}</div>
+                            <div className={`font-mono text-base font-bold md:text-lg ${resolvedGameType === 'quiz' ? 'text-yellow-300' : resolvedGameType === 'bomber' ? 'text-emerald-300' : 'text-cyan-300'}`}>
+                              {resolvedGameType === 'quiz'
+                                ? calculateGameScore(resolvedGameType, p)
+                                : resolvedGameType === 'bomber'
+                                  ? `${Math.floor((p.timeAliveMs || 0) / 1000)}秒`
+                                  : (p.correctAnswers || 0)}
                             </div>
                           </div>
                           {resolvedGameType !== 'quiz' && (

@@ -4,6 +4,7 @@ import { isBGMEnabled, setBGMEnabled, startBGM, stopBGM } from '../lib/sound';
 const HOST_GAME_OPTIONS = [
   { id: 'golf', title: 'ゴルフゲーム', subtitle: '現在プレイ可能', available: true },
   { id: 'quiz', title: 'クイズモード', subtitle: '現在プレイ可能', available: true },
+  { id: 'bomber', title: 'クイズボンバー', subtitle: '現在プレイ可能', available: true, singleAvailable: false },
 ];
 
 export default function Home({
@@ -143,7 +144,8 @@ export default function Home({
                   <button
                     key={option.id}
                     onClick={() => {
-                      if (option.available) {
+                      const canStart = option.available && (!singlePlayerMode || option.singleAvailable !== false);
+                      if (canStart) {
                         if (singlePlayerMode) {
                           onStartSinglePlayer(option.id);
                         } else {
@@ -151,15 +153,17 @@ export default function Home({
                         }
                       }
                     }}
-                    disabled={!option.available}
+                    disabled={!option.available || (singlePlayerMode && option.singleAvailable === false)}
                     className={`rounded-xl border p-4 text-left transition-colors ${
-                      option.available
+                      option.available && (!singlePlayerMode || option.singleAvailable !== false)
                         ? 'border-green-400 bg-green-500/10 hover:bg-green-500/20'
                         : 'cursor-not-allowed border-slate-600 bg-slate-700/70 opacity-80'
                     }`}
                   >
                     <div className="text-base font-bold text-white">{option.title}</div>
-                    <div className={`mt-2 text-xs ${option.available ? 'text-green-300' : 'text-slate-400'}`}>{option.subtitle}</div>
+                    <div className={`mt-2 text-xs ${option.available && (!singlePlayerMode || option.singleAvailable !== false) ? 'text-green-300' : 'text-slate-400'}`}>
+                      {singlePlayerMode && option.singleAvailable === false ? 'シングル未対応' : option.subtitle}
+                    </div>
                   </button>
                 ))}
               </div>
