@@ -107,6 +107,7 @@ export default function SinglePlayScreen({
   mode,
   timeLimit,
   gameTitle,
+  shotsPerQuestion = 3,
   debugHole,
   debugFreePlay = false,
   onReturnToTitle,
@@ -115,6 +116,7 @@ export default function SinglePlayScreen({
   mode: string;
   timeLimit: number;
   gameTitle: string;
+  shotsPerQuestion?: number;
   debugHole?: number;
   debugFreePlay?: boolean;
   onReturnToTitle: () => void;
@@ -123,6 +125,7 @@ export default function SinglePlayScreen({
   const [holesCompleted, setHolesCompleted] = useState(() => Math.max(0, (debugHole || 1) - 1));
   const [totalStrokes, setTotalStrokes] = useState(0);
   const [currentStrokes, setCurrentStrokes] = useState(0);
+  const [shotsRemaining, setShotsRemaining] = useState(0);
   const [canShoot, setCanShoot] = useState(debugFreePlay);
   const [ballInMotion, setBallInMotion] = useState(false);
   const [pinBallToStart, setPinBallToStart] = useState(!debugFreePlay);
@@ -160,7 +163,8 @@ export default function SinglePlayScreen({
     totalStrokes,
     currentStrokes,
     canShoot,
-  }), [canShoot, currentStrokes, holesCompleted, totalStrokes]);
+    shotsRemaining,
+  }), [canShoot, currentStrokes, holesCompleted, shotsRemaining, totalStrokes]);
 
   const speakPrompt = useCallback((text: string, lang = 'ja-JP') => {
     if (!text || !('speechSynthesis' in window)) return;
@@ -256,6 +260,7 @@ export default function SinglePlayScreen({
       if (correct) {
         playCorrectSound();
         setAnswerResult(true);
+        setShotsRemaining(shotsPerQuestion);
         setCanShoot(true);
         setPinBallToStart(false);
         window.setTimeout(() => setQuestion(null), 1000);
@@ -283,6 +288,7 @@ export default function SinglePlayScreen({
 
     if (correct) {
       playCorrectSound();
+      setShotsRemaining(shotsPerQuestion);
       setCanShoot(true);
       setPinBallToStart(false);
       window.setTimeout(() => setQuestion(null), 1000);
@@ -295,6 +301,7 @@ export default function SinglePlayScreen({
   const onSinglePlayerShot = useCallback(() => {
     setItems((current) => (activeItemId ? consumeOneInventoryItem(current, activeItemId) : current));
     setActiveItemId(null);
+    setShotsRemaining((current) => Math.max(0, current - 1));
     setCanShoot(false);
     setBallInMotion(true);
     setCurrentStrokes((current) => current + 1);
@@ -308,13 +315,18 @@ export default function SinglePlayScreen({
       return;
     }
     if (!canShoot && !question && timeRemaining > 0) {
+      if (shotsRemaining > 0) {
+        setCanShoot(true);
+        return;
+      }
       setNextQuestion();
     }
-  }, [canShoot, debugFreePlay, question, setNextQuestion, timeRemaining]);
+  }, [canShoot, debugFreePlay, question, setNextQuestion, shotsRemaining, timeRemaining]);
 
   const onSingleHoleCompleted = useCallback(() => {
     setHolesCompleted((current) => current + 1);
     setCurrentStrokes(0);
+    setShotsRemaining(0);
     setBallInMotion(false);
     setActiveItemId(null);
     if (debugFreePlay) {
@@ -405,6 +417,11 @@ export default function SinglePlayScreen({
                 <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono md:text-sm">
                   打数: <span className="font-bold text-blue-400">{totalStrokes}</span>
                 </div>
+                {!debugFreePlay && (
+                  <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono md:text-sm">
+                    残り打数: <span className="font-bold text-orange-300">{shotsRemaining}</span>
+                  </div>
+                )}
               </div>
               <div className="w-full max-w-[360px] flex-none">
                 <ItemSlots

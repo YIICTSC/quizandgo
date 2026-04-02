@@ -331,6 +331,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono md:text-sm">
                     打数: <span className="font-bold text-blue-400">{me?.totalStrokes}</span>
                   </div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono md:text-sm">
+                    残り打数: <span className="font-bold text-orange-300">{me?.shotsRemaining || 0}</span>
+                  </div>
                 </div>
                 <div className="w-full max-w-[360px] flex-none">
                   <ItemSlots

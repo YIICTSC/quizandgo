@@ -627,9 +627,12 @@ export default function GolfGame({
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const dragCurrentRef = useRef({ x: 0, y: 0 });
+  const lastSentBallPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastSentBallAtRef = useRef(0);
   const remoteBallTargetsRef = useRef<Record<string, { x: number; y: number }>>({});
   const remoteBallDisplayRef = useRef<Record<string, { x: number; y: number }>>({});
   const remoteBallAnimationFrameRef = useRef<number | null>(null);
+  const remoteBallLastFrameAtRef = useRef(0);
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -690,10 +693,18 @@ export default function GolfGame({
     if (isSinglePlayer) return;
 
     const animateRemoteBalls = () => {
+      const now = performance.now();
+      if (now - remoteBallLastFrameAtRef.current < 33) {
+        remoteBallAnimationFrameRef.current = window.requestAnimationFrame(animateRemoteBalls);
+        return;
+      }
+      remoteBallLastFrameAtRef.current = now;
+
       const next: Record<string, { x: number; y: number }> = {};
       let hasActiveTarget = false;
+      let changed = false;
 
-      Object.entries(remoteBallTargetsRef.current).forEach(([playerId, target]) => {
+      (Object.entries(remoteBallTargetsRef.current) as Array<[string, { x: number; y: number }]>).forEach(([playerId, target]) => {
         const current = remoteBallDisplayRef.current[playerId] || target;
         const dx = target.x - current.x;
         const dy = target.y - current.y;
@@ -705,16 +716,24 @@ export default function GolfGame({
             x: current.x + dx * 0.35,
             y: current.y + dy * 0.35,
           };
+          if (!changed && (Math.abs(next[playerId].x - current.x) > 0.15 || Math.abs(next[playerId].y - current.y) > 0.15)) {
+            changed = true;
+          }
         } else {
           next[playerId] = target;
+          if (!changed && (Math.abs(target.x - current.x) > 0.15 || Math.abs(target.y - current.y) > 0.15)) {
+            changed = true;
+          }
         }
       });
 
       remoteBallDisplayRef.current = next;
-      setRemoteBallDisplay(next);
+      if (changed) {
+        setRemoteBallDisplay(next);
+      }
 
       if (hasActiveTarget) {
-        remoteBallAnimationFrameRef.current = window.setTimeout(animateRemoteBalls, 50);
+        remoteBallAnimationFrameRef.current = window.requestAnimationFrame(animateRemoteBalls);
       } else {
         remoteBallAnimationFrameRef.current = null;
       }
@@ -722,7 +741,7 @@ export default function GolfGame({
 
     const ensureAnimationLoop = () => {
       if (remoteBallAnimationFrameRef.current !== null) return;
-      remoteBallAnimationFrameRef.current = window.setTimeout(animateRemoteBalls, 50);
+      remoteBallAnimationFrameRef.current = window.requestAnimationFrame(animateRemoteBalls);
     };
 
     const onPlayerMoved = ({ playerId, x, y }: { playerId: string; x: number; y: number }) => {
@@ -737,10 +756,10 @@ export default function GolfGame({
 
     socket.on('playerMoved', onPlayerMoved);
 
-    return () => {
+      return () => {
       socket.off('playerMoved', onPlayerMoved);
       if (remoteBallAnimationFrameRef.current !== null) {
-        window.clearTimeout(remoteBallAnimationFrameRef.current);
+        window.cancelAnimationFrame(remoteBallAnimationFrameRef.current);
         remoteBallAnimationFrameRef.current = null;
       }
     };
@@ -1087,11 +1106,24 @@ export default function GolfGame({
 
         if (isMoving) {
           if (!isSinglePlayer) {
-            socket.emit('ballMoved', {
-              roomId,
+            const now = performance.now();
+            const position = {
               x: ballRef.current.position.x,
-              y: ballRef.current.position.y
-            });
+              y: ballRef.current.position.y,
+            };
+            const lastSent = lastSentBallPosRef.current;
+            const distanceSinceLastSent = lastSent
+              ? Math.hypot(position.x - lastSent.x, position.y - lastSent.y)
+              : Number.POSITIVE_INFINITY;
+            if (distanceSinceLastSent >= 2.5 || now - lastSentBallAtRef.current >= 120) {
+              lastSentBallPosRef.current = position;
+              lastSentBallAtRef.current = now;
+              socket.emit('ballMoved', {
+                roomId,
+                x: position.x,
+                y: position.y
+              });
+            }
           }
           wasMovingRef.current = true;
         } else if (wasMovingRef.current) {
@@ -1103,6 +1135,7 @@ export default function GolfGame({
             return;
           }
           clearShotEffect();
+          lastSentBallPosRef.current = null;
           if (isSinglePlayer) {
             singleBallStoppedRef.current?.();
           } else {
@@ -1202,6 +1235,8 @@ export default function GolfGame({
       }
       wasOnDirtRef.current = false;
       waterRespawningRef.current = false;
+      lastSentBallPosRef.current = null;
+      lastSentBallAtRef.current = 0;
       clearShotEffect();
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);

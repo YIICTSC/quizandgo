@@ -16,7 +16,7 @@ export default function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [playerName, setPlayerName] = useState<string>('');
   const [selectedGameType, setSelectedGameType] = useState<string>('golf');
-  const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string; debugHole?: number; debugFreePlay?: boolean } | null>(null);
+  const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion?: number; debugHole?: number; debugFreePlay?: boolean } | null>(null);
   const returnToTitle = () => {
     setRole('none');
     setRoomId('');
@@ -93,14 +93,15 @@ export default function App() {
       );
     }
     return (
-      <SinglePlayScreen
-        questions={singlePlayConfig.questions}
-        mode={singlePlayConfig.mode}
-        timeLimit={singlePlayConfig.timeLimit}
-        gameTitle={singlePlayConfig.gameTitle}
-        debugHole={singlePlayConfig.debugHole}
-        debugFreePlay={singlePlayConfig.debugFreePlay}
-        onReturnToTitle={returnToTitle}
+        <SinglePlayScreen
+          questions={singlePlayConfig.questions}
+          mode={singlePlayConfig.mode}
+          timeLimit={singlePlayConfig.timeLimit}
+          gameTitle={singlePlayConfig.gameTitle}
+          shotsPerQuestion={singlePlayConfig.shotsPerQuestion}
+          debugHole={singlePlayConfig.debugHole}
+          debugFreePlay={singlePlayConfig.debugFreePlay}
+          onReturnToTitle={returnToTitle}
       />
     );
   }
@@ -127,6 +128,7 @@ export default function App() {
           mode: 'debug_course',
           timeLimit: 9999,
           gameTitle: 'ゴルフゲーム デバッグ',
+          shotsPerQuestion: 3,
           debugHole: hole,
           debugFreePlay: true,
         });

@@ -45,11 +45,12 @@ export default function HostScreen({
   mode?: 'host' | 'single';
   gameTitle?: string;
   gameType?: string;
-  onStartSinglePlayer?: (payload: { mode: string; questions?: any[]; timeLimit: number; gameTitle: string }) => void;
+  onStartSinglePlayer?: (payload: { mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion: number }) => void;
 }) {
   const [roomState, setRoomState] = useState<any>(null);
   const [selectedMode, setSelectedMode] = useState<string>('mix');
   const [inputMinutes, setInputMinutes] = useState<string>('5'); // Default 5 minutes
+  const [shotsPerQuestion, setShotsPerQuestion] = useState<number>(3);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
 
@@ -238,11 +239,12 @@ export default function HostScreen({
         questions,
         timeLimit,
         gameTitle,
+        shotsPerQuestion,
       });
       return;
     }
 
-    socket.emit('startGame', { roomId, mode: selectedMode, timeLimit, questions });
+    socket.emit('startGame', { roomId, mode: selectedMode, timeLimit, questions, shotsPerQuestion });
   };
 
   const retrySameQuestions = () => {
@@ -431,6 +433,23 @@ export default function HostScreen({
                       />
                       <span className="text-[11px] font-bold text-slate-300">分</span>
                     </div>
+                    {resolvedGameType === 'golf' && (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                        <span className="text-[11px] font-bold text-slate-300">1問ごとの打数</span>
+                        <select
+                          value={shotsPerQuestion}
+                          onChange={(e) => setShotsPerQuestion(Number(e.target.value))}
+                          className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-green-400 focus:outline-none"
+                        >
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[11px] font-bold text-slate-300">打</span>
+                      </div>
+                    )}
                     <button 
                       onClick={startGame}
                       disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0)}
