@@ -51,6 +51,8 @@ export default function HostScreen({
   const [selectedMode, setSelectedMode] = useState<string>('mix');
   const [inputMinutes, setInputMinutes] = useState<string>('5'); // Default 5 minutes
   const [shotsPerQuestion, setShotsPerQuestion] = useState<number>(3);
+  const [teamMode, setTeamMode] = useState(false);
+  const [teamCount, setTeamCount] = useState<number>(2);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
 
@@ -180,6 +182,19 @@ export default function HostScreen({
     if (resolvedGameType !== 'golf') return [];
     return sortedPlayers.slice(0, 3);
   }, [resolvedGameType, sortedPlayers]);
+  const teamGroups = useMemo(() => {
+    const count = Math.max(2, Number(currentRoomState.teamCount) || teamCount || 2);
+    return Array.from({ length: count }, (_, index) => ({
+      teamId: index + 1,
+      teamName: currentRoomState.teamNames?.[index + 1] || `Team ${index + 1}`,
+      members: sortedPlayers.filter((player: any) => player.teamId === index + 1),
+    }));
+  }, [currentRoomState.teamCount, currentRoomState.teamNames, sortedPlayers, teamCount]);
+  const requiresMorePlayersForTeams =
+    !isSinglePlayer &&
+    resolvedGameType === 'golf' &&
+    teamMode &&
+    players.length < teamCount;
 
   useEffect(() => {
     if (isSinglePlayer) {
@@ -244,7 +259,7 @@ export default function HostScreen({
       return;
     }
 
-    socket.emit('startGame', { roomId, mode: selectedMode, timeLimit, questions, shotsPerQuestion });
+    socket.emit('startGame', { roomId, mode: selectedMode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount });
   };
 
   const retrySameQuestions = () => {
@@ -273,6 +288,42 @@ export default function HostScreen({
   const getRevealRankLabel = (indexFromBottom: number, total: number) => {
     return total - indexFromBottom;
   };
+
+  const renderTeamBoard = (compact = false) => (
+    <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
+      {teamGroups.map(({ teamId, teamName, members }) => (
+        <div key={teamId} className="rounded-2xl border border-slate-600 bg-slate-900/50 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <div className="text-lg font-black text-cyan-200">{teamName}</div>
+              <div className="text-xs text-slate-400">チーム {teamId}</div>
+            </div>
+            <div className="rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-bold text-cyan-200">
+              {members.length}人
+            </div>
+          </div>
+          <div className="space-y-2">
+            {members.length > 0 ? members.map((player: any) => (
+              <div key={player.id} className="flex items-center gap-3 rounded-xl bg-slate-800/80 px-3 py-2">
+                <div className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: player.color || 'white' }} />
+                <span className="truncate font-bold text-white">{player.name}</span>
+              </div>
+            )) : (
+              <div className="rounded-xl border border-dashed border-slate-700 px-3 py-4 text-center text-sm text-slate-500">
+                まだメンバーなし
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const getTeamName = (teamId: number | null | undefined) =>
+    teamId ? currentRoomState.teamNames?.[teamId] || `Team ${teamId}` : null;
+  const getTeamMemberNames = (teamId: number | null | undefined) =>
+    teamId
+      ? sortedPlayers.filter((player: any) => player.teamId === teamId).map((player: any) => player.name)
+      : [];
 
   return (
     <div className="h-screen overflow-hidden bg-slate-900 text-white p-3 md:p-4">
@@ -434,30 +485,101 @@ export default function HostScreen({
                       <span className="text-[11px] font-bold text-slate-300">分</span>
                     </div>
                     {resolvedGameType === 'golf' && (
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
-                        <span className="text-[11px] font-bold text-slate-300">1問ごとの打数</span>
-                        <select
-                          value={shotsPerQuestion}
-                          onChange={(e) => setShotsPerQuestion(Number(e.target.value))}
-                          className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-green-400 focus:outline-none"
-                        >
-                          {[1, 2, 3, 4, 5].map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-[11px] font-bold text-slate-300">打</span>
-                      </div>
+                      <>
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                          <span className="text-[11px] font-bold text-slate-300">1問ごとの打数</span>
+                          <select
+                            value={shotsPerQuestion}
+                            onChange={(e) => setShotsPerQuestion(Number(e.target.value))}
+                            className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-green-400 focus:outline-none"
+                          >
+                            {[1, 2, 3, 4, 5].map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-[11px] font-bold text-slate-300">打</span>
+                        </div>
+                        {!isSinglePlayer && (
+                          <>
+                            <button
+                              onClick={() => setTeamMode((current) => !current)}
+                              className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                                teamMode
+                                  ? 'border border-cyan-300 bg-cyan-500 text-slate-950'
+                                  : 'border border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                              }`}
+                            >
+                              チームモード {teamMode ? 'ON' : 'OFF'}
+                            </button>
+                            {teamMode && (
+                              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                                <span className="text-[11px] font-bold text-slate-300">チーム数</span>
+                                <select
+                                  value={teamCount}
+                                  onChange={(e) => setTeamCount(Number(e.target.value))}
+                                  className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-cyan-400 focus:outline-none"
+                                >
+                                  {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </select>
+                                <span className="text-[11px] font-bold text-slate-300">チーム</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
                     )}
                     <button 
                       onClick={startGame}
-                      disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0)}
+                      disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0) || requiresMorePlayersForTeams}
                       className="rounded-xl bg-green-500 px-5 py-2 text-sm font-bold text-white shadow-lg transition-colors hover:bg-green-400 disabled:cursor-not-allowed disabled:bg-slate-600 md:text-base"
                     >
                       {isSinglePlayer ? 'シングルプレイ開始' : 'ゲーム開始'}
                     </button>
                   </div>
+                  {requiresMorePlayersForTeams ? (
+                    <p className="mt-2 text-center text-[11px] text-cyan-300">
+                      チームモードでは、{teamCount}チーム以上に分けられる参加人数が必要です。
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {!isSinglePlayer && currentRoomState.state === 'teamReveal' && (
+              <div className="flex h-full min-h-0 flex-col rounded-2xl border border-cyan-500/30 bg-slate-800 p-4">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-black text-cyan-200">チーム発表</h2>
+                    <p className="mt-1 text-sm text-slate-300">
+                      ランダムでチーム分けしました。必要ならシャッフルしてから開始できます。
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-200">
+                    {currentRoomState.teamCount || teamCount}チーム
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  {renderTeamBoard()}
+                </div>
+                <div className="mt-4 flex flex-wrap justify-center gap-3 border-t border-slate-700 pt-4">
+                  <button
+                    onClick={() => socket.emit('reshuffleTeams', { roomId })}
+                    className="rounded-xl bg-cyan-500 px-5 py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-400"
+                  >
+                    チームをリシャッフル
+                  </button>
+                  <button
+                    onClick={() => socket.emit('confirmTeamsAndStart', { roomId })}
+                    className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-green-400"
+                  >
+                    このチームで開始
+                  </button>
                 </div>
               </div>
             )}
@@ -494,6 +616,8 @@ export default function HostScreen({
                         .map((player: any, revealIndexFromBottom: number) => {
                           const rank = getRevealRankLabel(revealIndexFromBottom, podiumPlayers.length);
                           const revealed = resultsRevealStep > revealIndexFromBottom;
+                          const teamName = getTeamName(player.teamId);
+                          const teamMembers = getTeamMemberNames(player.teamId);
                           const accent =
                             rank === 1 ? 'border-yellow-400 bg-yellow-500/15 text-yellow-100' :
                             rank === 2 ? 'border-slate-300 bg-slate-400/10 text-slate-100' :
@@ -523,6 +647,16 @@ export default function HostScreen({
                               </div>
                               <div className="space-y-1">
                                 <div className="text-lg font-bold leading-tight md:text-2xl">{player.name}</div>
+                                {teamName ? (
+                                  <div className="space-y-1">
+                                    <div className="rounded-full bg-cyan-500/15 px-2 py-1 text-[10px] font-bold text-cyan-100 md:text-xs">
+                                      {teamName}
+                                    </div>
+                                    <div className="text-[10px] leading-snug opacity-80 md:text-xs">
+                                      {teamMembers.join(' / ')}
+                                    </div>
+                                  </div>
+                                ) : null}
                                 <div className="text-xs opacity-80 md:text-sm">
                                   {rank === 1 ? 'チャンピオン' : rank === 2 ? 'あと一歩' : 'ナイスラン'}
                                 </div>
@@ -573,12 +707,17 @@ export default function HostScreen({
           <div className="min-h-0">
             <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
               <h2 className="mb-4 flex shrink-0 items-center justify-between text-xl font-bold">
-                <span>{currentRoomState.state === 'playing' ? '現在の順位' : '参加者一覧'}</span>
+                <span>{currentRoomState.state === 'playing' ? '現在の順位' : currentRoomState.state === 'teamReveal' ? 'チーム一覧' : '参加者一覧'}</span>
                 <span className="bg-slate-700 px-3 py-1 rounded-full text-sm">{players.length}</span>
               </h2>
               
               <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
-                {sortedPlayers.map((p: any, index: number) => (
+                {currentRoomState.state === 'teamReveal' && (
+                  <div className="space-y-3">
+                    {renderTeamBoard(true)}
+                  </div>
+                )}
+                {currentRoomState.state !== 'teamReveal' && sortedPlayers.map((p: any, index: number) => (
                   <div
                     key={p.id}
                     className={`relative overflow-hidden rounded-xl bg-slate-700 p-3 transition-all duration-700 ${
@@ -600,12 +739,26 @@ export default function HostScreen({
                       }`}></div>
                     )}
                     <div className="flex items-center justify-between gap-3 pl-2">
-                      <div className="flex items-center space-x-3">
+                      <div className="min-w-0 flex items-center space-x-3">
                         {currentRoomState.state === 'playing' && (
                           <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
                         )}
                         <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color || 'white' }}></div>
-                        <span className="font-bold text-base md:text-lg">{p.name}</span>
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate font-bold text-base md:text-lg">{p.name}</span>
+                            {resolvedGameType === 'golf' && p.teamId ? (
+                              <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
+                                {getTeamName(p.teamId)}
+                              </span>
+                            ) : null}
+                          </div>
+                          {currentRoomState.state === 'results' && resolvedGameType === 'golf' && p.teamId ? (
+                            <div className="mt-1 truncate text-[11px] text-slate-400">
+                              {getTeamMemberNames(p.teamId).join(' / ')}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                       {(currentRoomState.state === 'playing' || currentRoomState.state === 'results') && (
                         <div className="flex space-x-4 text-right">

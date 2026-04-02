@@ -193,6 +193,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     return (a.totalStrokes || 0) - (b.totalStrokes || 0);
   });
   const myRank = Math.max(0, sortedPlayers.findIndex((player: any) => player.id === socket.id)) + 1;
+  const myTeamId = me?.teamId ?? null;
+  const teammates = sortedPlayers.filter((player: any) => player.teamId === myTeamId);
+  const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
 
   if (roomState.state === 'waiting') {
     return (
@@ -201,6 +204,35 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
         <p className="text-2xl text-slate-400 mb-12">ホストの開始を待っています...</p>
         <div className="bg-slate-800 px-12 py-6 rounded-2xl border border-slate-700 shadow-2xl">
           <span className="text-3xl font-bold" style={{ color: me?.color || 'white' }}>{playerName}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (roomState.state === 'teamReveal') {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-4xl rounded-3xl border border-cyan-500/30 bg-slate-800 p-6 shadow-2xl md:p-8">
+          <div className="mb-6 text-center">
+            <h1 className="text-4xl font-black text-cyan-200 md:text-5xl">チーム発表</h1>
+            <p className="mt-3 text-lg text-slate-300">ホストがチーム分けを確定するまでお待ちください。</p>
+          </div>
+          <div className="mb-6 flex justify-center">
+            <div className="rounded-full border border-cyan-300/40 bg-cyan-500/15 px-8 py-4 text-2xl font-black text-cyan-100">
+              あなたは {myTeamName ?? '-'}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
+            <div className="mb-3 text-lg font-bold text-slate-100">チームメイト</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {teammates.map((player: any) => (
+                <div key={player.id} className="flex items-center gap-3 rounded-xl bg-slate-800 px-4 py-3">
+                  <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: player.color || 'white' }} />
+                  <span className="font-bold">{player.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -322,6 +354,11 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
               <div className="flex min-w-0 items-center space-x-3">
               <div className="w-6 h-6 rounded-full" style={{ backgroundColor: me?.color || 'white' }}></div>
                 <span className="truncate text-xl font-bold md:text-2xl">{playerName}</span>
+                {myTeamId ? (
+                  <span className="rounded-full border border-cyan-300/30 bg-cyan-500/15 px-3 py-1 text-xs font-bold text-cyan-200">
+                    {myTeamName}
+                  </span>
+                ) : null}
               </div>
               <div className="flex flex-1 flex-wrap items-start justify-end gap-2">
                 <div className="flex gap-2">
@@ -343,6 +380,18 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                     onSelectItem={(itemId) => socket.emit('selectActiveItem', { roomId, itemId })}
                   />
                 </div>
+                {myTeamId ? (
+                  <div className="w-full rounded-xl border border-cyan-500/20 bg-slate-800/80 px-3 py-2 text-xs text-cyan-100">
+                    <div className="mb-1 font-bold text-cyan-200">チームメイト</div>
+                    <div className="flex flex-wrap gap-2">
+                      {teammates.map((player: any) => (
+                        <span key={player.id} className="rounded-full bg-cyan-500/15 px-2.5 py-1 font-bold">
+                          {player.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
