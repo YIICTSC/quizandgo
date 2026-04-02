@@ -51,6 +51,7 @@ export default function HostScreen({
   const [selectedMode, setSelectedMode] = useState<string>('mix');
   const [inputMinutes, setInputMinutes] = useState<string>('5'); // Default 5 minutes
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [podiumRevealStep, setPodiumRevealStep] = useState<number>(-1);
 
   const isSinglePlayer = mode === 'single';
   const allUnits = useMemo(() => getAllUnits(), []);
@@ -167,12 +168,12 @@ export default function HostScreen({
 
   const currentRoomState = isSinglePlayer ? { state: 'waiting', players: {} } : roomState;
   const players = Object.values(currentRoomState.players);
+  const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
   const selectedQuestionCount = units
     .filter((u) => selectedUnits.includes(u.unit))
     .reduce((total, unit) => total + unit.questions.length, 0);
   
   // ランキング順にソート（スコアが高い順）
-  const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     const scoreDiff = calculateGameScore(resolvedGameType, b) - calculateGameScore(resolvedGameType, a);
     if (scoreDiff !== 0) {
@@ -183,6 +184,35 @@ export default function HostScreen({
     }
     return a.totalStrokes - b.totalStrokes;
   });
+
+  useEffect(() => {
+    if (isSinglePlayer || currentRoomState.state !== 'results' || resolvedGameType !== 'golf') {
+      setPodiumRevealStep(-1);
+      return;
+    }
+
+    setPodiumRevealStep(-1);
+    const revealOrder = [2, 1, 0]; // 3位 → 2位 → 1位
+    let step = -1;
+    const initialDelay = setTimeout(() => {
+      step = 0;
+      setPodiumRevealStep(step);
+    }, 700);
+
+    const interval = setInterval(() => {
+      if (step >= revealOrder.length - 1) {
+        clearInterval(interval);
+        return;
+      }
+      step += 1;
+      setPodiumRevealStep(step);
+    }, 1300);
+
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(interval);
+    };
+  }, [currentRoomState.state, isSinglePlayer, resolvedGameType]);
 
   const startGame = () => {
     const timeLimit = (parseInt(inputMinutes) || 5) * 60;
@@ -418,7 +448,9 @@ export default function HostScreen({
                 <h2 className="text-4xl font-bold mb-6 text-yellow-400">ゲーム終了</h2>
                 <p className="text-2xl text-slate-300 mb-8">結果を確認してください。</p>
                 <div className="text-6xl mb-8">🏆</div>
-                <p className="text-xl text-slate-400 mb-8">右側のランキングで最終結果を確認できます。</p>
+                <p className="text-xl text-slate-400 mb-8">
+                  右側のランキングで、3位→2位→1位の順に結果を発表します。
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={retrySameQuestions}
@@ -453,8 +485,22 @@ export default function HostScreen({
               </h2>
               
               <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
-                {sortedPlayers.map((p: any, index: number) => (
-                  <div key={p.id} className="relative overflow-hidden rounded-xl bg-slate-700 p-3">
+                {sortedPlayers.map((p: any, index: number) => {
+                  const revealOrder = [2, 1, 0];
+                  const revealStepForRank = revealOrder.indexOf(index);
+                  const isPodium = index <= 2;
+                  const isGolfResults = currentRoomState.state === 'results' && resolvedGameType === 'golf';
+                  const isRevealed = !isGolfResults || !isPodium || (revealStepForRank !== -1 && podiumRevealStep >= revealStepForRank);
+                  const showAnnouncementBadge = isGolfResults && isPodium && isRevealed;
+                  return (
+                  <div
+                    key={p.id}
+                    className={`relative overflow-hidden rounded-xl p-3 transition-all duration-700 ${
+                      isRevealed
+                        ? 'bg-slate-700 opacity-100 translate-y-0 scale-100'
+                        : 'bg-slate-800/40 opacity-20 translate-y-2 scale-95'
+                    } ${showAnnouncementBadge ? 'ring-2 ring-yellow-400/80 shadow-[0_0_25px_rgba(250,204,21,0.35)]' : ''}`}
+                  >
                     {currentRoomState.state === 'playing' && (
                       <div className={`absolute left-0 top-0 bottom-0 w-2 ${
                         index === 0 ? 'bg-yellow-400' : 
@@ -464,8 +510,13 @@ export default function HostScreen({
                     )}
                     <div className="flex items-center justify-between gap-3 pl-2">
                       <div className="flex items-center space-x-3">
-                        {currentRoomState.state === 'playing' && (
+                        {(currentRoomState.state === 'playing' || currentRoomState.state === 'results') && (
                           <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
+                        )}
+                        {showAnnouncementBadge && (
+                          <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-slate-900 animate-pulse">
+                            {index + 1}位 発表！
+                          </span>
                         )}
                         <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color || 'white' }}></div>
                         <span className="font-bold text-base md:text-lg">{p.name}</span>
@@ -505,7 +556,7 @@ export default function HostScreen({
                       )}
                     </div>
                   </div>
-                ))}
+                )})}
                 
                 {players.length === 0 && (
                   <div className="text-center text-slate-500 py-8">
