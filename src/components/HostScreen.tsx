@@ -157,11 +157,6 @@ export default function HostScreen({
     };
   }, [isSinglePlayer, roomId]);
 
-  useEffect(() => {
-    startBGM('host');
-    return () => stopBGM();
-  }, []);
-
   const currentRoomState = isSinglePlayer ? { state: 'waiting', players: {} } : (roomState ?? { state: 'loading', players: {} });
   const players = Object.values(currentRoomState.players);
   const selectedQuestionCount = units
@@ -184,6 +179,23 @@ export default function HostScreen({
     if (resolvedGameType !== 'golf') return [];
     return sortedPlayers.slice(0, 3);
   }, [resolvedGameType, sortedPlayers]);
+
+  useEffect(() => {
+    if (isSinglePlayer) {
+      startBGM('host');
+      return () => stopBGM();
+    }
+
+    const scene =
+      currentRoomState.state === 'results'
+        ? 'results'
+        : currentRoomState.state === 'playing'
+          ? 'play'
+          : 'host';
+
+    startBGM(scene);
+    return () => stopBGM();
+  }, [isSinglePlayer, currentRoomState.state]);
 
   useEffect(() => {
     if (isSinglePlayer || currentRoomState.state !== 'results' || resolvedGameType !== 'golf') {
@@ -256,8 +268,8 @@ export default function HostScreen({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const getRevealRankLabel = (indexFromTopThree: number, total: number) => {
-    return total - indexFromTopThree;
+  const getRevealRankLabel = (indexFromBottom: number, total: number) => {
+    return total - indexFromBottom;
   };
 
   return (
@@ -456,44 +468,48 @@ export default function HostScreen({
                 {resolvedGameType === 'golf' && podiumPlayers.length > 0 ? (
                   <div className="mb-8">
                     <p className="text-xl text-slate-300 mb-4">最終ランキング発表</p>
-                    <div className="mx-auto mb-4 max-w-2xl space-y-3">
+                    <div className="mx-auto mb-4 flex max-w-3xl items-end justify-center gap-3 md:gap-5">
                       {podiumPlayers
                         .slice()
                         .reverse()
-                        .map((player: any, revealIndex: number) => {
-                          const rank = getRevealRankLabel(revealIndex, podiumPlayers.length);
-                          const revealed = resultsRevealStep > revealIndex;
+                        .map((player: any, revealIndexFromBottom: number) => {
+                          const rank = getRevealRankLabel(revealIndexFromBottom, podiumPlayers.length);
+                          const revealed = resultsRevealStep > revealIndexFromBottom;
                           const accent =
                             rank === 1 ? 'border-yellow-400 bg-yellow-500/15 text-yellow-100' :
                             rank === 2 ? 'border-slate-300 bg-slate-400/10 text-slate-100' :
                             'border-amber-500 bg-amber-500/10 text-amber-100';
+                          const heightClass =
+                            rank === 1 ? 'h-72 md:h-80' :
+                            rank === 2 ? 'h-56 md:h-64' :
+                            'h-44 md:h-52';
 
                           return (
                             <div
                               key={player.id}
-                              className={`rounded-2xl border px-4 py-4 transition-all duration-700 ${
+                              className={`flex w-28 flex-col justify-between rounded-2xl border px-3 py-4 text-center transition-all duration-700 md:w-40 ${heightClass} ${
                                 revealed
                                   ? `${accent} opacity-100 translate-y-0 scale-100 shadow-[0_0_30px_rgba(250,204,21,0.15)]`
-                                  : 'border-slate-700 bg-slate-900/50 opacity-0 translate-y-6 scale-95'
+                                  : 'border-slate-700 bg-slate-900/50 opacity-0 translate-y-10 scale-95'
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="text-3xl font-black">{rank}位</div>
+                              <div>
+                                <div className="text-3xl font-black md:text-4xl">{rank}位</div>
+                                <div className="mt-2 flex justify-center">
                                   <div
                                     className="h-4 w-4 rounded-full border border-white/30"
                                     style={{ backgroundColor: player.color || 'white' }}
                                   />
-                                  <div className="text-left">
-                                    <div className="text-2xl font-bold">{player.name}</div>
-                                    <div className="text-sm opacity-80">
-                                      {rank === 1 ? 'チャンピオン' : rank === 2 ? 'あと一歩' : 'ナイスラン'}
-                                    </div>
-                                  </div>
                                 </div>
-                                <div className="text-right">
-                                  <div className="text-xs opacity-70">最終スコア</div>
-                                  <div className="text-3xl font-black">{calculateGameScore(resolvedGameType, player)}</div>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="text-lg font-bold leading-tight md:text-2xl">{player.name}</div>
+                                <div className="text-xs opacity-80 md:text-sm">
+                                  {rank === 1 ? 'チャンピオン' : rank === 2 ? 'あと一歩' : 'ナイスラン'}
+                                </div>
+                                <div className="pt-2">
+                                  <div className="text-[10px] opacity-70 md:text-xs">最終スコア</div>
+                                  <div className="text-2xl font-black md:text-3xl">{calculateGameScore(resolvedGameType, player)}</div>
                                 </div>
                               </div>
                             </div>
