@@ -27,6 +27,11 @@ interface Player {
   items: GameItemId[];
   activeItemId: GameItemId | null;
   pendingItemChoices: GameItemId[] | null;
+  shotsRemaining: number;
+  teamId: number | null;
+  lastBroadcastX?: number;
+  lastBroadcastY?: number;
+  lastBroadcastAt?: number;
 }
 
 interface Room {
@@ -34,11 +39,15 @@ interface Room {
   hostId: string;
   gameType: string;
   players: Record<string, Player>;
-  state: 'waiting' | 'playing' | 'results';
+  state: 'waiting' | 'teamReveal' | 'playing' | 'results';
   questionMode: string;
   timeLimit?: number;
   timeRemaining?: number;
   questions?: any[]; // Custom questions from Host
+  shotsPerQuestion?: number;
+  teamMode?: boolean;
+  teamCount?: number;
+  teamNames?: Record<number, string>;
 }
 
 const rooms: Record<string, Room> = {};
@@ -50,7 +59,13 @@ const consumeOneInventoryItem = (inventory: GameItemId[], itemId: GameItemId) =>
   return [...inventory.slice(0, index), ...inventory.slice(index + 1)];
 };
 
-const resetPlayerState = (player: Player) => {
+const getTeamInitial = (name: string) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '?';
+  return Array.from(trimmed)[0];
+};
+
+const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) => {
   player.holesCompleted = 0;
   player.totalStrokes = 0;
   player.currentStrokes = 0;
@@ -62,17 +77,69 @@ const resetPlayerState = (player: Player) => {
   player.items = [];
   player.activeItemId = null;
   player.pendingItemChoices = null;
+  player.shotsRemaining = 0;
+  if (!options?.preserveTeam) {
+    player.teamId = null;
+  }
+  player.lastBroadcastX = 100;
+  player.lastBroadcastY = 100;
+  player.lastBroadcastAt = 0;
 };
 
-const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questions?: any[]) => {
+const emitPersonalQuestion = (io: Server, player: Player) => {
+  if (!player.currentQuestion) return;
+  io.to(player.id).emit('personalQuestion', {
+    text: player.currentQuestion.text,
+    options: player.currentQuestion.options,
+    hint: player.currentQuestion.hint,
+    visual: player.currentQuestion.visual,
+    audioPrompt: player.currentQuestion.audioPrompt,
+    speechPrompt: player.currentQuestion.speechPrompt,
+  });
+};
+
+const assignRandomTeams = (room: Room, requestedTeamCount?: number) => {
+  const players = Object.values(room.players);
+  if (players.length === 0) {
+    room.teamCount = Math.max(2, Math.min(10, requestedTeamCount || room.teamCount || 2));
+    room.teamNames = {};
+    return;
+  }
+
+  const teamCount = Math.max(2, Math.min(10, requestedTeamCount || room.teamCount || 2, players.length));
+  room.teamCount = teamCount;
+
+  const shuffled = [...players].sort(() => Math.random() - 0.5);
+  shuffled.forEach((player, index) => {
+    player.teamId = (index % teamCount) + 1;
+  });
+
+  room.teamNames = {};
+  for (let teamId = 1; teamId <= teamCount; teamId += 1) {
+    const teamMembers = Object.values(room.players)
+      .filter((player) => player.teamId === teamId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    room.teamNames[teamId] = teamMembers.map((player) => getTeamInitial(player.name)).join('') || `Team ${teamId}`;
+  }
+};
+
+const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questions?: any[], options?: { preserveTeams?: boolean }) => {
+  if (room.teamMode && options?.preserveTeams) {
+    const hasMissingTeam = Object.values(room.players).some((player) => player.teamId == null);
+    if (hasMissingTeam) {
+      assignRandomTeams(room, room.teamCount);
+    }
+  }
+
   room.state = 'playing';
   room.questionMode = mode;
   room.timeLimit = timeLimit || 300;
   room.timeRemaining = room.timeLimit;
   room.questions = questions;
+  room.shotsPerQuestion = room.shotsPerQuestion || 3;
 
   Object.values(room.players).forEach((player) => {
-    resetPlayerState(player);
+    resetPlayerState(player, { preserveTeam: options?.preserveTeams });
     player.currentQuestion = getQuestionForRoom(room);
   });
 };
@@ -81,7 +148,25 @@ const resetRoomToWaiting = (room: Room) => {
   room.state = 'waiting';
   room.timeRemaining = room.timeLimit || 300;
   room.questions = undefined;
-  Object.values(room.players).forEach(resetPlayerState);
+  room.teamNames = {};
+  Object.values(room.players).forEach((player) => resetPlayerState(player));
+};
+
+const startRoomTimer = (io: Server, roomId: string) => {
+  const timerInterval = setInterval(() => {
+    if (rooms[roomId] && rooms[roomId].state === 'playing') {
+      rooms[roomId].timeRemaining -= 1;
+      io.to(roomId).emit('timeUpdate', rooms[roomId].timeRemaining);
+
+      if (rooms[roomId].timeRemaining <= 0) {
+        clearInterval(timerInterval);
+        rooms[roomId].state = 'results';
+        io.to(roomId).emit('roomStateUpdate', rooms[roomId]);
+      }
+    } else {
+      clearInterval(timerInterval);
+    }
+  }, 1000);
 };
 
 // 四則演算の問題を生成する関数
@@ -181,6 +266,10 @@ async function startServer() {
         questionMode: 'mix',
         timeLimit: 300, // Default 5 minutes
         timeRemaining: 300,
+        shotsPerQuestion: 3,
+        teamMode: false,
+        teamCount: 2,
+        teamNames: {},
       };
       socket.join(roomId);
       socket.emit('roomCreated', roomId);
@@ -211,19 +300,21 @@ async function startServer() {
           items: [],
           activeItemId: null,
           pendingItemChoices: null,
+          shotsRemaining: 0,
+          teamId: null,
+          lastBroadcastX: 100,
+          lastBroadcastY: 100,
+          lastBroadcastAt: 0,
         };
         
         // If joining mid-game, generate an initial question for them
+        if (room.state === 'teamReveal') {
+          assignRandomTeams(room, room.teamCount);
+        }
+
         if (room.state === 'playing') {
           room.players[socket.id].currentQuestion = getQuestionForRoom(room);
-          socket.emit('personalQuestion', {
-            text: room.players[socket.id].currentQuestion.text,
-            options: room.players[socket.id].currentQuestion.options,
-            hint: room.players[socket.id].currentQuestion.hint,
-            visual: room.players[socket.id].currentQuestion.visual,
-            audioPrompt: room.players[socket.id].currentQuestion.audioPrompt,
-            speechPrompt: room.players[socket.id].currentQuestion.speechPrompt,
-          });
+          emitPersonalQuestion(io, room.players[socket.id]);
         }
         
         io.to(roomId).emit('roomStateUpdate', room);
@@ -239,41 +330,48 @@ async function startServer() {
       }
     });
 
-    socket.on('startGame', ({ roomId, mode, timeLimit, questions }) => {
+    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount }) => {
       const room = rooms[roomId];
       if (room && room.hostId === socket.id) {
+        room.shotsPerQuestion = Math.max(1, Math.min(5, Number(shotsPerQuestion) || 3));
+        room.teamMode = Boolean(teamMode);
+        room.teamCount = Math.max(2, Math.min(10, Number(teamCount) || room.teamCount || 2));
+
+        if (room.teamMode) {
+          room.state = 'teamReveal';
+          room.questionMode = mode;
+          room.timeLimit = timeLimit || 300;
+          room.timeRemaining = room.timeLimit;
+          room.questions = questions;
+          Object.values(room.players).forEach((player) => resetPlayerState(player));
+          assignRandomTeams(room, room.teamCount);
+          io.to(roomId).emit('roomStateUpdate', room);
+          return;
+        }
+
         prepareRoomForGame(room, mode, timeLimit, questions);
-
-        // 全プレイヤーに最初の問題を生成して送信
-        Object.values(room.players).forEach(p => {
-          io.to(p.id).emit('personalQuestion', {
-            text: p.currentQuestion.text,
-            options: p.currentQuestion.options,
-            hint: p.currentQuestion.hint,
-            visual: p.currentQuestion.visual,
-            audioPrompt: p.currentQuestion.audioPrompt,
-            speechPrompt: p.currentQuestion.speechPrompt,
-          });
-        });
-        
+        Object.values(room.players).forEach((player) => emitPersonalQuestion(io, player));
         io.to(roomId).emit('roomStateUpdate', room);
-
-        // Start timer
-        const timerInterval = setInterval(() => {
-          if (rooms[roomId] && rooms[roomId].state === 'playing') {
-            rooms[roomId].timeRemaining -= 1;
-            io.to(roomId).emit('timeUpdate', rooms[roomId].timeRemaining);
-            
-            if (rooms[roomId].timeRemaining <= 0) {
-              clearInterval(timerInterval);
-              rooms[roomId].state = 'results';
-              io.to(roomId).emit('roomStateUpdate', rooms[roomId]);
-            }
-          } else {
-            clearInterval(timerInterval);
-          }
-        }, 1000);
+        startRoomTimer(io, roomId);
       }
+    });
+
+    socket.on('reshuffleTeams', ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room || room.hostId !== socket.id || room.state !== 'teamReveal' || !room.teamMode) return;
+
+      assignRandomTeams(room, room.teamCount);
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
+    socket.on('confirmTeamsAndStart', ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room || room.hostId !== socket.id || room.state !== 'teamReveal') return;
+
+      prepareRoomForGame(room, room.questionMode, room.timeLimit, room.questions, { preserveTeams: true });
+      Object.values(room.players).forEach((player) => emitPersonalQuestion(io, player));
+      io.to(roomId).emit('roomStateUpdate', room);
+      startRoomTimer(io, roomId);
     });
 
     socket.on('returnToLobby', ({ roomId }) => {
@@ -310,6 +408,7 @@ async function startServer() {
           } else {
             player.canShoot = true;
             player.currentQuestion = null;
+            player.shotsRemaining = room.shotsPerQuestion || 3;
           }
           socket.emit('answerResult', {
             correct: true,
@@ -358,6 +457,7 @@ async function startServer() {
       const player = room?.players[socket.id];
       
       if (room && player && player.canShoot) {
+        player.shotsRemaining = Math.max(0, (player.shotsRemaining || 0) - 1);
         player.canShoot = false;
         player.currentStrokes += 1;
         player.totalStrokes += 1;
@@ -381,30 +481,50 @@ async function startServer() {
       
       // ショット済み(canShoot === false) かつ 問題がない場合のみ次の問題を生成
       if (room && player && !player.canShoot && !player.currentQuestion && !player.pendingItemChoices?.length) {
-        player.currentQuestion = getQuestionForRoom(room);
-        socket.emit('personalQuestion', {
-          text: player.currentQuestion.text,
-          options: player.currentQuestion.options,
-          hint: player.currentQuestion.hint,
-          visual: player.currentQuestion.visual,
-          audioPrompt: player.currentQuestion.audioPrompt,
-          speechPrompt: player.currentQuestion.speechPrompt,
-        });
+        if ((player.shotsRemaining || 0) > 0) {
+          player.canShoot = true;
+        } else {
+          player.currentQuestion = getQuestionForRoom(room);
+          socket.emit('personalQuestion', {
+            text: player.currentQuestion.text,
+            options: player.currentQuestion.options,
+            hint: player.currentQuestion.hint,
+            visual: player.currentQuestion.visual,
+            audioPrompt: player.currentQuestion.audioPrompt,
+            speechPrompt: player.currentQuestion.speechPrompt,
+          });
+        }
         io.to(roomId).emit('roomStateUpdate', room);
       }
     });
 
     socket.on('ballMoved', ({ roomId, x, y }) => {
       const room = rooms[roomId];
-      if (room && room.players[socket.id]) {
-        room.players[socket.id].x = x;
-        room.players[socket.id].y = y;
-        socket.to(roomId).emit('playerMoved', {
-          playerId: socket.id,
-          x,
-          y
-        });
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing') return;
+
+      player.x = x;
+      player.y = y;
+
+      const now = Date.now();
+      const lastX = player.lastBroadcastX ?? x;
+      const lastY = player.lastBroadcastY ?? y;
+      const distance = Math.hypot(x - lastX, y - lastY);
+      const elapsed = now - (player.lastBroadcastAt ?? 0);
+
+      if (distance < 3 && elapsed < 120) {
+        return;
       }
+
+      player.lastBroadcastX = x;
+      player.lastBroadcastY = y;
+      player.lastBroadcastAt = now;
+
+      socket.to(roomId).emit('playerMoved', {
+        playerId: socket.id,
+        x,
+        y
+      });
     });
 
     socket.on('holeCompleted', (roomId) => {
@@ -417,6 +537,7 @@ async function startServer() {
         player.currentQuestion = undefined;
         player.activeItemId = null;
         player.pendingItemChoices = getRandomItemChoices(2);
+        player.shotsRemaining = 0;
         io.to(roomId).emit('roomStateUpdate', room);
       }
     });
@@ -465,6 +586,9 @@ async function startServer() {
           delete rooms[roomId];
         } else if (room.players[socket.id]) {
           delete room.players[socket.id];
+          if (room.state === 'teamReveal' && room.teamMode) {
+            assignRandomTeams(room, room.teamCount);
+          }
           io.to(roomId).emit('roomStateUpdate', room);
         }
       }
