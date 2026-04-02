@@ -652,13 +652,15 @@ async function startServer() {
       }
     });
 
-    socket.on('submitAnswer', ({ roomId, answerIndex, isSpeechCorrect }) => {
+    socket.on('submitAnswer', ({ roomId, answerIndex, isSpeechCorrect }, callback?: (payload: any) => void) => {
       console.log(`[submitAnswer] Player ${socket.id} in room ${roomId} submitted answer ${answerIndex}`);
       const room = rooms[roomId];
       const player = room?.players[socket.id];
       
       if (room && player && player.currentQuestion) {
         const currentQuestion = player.currentQuestion;
+        let nextQuestion: any = null;
+        let nextDelayMs: number | null = null;
         const isCorrect = typeof isSpeechCorrect === 'boolean'
           ? isSpeechCorrect
           : answerIndex === currentQuestion.correctIndex;
@@ -667,9 +669,13 @@ async function startServer() {
           player.correctAnswers += 1;
           if (room.gameType === 'quiz') {
             player.currentQuestion = getQuestionForRoom(room);
+            nextQuestion = player.currentQuestion;
+            nextDelayMs = 700;
           } else if (room.gameType === 'bomber') {
             player.bombsAvailable = Math.min(BOMBER_MAX_BOMBS, (player.bombsAvailable || 0) + 1);
             player.currentQuestion = getQuestionForRoom(room);
+            nextQuestion = player.currentQuestion;
+            nextDelayMs = 700;
           } else {
             player.canShoot = true;
             player.currentQuestion = null;
@@ -683,11 +689,13 @@ async function startServer() {
           if (room.gameType === 'quiz' || room.gameType === 'bomber') {
             setTimeout(() => {
               emitPersonalQuestion(io, player);
-            }, 700);
+            }, nextDelayMs || 700);
           }
         } else {
           // 不正解の場合は新しい問題を生成（当てずっぽう防止）
           player.currentQuestion = getQuestionForRoom(room);
+          nextQuestion = player.currentQuestion;
+          nextDelayMs = 2200;
           socket.emit('answerResult', {
             correct: false,
             correctIndex: currentQuestion.correctIndex,
@@ -695,11 +703,29 @@ async function startServer() {
           });
           setTimeout(() => {
             emitPersonalQuestion(io, player);
-          }, 2200); // 正解を確認する時間を少し長めに確保
+          }, nextDelayMs); // 正解を確認する時間を少し長めに確保
         }
+        callback?.({
+          ok: true,
+          correct: isCorrect,
+          correctIndex: currentQuestion.correctIndex,
+          correctText: currentQuestion.correctText,
+          nextQuestion: nextQuestion
+            ? {
+                text: nextQuestion.text,
+                options: nextQuestion.options,
+                hint: nextQuestion.hint,
+                visual: nextQuestion.visual,
+                audioPrompt: nextQuestion.audioPrompt,
+                speechPrompt: nextQuestion.speechPrompt,
+              }
+            : null,
+          nextDelayMs,
+        });
         io.to(roomId).emit('roomStateUpdate', room);
       } else {
         console.log(`[submitAnswer] Failed: room=${!!room}, player=${!!player}, currentQuestion=${!!player?.currentQuestion}`);
+        callback?.({ ok: false });
       }
     });
 
