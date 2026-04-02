@@ -264,6 +264,13 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const myTeamId = me?.teamId ?? null;
   const teammates = sortedPlayers.filter((player: any) => player.teamId === myTeamId);
   const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
+  const bomberItems = [
+    me?.fireLevel > 0 ? `🔥x${me.fireLevel}` : null,
+    me?.hasKickBomb ? '🥾キック' : null,
+    me?.hasShield ? '🛡️シールド' : null,
+    me?.hasRemoteBomb ? '📡リモコン' : null,
+    me?.hasPierceFire ? '💥貫通' : null,
+  ].filter(Boolean);
 
   if (roomState.state === 'waiting') {
     return (
@@ -432,6 +439,15 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">スコア: <span className="font-bold text-cyan-300">{calculateGameScore('bomber', me || {})}</span></div>
                 </div>
               </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {bomberItems.length > 0 ? bomberItems.map((item) => (
+                  <span key={item as string} className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">
+                    {item}
+                  </span>
+                )) : (
+                  <span className="text-[10px] text-slate-400">所持アイテムなし</span>
+                )}
+              </div>
             </div>
             <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
               <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">
@@ -442,6 +458,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   bomberState={roomState.bomberState}
                   onMove={(direction) => socket.emit('moveBomber', { roomId, direction })}
                   onPlaceBomb={() => socket.emit('placeBomberBomb', { roomId })}
+                  canUseRemote={Boolean(me?.hasRemoteBomb)}
+                  onDetonateRemote={() => socket.emit('detonateRemoteBomb', { roomId })}
                 />
               </div>
               <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">

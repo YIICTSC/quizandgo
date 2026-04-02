@@ -7,12 +7,22 @@ type BomberGameProps = {
   bomberState: any;
   onMove: (direction: 'up' | 'down' | 'left' | 'right') => void;
   onPlaceBomb: () => void;
+  onDetonateRemote?: () => void;
+  canUseRemote?: boolean;
 };
 
 const CONTROL_BUTTON =
   'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-slate-900/65 text-lg font-black text-white shadow-lg backdrop-blur-sm active:scale-95 active:bg-slate-800/90 md:h-12 md:w-12 md:text-xl';
 
-export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb }: BomberGameProps) {
+const itemLabelMap: Record<string, string> = {
+  fire_up: '🔥',
+  kick_bomb: '🥾',
+  shield: '🛡️',
+  remote_bomb: '📡',
+  pierce_fire: '💥',
+};
+
+export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb, onDetonateRemote, canUseRemote = false }: BomberGameProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
@@ -104,6 +114,22 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
             ))
           )}
 
+          {(bomberState.itemDrops || []).map((drop: any) => (
+            <div
+              key={drop.id}
+              className="absolute flex items-center justify-center rounded-md border border-white/25 bg-slate-800/80 text-[10px]"
+              style={{
+                width: `calc(${cellWidthPercent}% - 8px)`,
+                height: `calc(${cellHeightPercent}% - 8px)`,
+                left: `calc(${drop.x * cellWidthPercent}% + 4px)`,
+                top: `calc(${drop.y * cellHeightPercent}% + 4px)`,
+              }}
+              title={drop.itemId}
+            >
+              {itemLabelMap[drop.itemId] || '⭐'}
+            </div>
+          ))}
+
           {alivePlayers.map((player: any) => (
             <div
               key={player.id}
@@ -142,6 +168,14 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
         >
           BOMB
         </button>
+        {canUseRemote && onDetonateRemote ? (
+          <button
+            className="pointer-events-auto absolute bottom-20 right-3 flex h-12 w-20 items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-600/80 text-xs font-black tracking-wide text-white shadow-[0_0_18px_rgba(34,211,238,0.35)] backdrop-blur-sm active:scale-95 active:bg-cyan-500 md:bottom-22 md:right-4"
+            onClick={onDetonateRemote}
+          >
+            REMOTE
+          </button>
+        ) : null}
       </div>
     </div>
   );

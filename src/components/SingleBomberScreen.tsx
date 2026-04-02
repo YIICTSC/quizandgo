@@ -35,15 +35,20 @@ type SingleBomberQuestion = {
 };
 
 type BomberCell = 'solid' | 'breakable' | 'floor';
+type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire';
 type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean };
-type Bomb = { id: string; ownerId: string; x: number; y: number; explodeAt: number; range: number };
+type Bomb = { id: string; ownerId: string; x: number; y: number; explodeAt: number; range: number; remote: boolean; pierce: boolean };
 type Explosion = { id: string; ownerId: string; cells: { x: number; y: number }[]; expiresAt: number };
+type ItemDrop = { id: string; itemId: BomberItemId; x: number; y: number };
 
 const BASE_WIDTH = 21;
 const BASE_HEIGHT = 15;
 const BOMB_DELAY_MS = 2000;
 const EXPLOSION_MS = 500;
 const RESPAWN_MS = 2200;
+const ITEM_DROP_RATE = 0.22;
+const MAX_FIRE_LEVEL = 4;
+const ITEM_POOL: BomberItemId[] = ['fire_up', 'kick_bomb', 'shield', 'remote_bomb', 'pierce_fire'];
 const getEnemyMoveTickInterval = (floor: number) => Math.max(2, 7 - Math.floor((floor - 1) / 2));
 
 const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
@@ -93,7 +98,7 @@ const isBlocked = (grid: BomberCell[][], bombs: Bomb[], x: number, y: number) =>
   return bombs.some((bomb) => bomb.x === x && bomb.y === y);
 };
 
-const buildExplosionCells = (grid: BomberCell[][], originX: number, originY: number, range: number) => {
+const buildExplosionCells = (grid: BomberCell[][], originX: number, originY: number, range: number, pierce = false) => {
   const cells = [{ x: originX, y: originY }];
   const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (const [dx, dy] of directions) {
@@ -103,11 +108,13 @@ const buildExplosionCells = (grid: BomberCell[][], originX: number, originY: num
       const cell = grid[y]?.[x];
       if (!cell || cell === 'solid') break;
       cells.push({ x, y });
-      if (cell === 'breakable') break;
+      if (cell === 'breakable' && !pierce) break;
     }
   }
   return cells;
 };
+
+const randomItem = (): BomberItemId => ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
 
 const generateMathQuestion = (type: string): SingleBomberQuestion => {
   const resolvedType = type === 'mix' ? ['add', 'sub', 'mul', 'div'][Math.floor(Math.random() * 4)] : type;
@@ -179,10 +186,16 @@ export default function SingleBomberScreen({
   const [grid, setGrid] = useState<BomberCell[][]>([]);
   const [bombs, setBombs] = useState<Bomb[]>([]);
   const [explosions, setExplosions] = useState<Explosion[]>([]);
+  const [itemDrops, setItemDrops] = useState<ItemDrop[]>([]);
   const [enemies, setEnemies] = useState<Enemy[]>([]);
   const [playerPos, setPlayerPos] = useState({ x: 1, y: 1, spawnX: 1, spawnY: 1, alive: true, respawnAt: null as number | null });
   const [bombsAvailable, setBombsAvailable] = useState(1);
-  const [bombRange] = useState(2);
+  const [fireLevel, setFireLevel] = useState(0);
+  const [bombRange, setBombRange] = useState(2);
+  const [hasKickBomb, setHasKickBomb] = useState(false);
+  const [hasShield, setHasShield] = useState(false);
+  const [hasRemoteBomb, setHasRemoteBomb] = useState(false);
+  const [hasPierceFire, setHasPierceFire] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [kills, setKills] = useState(0);
   const [blocksDestroyed, setBlocksDestroyed] = useState(0);
@@ -251,9 +264,16 @@ export default function SingleBomberScreen({
     setGrid(nextGrid);
     setBombs([]);
     setExplosions([]);
+    setItemDrops([]);
     setEnemies(nextEnemies);
     setPlayerPos({ x: playerSpawn.x, y: playerSpawn.y, spawnX: playerSpawn.x, spawnY: playerSpawn.y, alive: true, respawnAt: null });
     setBombsAvailable(1);
+    setFireLevel(0);
+    setBombRange(2);
+    setHasKickBomb(false);
+    setHasShield(false);
+    setHasRemoteBomb(false);
+    setHasPierceFire(false);
     setQuestion(pickQuestion());
     setAnswerResult(null);
     setSelectedAnswerIndex(null);
@@ -314,7 +334,7 @@ export default function SingleBomberScreen({
             const bomb = pendingBombs.shift();
             if (!bomb || explodedIds.has(bomb.id)) continue;
             explodedIds.add(bomb.id);
-            const cells = buildExplosionCells(nextGrid, bomb.x, bomb.y, bomb.range);
+            const cells = buildExplosionCells(nextGrid, bomb.x, bomb.y, bomb.range, bomb.pierce);
             setExplosions((current) => [...current, { id: `${bomb.id}-exp`, ownerId: bomb.ownerId, cells, expiresAt: now + EXPLOSION_MS }]);
 
             const chainTargets = remainingBombs.filter((target) => cells.some((cell) => cell.x === target.x && cell.y === target.y));
@@ -334,6 +354,12 @@ export default function SingleBomberScreen({
               if (nextGrid[y]?.[x] === 'breakable') {
                 nextGrid[y][x] = 'floor';
                 destroyed += 1;
+                if (Math.random() < ITEM_DROP_RATE) {
+                  setItemDrops((current) => [
+                    ...current,
+                    { id: `drop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, itemId: randomItem(), x, y },
+                  ]);
+                }
               }
             });
             if (destroyed > 0) setBlocksDestroyed((current) => current + destroyed);
@@ -355,6 +381,41 @@ export default function SingleBomberScreen({
               if (!currentPlayer.alive) return currentPlayer;
               const hit = cells.some((cell) => cell.x === currentPlayer.x && cell.y === currentPlayer.y);
               if (!hit) return currentPlayer;
+              if (hasShield) {
+                setHasShield(false);
+                return currentPlayer;
+              }
+              const dropped: BomberItemId[] = [
+                ...Array.from({ length: fireLevel }, () => 'fire_up' as const),
+                ...(hasKickBomb ? (['kick_bomb'] as const) : []),
+                ...(hasRemoteBomb ? (['remote_bomb'] as const) : []),
+                ...(hasPierceFire ? (['pierce_fire'] as const) : []),
+                ...(hasShield ? (['shield'] as const) : []),
+              ];
+              if (dropped.length > 0) {
+                setItemDrops((current) => {
+                  const used = new Set(current.map((item) => `${item.x},${item.y}`));
+                  const additions = dropped.flatMap((itemId, index) => {
+                    for (let tries = 0; tries < 20; tries += 1) {
+                      const nx = currentPlayer.x + (Math.floor(Math.random() * 7) - 3);
+                      const ny = currentPlayer.y + (Math.floor(Math.random() * 7) - 3);
+                      if (!nextGrid[ny]?.[nx] || nextGrid[ny][nx] !== 'floor') continue;
+                      const key = `${nx},${ny}`;
+                      if (used.has(key)) continue;
+                      used.add(key);
+                      return [{ id: `drop-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`, itemId, x: nx, y: ny }];
+                    }
+                    return [];
+                  });
+                  return [...current, ...additions];
+                });
+              }
+              setFireLevel(0);
+              setBombRange(2);
+              setHasKickBomb(false);
+              setHasShield(false);
+              setHasRemoteBomb(false);
+              setHasPierceFire(false);
               setDeaths((current) => current + 1);
               return { ...currentPlayer, x: currentPlayer.spawnX, y: currentPlayer.spawnY, alive: false, respawnAt: now + RESPAWN_MS };
             });
@@ -371,6 +432,29 @@ export default function SingleBomberScreen({
           return { ...current, alive: true, respawnAt: null, x: current.spawnX, y: current.spawnY };
         }
         return current;
+      });
+
+      setItemDrops((current) => {
+        if (!playerPos.alive) return current;
+        const pickupIndex = current.findIndex((drop) => drop.x === playerPos.x && drop.y === playerPos.y);
+        if (pickupIndex === -1) return current;
+        const pickup = current[pickupIndex];
+        if (pickup.itemId === 'fire_up') {
+          setFireLevel((value) => {
+            const next = Math.min(MAX_FIRE_LEVEL, value + 1);
+            setBombRange(2 + next);
+            return next;
+          });
+        } else if (pickup.itemId === 'kick_bomb') {
+          setHasKickBomb(true);
+        } else if (pickup.itemId === 'shield') {
+          setHasShield(true);
+        } else if (pickup.itemId === 'remote_bomb') {
+          setHasRemoteBomb(true);
+        } else if (pickup.itemId === 'pierce_fire') {
+          setHasPierceFire(true);
+        }
+        return [...current.slice(0, pickupIndex), ...current.slice(pickupIndex + 1)];
       });
 
       enemyTickRef.current += 1;
@@ -398,7 +482,7 @@ export default function SingleBomberScreen({
     }, 100);
 
     return () => window.clearInterval(interval);
-  }, [bombs, enemies, floor, grid, playerPos.alive, prepareFloor, timeRemaining]);
+  }, [bombs, enemies, fireLevel, floor, grid, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, playerPos.alive, playerPos.x, playerPos.y, prepareFloor, timeRemaining]);
 
   useEffect(() => {
     const aliveEnemies = enemies.filter((enemy) => enemy.alive);
@@ -498,7 +582,12 @@ export default function SingleBomberScreen({
     deaths,
     timeAliveMs,
     bombsAvailable,
-  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, kills, playerPos.alive, playerPos.x, playerPos.y, timeAliveMs]);
+    fireLevel,
+    hasKickBomb,
+    hasShield,
+    hasRemoteBomb,
+    hasPierceFire,
+  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, fireLevel, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, kills, playerPos.alive, playerPos.x, playerPos.y, timeAliveMs]);
 
   const combinedPlayers = useMemo(() => {
     const players: Record<string, any> = { [me.id]: me };
@@ -554,6 +643,13 @@ export default function SingleBomberScreen({
               <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{kills}</span></div>
             </div>
           </div>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+            {fireLevel > 0 ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🔥x{fireLevel}</span> : null}
+            {hasKickBomb ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🥾キック</span> : null}
+            {hasShield ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🛡️シールド</span> : null}
+            {hasRemoteBomb ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">📡リモコン</span> : null}
+            {hasPierceFire ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">💥貫通</span> : null}
+          </div>
         </div>
 
         <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
@@ -562,14 +658,23 @@ export default function SingleBomberScreen({
               roomId="single-bomber"
               me={me}
               players={combinedPlayers}
-              bomberState={{ width: grid[0]?.length || BASE_WIDTH, height: grid.length || BASE_HEIGHT, grid, bombs, explosions }}
+              bomberState={{ width: grid[0]?.length || BASE_WIDTH, height: grid.length || BASE_HEIGHT, grid, bombs, explosions, itemDrops }}
               onMove={(direction) => {
                 if (!playerPos.alive) return;
                 const deltas = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as const;
                 const [dx, dy] = deltas[direction];
                 const nextX = playerPos.x + dx;
                 const nextY = playerPos.y + dy;
-                if (isBlocked(grid, bombs, nextX, nextY)) return;
+                const bombIndex = bombs.findIndex((bomb) => bomb.x === nextX && bomb.y === nextY);
+                if (bombIndex !== -1) {
+                  if (!hasKickBomb) return;
+                  const kickX = nextX + dx;
+                  const kickY = nextY + dy;
+                  if (isBlocked(grid, bombs, kickX, kickY)) return;
+                  setBombs((current) => current.map((bomb, index) => (index === bombIndex ? { ...bomb, x: kickX, y: kickY } : bomb)));
+                } else if (isBlocked(grid, bombs, nextX, nextY)) {
+                  return;
+                }
                 setPlayerPos((current) => ({ ...current, x: nextX, y: nextY }));
               }}
               onPlaceBomb={() => {
@@ -577,9 +682,25 @@ export default function SingleBomberScreen({
                 if (bombs.some((bomb) => bomb.x === playerPos.x && bomb.y === playerPos.y)) return;
                 setBombs((current) => [
                   ...current,
-                  { id: `single-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ownerId: me.id, x: playerPos.x, y: playerPos.y, explodeAt: Date.now() + BOMB_DELAY_MS, range: bombRange },
+                  {
+                    id: `single-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    ownerId: me.id,
+                    x: playerPos.x,
+                    y: playerPos.y,
+                    explodeAt: hasRemoteBomb ? Number.POSITIVE_INFINITY : Date.now() + BOMB_DELAY_MS,
+                    range: bombRange,
+                    remote: hasRemoteBomb,
+                    pierce: hasPierceFire,
+                  },
                 ]);
                 setBombsAvailable((current) => current - 1);
+              }}
+              canUseRemote={hasRemoteBomb}
+              onDetonateRemote={() => {
+                const now = Date.now();
+                setBombs((current) => current.map((bomb) => (
+                  bomb.ownerId === me.id && bomb.remote ? { ...bomb, explodeAt: Math.min(bomb.explodeAt, now) } : bomb
+                )));
               }}
             />
           </div>

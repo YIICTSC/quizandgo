@@ -42,12 +42,18 @@ interface Player {
   timeAliveMs: number;
   bombsAvailable: number;
   bombRange: number;
+  fireLevel: number;
+  hasKickBomb: boolean;
+  hasShield: boolean;
+  hasRemoteBomb: boolean;
+  hasPierceFire: boolean;
   lastBroadcastX?: number;
   lastBroadcastY?: number;
   lastBroadcastAt?: number;
 }
 
 type BomberCell = 'solid' | 'breakable' | 'floor';
+type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire';
 
 interface BomberBomb {
   id: string;
@@ -56,6 +62,8 @@ interface BomberBomb {
   y: number;
   explodeAt: number;
   range: number;
+  remote: boolean;
+  pierce: boolean;
 }
 
 interface BomberExplosion {
@@ -65,12 +73,20 @@ interface BomberExplosion {
   expiresAt: number;
 }
 
+interface BomberItemPickup {
+  id: string;
+  itemId: BomberItemId;
+  x: number;
+  y: number;
+}
+
 interface BomberState {
   width: number;
   height: number;
   grid: BomberCell[][];
   bombs: BomberBomb[];
   explosions: BomberExplosion[];
+  itemDrops: BomberItemPickup[];
 }
 
 interface Room {
@@ -97,6 +113,11 @@ const BOMBER_HEIGHT = BOMBER_BASE_HEIGHT;
 const BOMBER_RESPAWN_MS = 2500;
 const BOMBER_EXPLOSION_MS = 500;
 const BOMBER_BOMB_DELAY_MS = 2000;
+const BOMBER_ITEM_DROP_RATE = 0.22;
+const BOMBER_MAX_FIRE_LEVEL = 4;
+const BOMBER_ITEM_POOL: BomberItemId[] = ['fire_up', 'kick_bomb', 'shield', 'remote_bomb', 'pierce_fire'];
+
+const randomBomberItemId = (): BomberItemId => BOMBER_ITEM_POOL[Math.floor(Math.random() * BOMBER_ITEM_POOL.length)];
 
 const consumeOneInventoryItem = (inventory: GameItemId[], itemId: GameItemId) => {
   const index = inventory.indexOf(itemId);
@@ -148,6 +169,94 @@ const clearBomberSpawnArea = (grid: BomberCell[][], x: number, y: number) => {
   });
 };
 
+const isFloorWithoutBomb = (room: Room, x: number, y: number) => {
+  const grid = room.bomberState?.grid;
+  if (!grid?.[y]?.[x] || grid[y][x] !== 'floor') return false;
+  if (room.bomberState?.bombs.some((bomb) => bomb.x === x && bomb.y === y)) return false;
+  return true;
+};
+
+const applyBomberItemToPlayer = (player: Player, itemId: BomberItemId) => {
+  switch (itemId) {
+    case 'fire_up':
+      player.fireLevel = Math.min(BOMBER_MAX_FIRE_LEVEL, (player.fireLevel || 0) + 1);
+      player.bombRange = 2 + player.fireLevel;
+      break;
+    case 'kick_bomb':
+      player.hasKickBomb = true;
+      break;
+    case 'shield':
+      player.hasShield = true;
+      break;
+    case 'remote_bomb':
+      player.hasRemoteBomb = true;
+      break;
+    case 'pierce_fire':
+      player.hasPierceFire = true;
+      break;
+    default:
+      break;
+  }
+};
+
+const collectPlayerBomberItems = (player: Player): BomberItemId[] => {
+  const drops: BomberItemId[] = [];
+  for (let i = 0; i < (player.fireLevel || 0); i += 1) {
+    drops.push('fire_up');
+  }
+  if (player.hasKickBomb) drops.push('kick_bomb');
+  if (player.hasShield) drops.push('shield');
+  if (player.hasRemoteBomb) drops.push('remote_bomb');
+  if (player.hasPierceFire) drops.push('pierce_fire');
+  return drops;
+};
+
+const resetBomberItems = (player: Player) => {
+  player.fireLevel = 0;
+  player.hasKickBomb = false;
+  player.hasShield = false;
+  player.hasRemoteBomb = false;
+  player.hasPierceFire = false;
+  player.bombRange = 2;
+};
+
+const scatterDroppedItems = (room: Room, itemIds: BomberItemId[], around?: { x: number; y: number }) => {
+  if (!room.bomberState || itemIds.length === 0) return;
+  const used = new Set<string>(
+    room.bomberState.itemDrops.map((drop) => `${drop.x},${drop.y}`)
+  );
+  const localCandidates: { x: number; y: number }[] = [];
+  if (around) {
+    for (let radius = 1; radius <= 5; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const x = around.x + dx;
+          const y = around.y + dy;
+          if (!isFloorWithoutBomb(room, x, y)) continue;
+          if (used.has(`${x},${y}`)) continue;
+          localCandidates.push({ x, y });
+        }
+      }
+    }
+  }
+  itemIds.forEach((itemId) => {
+    let target = localCandidates.pop();
+    if (!target) {
+      target = randomFloorPosition(room.bomberState!.grid, used);
+      if (!isFloorWithoutBomb(room, target.x, target.y)) return;
+    }
+    const key = `${target.x},${target.y}`;
+    if (used.has(key)) return;
+    used.add(key);
+    room.bomberState!.itemDrops.push({
+      id: `drop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      itemId,
+      x: target.x,
+      y: target.y,
+    });
+  });
+};
+
 const createBomberState = (players: Player[]): BomberState => {
   const { width, height } = getBomberDimensions(players.length);
   const grid = createBomberGrid(width, height);
@@ -169,6 +278,7 @@ const createBomberState = (players: Player[]): BomberState => {
     grid,
     bombs: [],
     explosions: [],
+    itemDrops: [],
   };
 };
 
@@ -179,7 +289,16 @@ const isBomberCellBlocked = (room: Room, x: number, y: number) => {
   return Boolean(room.bomberState?.bombs.some((bomb) => bomb.x === x && bomb.y === y));
 };
 
-const buildExplosionCells = (room: Room, originX: number, originY: number, range: number) => {
+const tryKickBomb = (room: Room, bomb: BomberBomb, dx: number, dy: number) => {
+  const nextX = bomb.x + dx;
+  const nextY = bomb.y + dy;
+  if (!isFloorWithoutBomb(room, nextX, nextY)) return false;
+  bomb.x = nextX;
+  bomb.y = nextY;
+  return true;
+};
+
+const buildExplosionCells = (room: Room, originX: number, originY: number, range: number, pierce = false) => {
   const cells: { x: number; y: number }[] = [{ x: originX, y: originY }];
   const grid = room.bomberState?.grid;
   if (!grid) return cells;
@@ -195,7 +314,7 @@ const buildExplosionCells = (room: Room, originX: number, originY: number, range
       const cell = grid[y]?.[x];
       if (!cell || cell === 'solid') break;
       cells.push({ x, y });
-      if (cell === 'breakable') break;
+      if (cell === 'breakable' && !pierce) break;
     }
   }
 
@@ -230,6 +349,11 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.timeAliveMs = 0;
   player.bombsAvailable = 1;
   player.bombRange = 2;
+  player.fireLevel = 0;
+  player.hasKickBomb = false;
+  player.hasShield = false;
+  player.hasRemoteBomb = false;
+  player.hasPierceFire = false;
   player.lastBroadcastX = 100;
   player.lastBroadcastY = 100;
   player.lastBroadcastAt = 0;
@@ -328,7 +452,7 @@ const explodeBomb = (room: Room, bomb: BomberBomb, now: number) => {
   if (!room.bomberState) return;
 
   room.bomberState.bombs = room.bomberState.bombs.filter((candidate) => candidate.id !== bomb.id);
-  const cells = buildExplosionCells(room, bomb.x, bomb.y, bomb.range);
+  const cells = buildExplosionCells(room, bomb.x, bomb.y, bomb.range, bomb.pierce);
   room.bomberState.explosions.push({
     id: `${bomb.id}-explosion`,
     ownerId: bomb.ownerId,
@@ -341,6 +465,14 @@ const explodeBomb = (room: Room, bomb: BomberBomb, now: number) => {
     if (room.bomberState?.grid[y]?.[x] === 'breakable') {
       room.bomberState.grid[y][x] = 'floor';
       if (owner) owner.blocksDestroyed += 1;
+      if (Math.random() < BOMBER_ITEM_DROP_RATE) {
+        room.bomberState.itemDrops.push({
+          id: `drop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          itemId: randomBomberItemId(),
+          x,
+          y,
+        });
+      }
     }
   });
 
@@ -355,6 +487,17 @@ const explodeBomb = (room: Room, bomb: BomberBomb, now: number) => {
     if (!player.alive) return;
     const hit = cells.some((cell) => cell.x === player.bomberX && cell.y === player.bomberY);
     if (!hit) return;
+
+    if (player.hasShield) {
+      player.hasShield = false;
+      return;
+    }
+
+    const dropX = player.bomberX;
+    const dropY = player.bomberY;
+    const droppedItems = collectPlayerBomberItems(player);
+    resetBomberItems(player);
+    scatterDroppedItems(room, droppedItems, { x: dropX, y: dropY });
 
     player.alive = false;
     player.deaths += 1;
@@ -386,6 +529,17 @@ const startBomberLoop = (io: Server, roomId: string) => {
         player.bomberX = player.bomberSpawnX;
         player.bomberY = player.bomberSpawnY;
       }
+    });
+
+    Object.values(room.players).forEach((player) => {
+      if (!player.alive || !room.bomberState) return;
+      const pickupIndex = room.bomberState.itemDrops.findIndex(
+        (drop) => drop.x === player.bomberX && drop.y === player.bomberY
+      );
+      if (pickupIndex === -1) return;
+      const [pickup] = room.bomberState.itemDrops.splice(pickupIndex, 1);
+      if (!pickup) return;
+      applyBomberItemToPlayer(player, pickup.itemId);
     });
 
     const dueBombs = room.bomberState.bombs.filter((bomb) => bomb.explodeAt <= now);
@@ -541,6 +695,11 @@ async function startServer() {
           timeAliveMs: 0,
           bombsAvailable: 1,
           bombRange: 2,
+          fireLevel: 0,
+          hasKickBomb: false,
+          hasShield: false,
+          hasRemoteBomb: false,
+          hasPierceFire: false,
           lastBroadcastX: 100,
           lastBroadcastY: 100,
           lastBroadcastAt: 0,
@@ -568,6 +727,11 @@ async function startServer() {
               alive: true,
               bombsAvailable: 1,
               bombRange: 2,
+              fireLevel: 0,
+              hasKickBomb: false,
+              hasShield: false,
+              hasRemoteBomb: false,
+              hasPierceFire: false,
             });
           }
           room.players[socket.id].currentQuestion = getQuestionForRoom(room);
@@ -819,7 +983,12 @@ async function startServer() {
       const [dx, dy] = deltas[direction] || [0, 0];
       const nextX = player.bomberX + dx;
       const nextY = player.bomberY + dy;
-      if (isBomberCellBlocked(room, nextX, nextY)) return;
+      const blockingBomb = room.bomberState.bombs.find((bomb) => bomb.x === nextX && bomb.y === nextY);
+      if (blockingBomb) {
+        if (!player.hasKickBomb || !tryKickBomb(room, blockingBomb, dx, dy)) return;
+      } else if (isBomberCellBlocked(room, nextX, nextY)) {
+        return;
+      }
 
       player.bomberX = nextX;
       player.bomberY = nextY;
@@ -838,10 +1007,25 @@ async function startServer() {
         ownerId: socket.id,
         x: player.bomberX,
         y: player.bomberY,
-        explodeAt: Date.now() + BOMBER_BOMB_DELAY_MS,
+        explodeAt: player.hasRemoteBomb ? Number.POSITIVE_INFINITY : Date.now() + BOMBER_BOMB_DELAY_MS,
         range: player.bombRange,
+        remote: player.hasRemoteBomb,
+        pierce: player.hasPierceFire,
       });
       player.bombsAvailable -= 1;
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
+    socket.on('detonateRemoteBomb', ({ roomId }: { roomId: string }) => {
+      const room = rooms[roomId];
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing' || room.gameType !== 'bomber' || !room.bomberState || !player.alive) return;
+      const now = Date.now();
+      room.bomberState.bombs.forEach((bomb) => {
+        if (bomb.ownerId === socket.id && bomb.remote) {
+          bomb.explodeAt = Math.min(bomb.explodeAt, now);
+        }
+      });
       io.to(roomId).emit('roomStateUpdate', room);
     });
 
