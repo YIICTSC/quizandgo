@@ -38,15 +38,18 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
       } else if (['ArrowRight', 'd', 'D'].includes(event.key)) {
         event.preventDefault();
         onMove('right');
-      } else if (event.key === ' ' || event.key === 'Enter') {
+      } else if (event.key === ' ' || event.key === 'Enter' || event.key === 'b' || event.key === 'B') {
         event.preventDefault();
         onPlaceBomb();
+      } else if ((event.key === 'r' || event.key === 'R') && canUseRemote && onDetonateRemote) {
+        event.preventDefault();
+        onDetonateRemote();
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onMove, onPlaceBomb, roomId]);
+  }, [canUseRemote, onDetonateRemote, onMove, onPlaceBomb, roomId]);
 
   if (!bomberState) {
     return <div className="flex h-full items-center justify-center text-slate-400">盤面を準備しています...</div>;

@@ -4,6 +4,7 @@ import ProblemVisual from './ProblemVisual';
 import { calculateGameScore } from '../lib/scoring';
 import { findMatchingOptionIndex, matchesSpeechAnswer, shuffleOptionsWithFirstCorrect } from '../lib/answerMatching';
 import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
+import { getBomberDimensions } from '../lib/bomberDimensions';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -37,7 +38,18 @@ type SingleBomberQuestion = {
 type BomberCell = 'solid' | 'breakable' | 'floor';
 type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire';
 type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean };
-type Bomb = { id: string; ownerId: string; x: number; y: number; explodeAt: number; range: number; remote: boolean; pierce: boolean };
+type Bomb = {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  explodeAt: number;
+  range: number;
+  remote: boolean;
+  pierce: boolean;
+  movingDx?: number;
+  movingDy?: number;
+};
 type Explosion = { id: string; ownerId: string; cells: { x: number; y: number }[]; expiresAt: number };
 type ItemDrop = { id: string; itemId: BomberItemId; x: number; y: number };
 
@@ -97,6 +109,21 @@ const isBlocked = (grid: BomberCell[][], bombs: Bomb[], x: number, y: number) =>
   if (grid[y][x] !== 'floor') return true;
   return bombs.some((bomb) => bomb.x === x && bomb.y === y);
 };
+
+const advanceMovingBombs = (grid: BomberCell[][], bombs: Bomb[]) =>
+  bombs.map((bomb, index) => {
+    if (!bomb.movingDx && !bomb.movingDy) return bomb;
+    const nextX = bomb.x + (bomb.movingDx || 0);
+    const nextY = bomb.y + (bomb.movingDy || 0);
+    const blocked =
+      !grid[nextY]?.[nextX] ||
+      grid[nextY][nextX] !== 'floor' ||
+      bombs.some((otherBomb, otherIndex) => otherIndex !== index && otherBomb.x === nextX && otherBomb.y === nextY);
+    if (blocked) {
+      return { ...bomb, movingDx: 0, movingDy: 0 };
+    }
+    return { ...bomb, x: nextX, y: nextY };
+  });
 
 const buildExplosionCells = (grid: BomberCell[][], originX: number, originY: number, range: number, pierce = false) => {
   const cells = [{ x: originX, y: originY }];
@@ -173,14 +200,20 @@ export default function SingleBomberScreen({
   mode,
   timeLimit,
   gameTitle,
+  debugPlayerCount,
   onReturnToTitle,
 }: {
   questions?: SingleBomberQuestion[];
   mode: string;
   timeLimit: number;
   gameTitle: string;
+  debugPlayerCount?: number;
   onReturnToTitle: () => void;
 }) {
+  if (mode === 'debug_multiplayer_map' && debugPlayerCount) {
+    return <BomberMapDebugScreen gameTitle={gameTitle} playerCount={debugPlayerCount} onReturnToTitle={onReturnToTitle} />;
+  }
+
   const [timeRemaining, setTimeRemaining] = useState(timeLimit);
   const [floor, setFloor] = useState(1);
   const [grid, setGrid] = useState<BomberCell[][]>([]);
@@ -319,6 +352,7 @@ export default function SingleBomberScreen({
     const interval = window.setInterval(() => {
       const now = Date.now();
       setTimeAliveMs((current) => current + (playerPos.alive ? 100 : 0));
+      setBombs((current) => advanceMovingBombs(grid, current));
       setBombs((currentBombs) => {
         const dueBombs = currentBombs.filter((bomb) => bomb.explodeAt <= now);
         if (dueBombs.length === 0) return currentBombs;
@@ -671,7 +705,9 @@ export default function SingleBomberScreen({
                   const kickX = nextX + dx;
                   const kickY = nextY + dy;
                   if (isBlocked(grid, bombs, kickX, kickY)) return;
-                  setBombs((current) => current.map((bomb, index) => (index === bombIndex ? { ...bomb, x: kickX, y: kickY } : bomb)));
+                  setBombs((current) => current.map((bomb, index) => (
+                    index === bombIndex ? { ...bomb, x: kickX, y: kickY, movingDx: dx, movingDy: dy } : bomb
+                  )));
                 } else if (isBlocked(grid, bombs, nextX, nextY)) {
                   return;
                 }
@@ -691,6 +727,8 @@ export default function SingleBomberScreen({
                     range: bombRange,
                     remote: hasRemoteBomb,
                     pierce: hasPierceFire,
+                    movingDx: 0,
+                    movingDy: 0,
                   },
                 ]);
                 setBombsAvailable((current) => current - 1);
@@ -772,6 +810,149 @@ export default function SingleBomberScreen({
             ) : (
               <div className="flex h-full items-center justify-center text-slate-400">問題を準備しています...</div>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BomberMapDebugScreen({
+  gameTitle,
+  playerCount,
+  onReturnToTitle,
+}: {
+  gameTitle: string;
+  playerCount: number;
+  onReturnToTitle: () => void;
+}) {
+  const { width, height } = getBomberDimensions(playerCount);
+  const [grid, setGrid] = useState<BomberCell[][]>([]);
+  const [playerPos, setPlayerPos] = useState({ x: 1, y: 1 });
+
+  const demoPlayers = useMemo(() => {
+    if (!grid.length) return {} as Record<string, any>;
+    const floorCells = grid.flatMap((row, y) =>
+      row.flatMap((cell, x) => (cell === 'floor' ? [{ x, y }] : []))
+    );
+    if (floorCells.length === 0) return {} as Record<string, any>;
+
+    const step = Math.max(1, Math.floor(floorCells.length / playerCount));
+    const colors = ['#38bdf8', '#f87171', '#fbbf24', '#4ade80', '#c084fc', '#fb7185', '#22d3ee', '#f97316'];
+    const players: Record<string, any> = {};
+
+    for (let index = 0; index < playerCount; index += 1) {
+      const cell = floorCells[Math.min(index * step, floorCells.length - 1)];
+      players[`debug-${index + 1}`] = {
+        id: `debug-${index + 1}`,
+        name: index === 0 ? 'あなた' : `P${index + 1}`,
+        color: colors[index % colors.length],
+        bomberX: cell.x,
+        bomberY: cell.y,
+        alive: true,
+      };
+    }
+
+    return players;
+  }, [grid, playerCount]);
+
+  useEffect(() => {
+    startBGM('bomber_play');
+    const nextGrid = createGrid(width, height);
+    setGrid(nextGrid);
+    const spawn = nextGrid.flatMap((row, y) =>
+      row.flatMap((cell, x) => (cell === 'floor' ? [{ x, y }] : []))
+    )[0] || { x: 1, y: 1 };
+    clearSpawnArea(nextGrid, spawn.x, spawn.y);
+    setGrid([...nextGrid.map((row) => [...row])]);
+    setPlayerPos(spawn);
+
+    return () => stopBGM();
+  }, [height, width]);
+
+  const occupied = useMemo(() => {
+    const taken = new Set<string>();
+    Object.values(demoPlayers).forEach((player: any) => {
+      if (player.name !== 'あなた') taken.add(`${player.bomberX},${player.bomberY}`);
+    });
+    return taken;
+  }, [demoPlayers]);
+
+  const me = useMemo(() => ({
+    ...(demoPlayers['debug-1'] || {
+      id: 'debug-1',
+      name: 'あなた',
+      color: '#38bdf8',
+      bomberX: playerPos.x,
+      bomberY: playerPos.y,
+      alive: true,
+    }),
+    bomberX: playerPos.x,
+    bomberY: playerPos.y,
+  }), [demoPlayers, playerPos.x, playerPos.y]);
+
+  const players = useMemo(() => ({
+    ...demoPlayers,
+    'debug-1': me,
+  }), [demoPlayers, me]);
+
+  return (
+    <div className="h-screen overflow-hidden bg-slate-900 text-white">
+      <div className="mx-auto flex h-full max-w-7xl flex-col gap-2 p-2 md:p-3">
+        <div className="rounded-2xl border border-cyan-500/30 bg-slate-800 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold tracking-[0.3em] text-cyan-300">DEBUG MULTIPLAYER MAP</div>
+              <div className="mt-1 text-xl font-black text-white">{gameTitle}</div>
+              <div className="mt-1 text-xs text-slate-400">人数 {playerCount}人 / {width} x {height} / {width * height} マス</div>
+            </div>
+            <button onClick={onReturnToTitle} className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
+              タイトルへ戻る
+            </button>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">
+            <BomberGame
+              roomId="debug-bomber-map"
+              me={me}
+              players={players}
+              bomberState={{ width, height, grid, bombs: [], explosions: [], itemDrops: [] }}
+              onMove={(direction) => {
+                const deltas = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as const;
+                const [dx, dy] = deltas[direction];
+                const nextX = playerPos.x + dx;
+                const nextY = playerPos.y + dy;
+                if (!grid[nextY]?.[nextX] || grid[nextY][nextX] !== 'floor') return;
+                if (occupied.has(`${nextX},${nextY}`)) return;
+                setPlayerPos({ x: nextX, y: nextY });
+              }}
+              onPlaceBomb={() => undefined}
+            />
+          </div>
+          <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">
+            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-3">
+              <div className="text-sm font-bold text-cyan-200">確認内容</div>
+              <div className="mt-2 text-sm text-slate-200">サーバー計算式と同じ寸法でマップを生成し、{playerCount}人分のダミープレイヤーを配置しています。</div>
+              <div className="mt-2 text-xs text-slate-400">十字キー / WASD で自分だけ移動できます。ほかのプレイヤー表示は固定です。</div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">横幅: <span className="font-mono font-bold text-cyan-300">{width}</span></div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">縦幅: <span className="font-mono font-bold text-cyan-300">{height}</span></div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">総マス: <span className="font-mono font-bold text-cyan-300">{width * height}</span></div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">表示人数: <span className="font-mono font-bold text-cyan-300">{playerCount}</span></div>
+            </div>
+            <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-900/40 p-3">
+              <div className="mb-2 text-sm font-bold text-slate-200">表示プレイヤー</div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                {Object.values(players).map((player: any) => (
+                  <div key={player.id} className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5">
+                    {player.name} <span className="font-mono text-slate-500">({player.bomberX},{player.bomberY})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -17,7 +17,7 @@ export default function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [playerName, setPlayerName] = useState<string>('');
   const [selectedGameType, setSelectedGameType] = useState<string>('golf');
-  const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion?: number; debugHole?: number; debugFreePlay?: boolean } | null>(null);
+  const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion?: number; debugHole?: number; debugFreePlay?: boolean; debugPlayerCount?: number } | null>(null);
   const returnToTitle = () => {
     setRole('none');
     setRoomId('');
@@ -100,6 +100,7 @@ export default function App() {
           mode={singlePlayConfig.mode}
           timeLimit={singlePlayConfig.timeLimit}
           gameTitle={singlePlayConfig.gameTitle}
+          debugPlayerCount={singlePlayConfig.debugPlayerCount}
           onReturnToTitle={returnToTitle}
         />
       );
@@ -143,6 +144,16 @@ export default function App() {
           shotsPerQuestion: 3,
           debugHole: hole,
           debugFreePlay: true,
+        });
+        setRole('single_play');
+      }}
+      onStartDebugBomberMap={(playerCount) => {
+        setSelectedGameType('bomber');
+        setSinglePlayConfig({
+          mode: 'debug_multiplayer_map',
+          timeLimit: 9999,
+          gameTitle: `クイズボンバー ${playerCount}人マップデバッグ`,
+          debugPlayerCount: playerCount,
         });
         setRole('single_play');
       }}

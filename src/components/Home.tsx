@@ -13,11 +13,13 @@ export default function Home({
   onCreate,
   onStartSinglePlayer,
   onStartDebugCourse,
+  onStartDebugBomberMap,
 }: {
   onJoin: (id: string, name: string) => void,
   onCreate: (gameType: string) => void,
   onStartSinglePlayer: (gameType: string) => void,
   onStartDebugCourse: (hole: number) => void,
+  onStartDebugBomberMap: (playerCount: number) => void,
 }) {
   const [roomId, setRoomId] = useState('');
   const [name, setName] = useState('');
@@ -209,7 +211,7 @@ export default function Home({
 
               <div className="rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
                 <div className="mb-2 text-sm font-bold text-slate-200">クイズボンバー人数別マップ確認</div>
-                <p className="mb-3 text-xs text-slate-400">マルチプレイ開始時にサーバーが使用する計算式で、プレイヤー人数ごとのマップサイズを表示します。</p>
+                <p className="mb-3 text-xs text-slate-400">40人まで確認できます。行をクリックすると、その人数想定の広さでデモマルチプレイ画面を開きます。</p>
                 <div className="max-h-[360px] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/40">
                   <table className="w-full text-xs sm:text-sm">
                     <thead className="sticky top-0 bg-slate-900/95">
@@ -221,10 +223,14 @@ export default function Home({
                       </tr>
                     </thead>
                     <tbody>
-                      {Array.from({ length: 11 }, (_, index) => index + 2).map((playerCount) => {
+                      {Array.from({ length: 39 }, (_, index) => index + 2).map((playerCount) => {
                         const { width, height } = getBomberDimensions(playerCount);
                         return (
-                          <tr key={playerCount} className="border-t border-slate-700/80 text-slate-200">
+                          <tr
+                            key={playerCount}
+                            className="cursor-pointer border-t border-slate-700/80 text-slate-200 transition-colors hover:bg-cyan-500/10"
+                            onClick={() => onStartDebugBomberMap(playerCount)}
+                          >
                             <td className="px-3 py-2 font-bold">{playerCount}人</td>
                             <td className="px-3 py-2 font-mono">{width}</td>
                             <td className="px-3 py-2 font-mono">{height}</td>
