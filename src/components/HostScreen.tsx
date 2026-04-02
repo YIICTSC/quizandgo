@@ -162,11 +162,7 @@ export default function HostScreen({
     return () => stopBGM();
   }, []);
 
-  if (!isSinglePlayer && !roomState) {
-    return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">読み込み中...</div>;
-  }
-
-  const currentRoomState = isSinglePlayer ? { state: 'waiting', players: {} } : roomState;
+  const currentRoomState = isSinglePlayer ? { state: 'waiting', players: {} } : (roomState ?? { state: 'loading', players: {} });
   const players = Object.values(currentRoomState.players);
   const selectedQuestionCount = units
     .filter((u) => selectedUnits.includes(u.unit))
@@ -279,6 +275,14 @@ export default function HostScreen({
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="min-h-0 space-y-4 lg:col-span-2">
+            {!isSinglePlayer && !roomState && (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-slate-700 bg-slate-800">
+                <div className="text-center text-white">
+                  <div className="text-xl font-bold">読み込み中...</div>
+                </div>
+              </div>
+            )}
+
             {currentRoomState.state === 'waiting' && (
               <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-3">
                 <h2 className="mb-2 shrink-0 text-base font-bold md:text-lg">ゲーム設定</h2>
