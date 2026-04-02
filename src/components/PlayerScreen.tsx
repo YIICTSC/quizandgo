@@ -182,6 +182,17 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   }
 
   const me = roomState.players[socket.id];
+  const sortedPlayers = Object.values(roomState.players || {}).sort((a: any, b: any) => {
+    const scoreDiff = calculateGameScore(roomState?.gameType, b) - calculateGameScore(roomState?.gameType, a);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+    if (roomState?.gameType === 'quiz') {
+      return (b.correctAnswers || 0) - (a.correctAnswers || 0);
+    }
+    return (a.totalStrokes || 0) - (b.totalStrokes || 0);
+  });
+  const myRank = Math.max(0, sortedPlayers.findIndex((player: any) => player.id === socket.id)) + 1;
 
   if (roomState.state === 'waiting') {
     return (
@@ -203,6 +214,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
         <div className="bg-slate-800 px-12 py-8 rounded-2xl border border-slate-700 shadow-2xl text-center">
           <div className="text-xl text-slate-400 mb-2">あなたの成績</div>
           <div className="text-4xl font-bold mb-4" style={{ color: me?.color || 'white' }}>{playerName}</div>
+          <div className="mx-auto mb-6 inline-flex rounded-full border border-yellow-400/40 bg-yellow-500/15 px-6 py-3 text-xl font-black text-yellow-200">
+            {myRank}位
+          </div>
           <div className="grid grid-cols-2 gap-8 mt-8">
             <div>
               <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : 'クリアホール'}</div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Matter from 'matter-js';
 import { socket } from '../socket';
-import { playHitSound, playCupInSound } from '../lib/sound';
+import { playHitSound, playCupInSound, playSandTrapSound } from '../lib/sound';
 import { GAME_ITEM_MAP, GameItemId } from '../gameItems';
 
 const DEFAULT_BALL_PHYSICS = {
@@ -16,6 +16,12 @@ type Level = {
   holePos: { x: number, y: number };
   createWorld: () => Matter.Body[];
 };
+
+type GimmickConfig =
+  | { type: 'rotator'; origin: { x: number; y: number }; speed: number; baseAngle: number }
+  | { type: 'gate'; origin: { x: number; y: number }; axis: 'x' | 'y'; distance: number; speed: number; phase: number; baseAngle: number }
+  | { type: 'tilt'; origin: { x: number; y: number }; amplitude: number; speed: number; baseAngle: number }
+  | { type: 'slider'; origin: { x: number; y: number }; axis: 'x' | 'y'; distance: number; speed: number; phase: number; baseAngle: number };
 
 const COLORS = {
   grass: '#4ade80',
@@ -65,6 +71,92 @@ const cloudRect = (x: number, y: number, width: number, height: number, options:
     render: { fillStyle: COLORS.cloud },
     ...options,
   });
+
+const gimmickBody = (
+  label: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  gimmick: GimmickConfig,
+  options: Matter.IBodyDefinition = {}
+) =>
+  Matter.Bodies.rectangle(x, y, width, height, {
+    isStatic: true,
+    label,
+    render: { fillStyle: COLORS.obstacle },
+    plugin: { gimmick },
+    ...options,
+  });
+
+const rotatingBar = (x: number, y: number, width: number, height: number, speed = 1.5, baseAngle = 0) =>
+  gimmickBody('rotator', x, y, width, height, {
+    type: 'rotator',
+    origin: { x, y },
+    speed,
+    baseAngle,
+  });
+
+const gateBar = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  {
+    axis = 'y',
+    distance = 90,
+    speed = 2,
+    phase = 0,
+    baseAngle = 0,
+  }: { axis?: 'x' | 'y'; distance?: number; speed?: number; phase?: number; baseAngle?: number } = {}
+) =>
+  gimmickBody('gate', x, y, width, height, {
+    type: 'gate',
+    origin: { x, y },
+    axis,
+    distance,
+    speed,
+    phase,
+    baseAngle,
+  }, { angle: baseAngle });
+
+const tiltBar = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  { amplitude = 0.65, speed = 1.6, baseAngle = 0 }: { amplitude?: number; speed?: number; baseAngle?: number } = {}
+) =>
+  gimmickBody('tilt', x, y, width, height, {
+    type: 'tilt',
+    origin: { x, y },
+    amplitude,
+    speed,
+    baseAngle,
+  }, { angle: baseAngle });
+
+const sliderBar = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  {
+    axis = 'x',
+    distance = 110,
+    speed = 1.5,
+    phase = 0,
+    baseAngle = 0,
+  }: { axis?: 'x' | 'y'; distance?: number; speed?: number; phase?: number; baseAngle?: number } = {}
+) =>
+  gimmickBody('slider', x, y, width, height, {
+    type: 'slider',
+    origin: { x, y },
+    axis,
+    distance,
+    speed,
+    phase,
+    baseAngle,
+  }, { angle: baseAngle });
 
 const bounds = ({
   floor = true,
@@ -168,6 +260,7 @@ const LEVELS: Level[] = [
       grassRect(110, 150, 150, 20),
       wallRect(300, 250, 20, 150, { angle: Math.PI / 4 }),
       wallRect(500, 400, 20, 150, { angle: -Math.PI / 4 }),
+      rotatingBar(400, 280, 150, 16, 1.9),
     ],
   },
   {
@@ -272,7 +365,7 @@ const LEVELS: Level[] = [
       wallRect(400, 520, 16, 80),
       wallRect(540, 520, 16, 80),
       grassRect(240, 430, 120, 16),
-      grassRect(400, 380, 120, 16),
+      gateBar(400, 380, 120, 16, { axis: 'y', distance: 70, speed: 2.1 }),
       grassRect(560, 430, 120, 16),
     ],
   },
@@ -311,6 +404,7 @@ const LEVELS: Level[] = [
       ...bounds({ floor: false }),
       grassRect(110, 560, 160, 18),
       grassRect(290, 470, 90, 18),
+      sliderBar(440, 430, 120, 18, { axis: 'x', distance: 95, speed: 1.7 }),
       grassRect(440, 390, 90, 18),
       grassRect(590, 330, 90, 18),
       grassRect(720, 325, 120, 18),
@@ -336,7 +430,7 @@ const LEVELS: Level[] = [
       ...bounds(),
       grassRect(150, 520, 170, 18),
       waterRect(270, 460, 90, 14),
-      grassRect(390, 390, 130, 18),
+      tiltBar(390, 390, 130, 18, { amplitude: 0.72, speed: 1.8 }),
       waterRect(510, 320, 90, 14),
       grassRect(640, 230, 130, 18),
       grassRect(730, 160, 100, 18),
@@ -376,6 +470,7 @@ const LEVELS: Level[] = [
       ...bounds(),
       wallRect(210, 470, 18, 170),
       wallRect(350, 320, 18, 170),
+      rotatingBar(420, 405, 130, 16, 1.6, 0.4),
       wallRect(490, 470, 18, 170),
       wallRect(630, 320, 18, 170),
       grassRect(720, 560, 110, 18),
@@ -413,7 +508,7 @@ const LEVELS: Level[] = [
     createWorld: () => [
       ...bounds(),
       wallRect(400, 460, 20, 220),
-      wallRect(400, 280, 220, 20),
+      tiltBar(400, 280, 220, 20, { amplitude: 0.58, speed: 1.35 }),
       grassRect(220, 380, 140, 18),
       grassRect(580, 210, 140, 18),
       grassRect(700, 145, 100, 18),
@@ -454,7 +549,7 @@ const LEVELS: Level[] = [
       ...bounds(),
       wallRect(220, 470, 20, 150),
       waterRect(300, 555, 100, 14),
-      wallRect(390, 350, 20, 220),
+      gateBar(390, 350, 20, 220, { axis: 'x', distance: 90, speed: 2.3 }),
       dirtRect(500, 560, 100, 18),
       wallRect(600, 470, 20, 150),
       grassRect(720, 560, 110, 18),
@@ -471,6 +566,8 @@ const LEVELS: Level[] = [
       grassRect(460, 390, 140, 18),
       dirtRect(600, 325, 120, 16),
       wallRect(300, 260, 220, 18, { angle: 0.3 }),
+      rotatingBar(540, 250, 110, 16, 2.2),
+      sliderBar(610, 200, 110, 16, { axis: 'y', distance: 60, speed: 1.8, phase: Math.PI / 2 }),
       grassRect(700, 165, 120, 18),
     ],
   },
@@ -513,6 +610,9 @@ export default function GolfGame({
   const skipNextStopRef = useRef(false);
   const stickyHoldRef = useRef(false);
   const lastWaterBounceRef = useRef(0);
+  const waterRespawnTimeoutRef = useRef<number | null>(null);
+  const waterRespawningRef = useRef(false);
+  const lastDirtCrunchRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
   const activeTouchIdRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
@@ -709,6 +809,43 @@ export default function GolfGame({
     }
   };
 
+  const respawnFromWaterHazard = (
+    ball: Matter.Body,
+    level: Level,
+    wasMovingRef: { current: boolean }
+  ) => {
+    if (waterRespawningRef.current) return;
+    waterRespawningRef.current = true;
+    clearShotEffect();
+    stickyHoldRef.current = false;
+    skipNextStopRef.current = false;
+    ball.render.opacity = 0.3;
+    Matter.Body.setVelocity(ball, { x: 0, y: 0.6 });
+    Matter.Body.setAngularVelocity(ball, 0);
+    Matter.Body.setStatic(ball, true);
+    setActiveShotLabel('ウォーターハザード');
+
+    if (waterRespawnTimeoutRef.current) {
+      window.clearTimeout(waterRespawnTimeoutRef.current);
+    }
+
+    waterRespawnTimeoutRef.current = window.setTimeout(() => {
+      waterRespawningRef.current = false;
+      ball.render.opacity = 1;
+      Matter.Body.setPosition(ball, level.startPos);
+      Matter.Body.setVelocity(ball, { x: 0, y: 0 });
+      Matter.Body.setAngularVelocity(ball, 0);
+      Matter.Body.setStatic(ball, false);
+      wasMovingRef.current = false;
+      setActiveShotLabel(null);
+      if (isSinglePlayer) {
+        singleBallStoppedRef.current?.();
+      } else {
+        socket.emit('ballStopped', roomId);
+      }
+    }, 650);
+  };
+
   useEffect(() => {
     if (!sceneRef.current) return;
 
@@ -730,6 +867,7 @@ export default function GolfGame({
 
     // Create level bodies
     const staticBodies = level.createWorld();
+    const animatedBodies = staticBodies.filter((body) => Boolean((body.plugin as any)?.gimmick));
 
     // Create hole
     const hole = Matter.Bodies.rectangle(level.holePos.x, level.holePos.y, 40, 20, { 
@@ -766,10 +904,50 @@ export default function GolfGame({
       Matter.Body.setStatic(ball, true);
     }
 
+    Matter.Events.on(engine, 'beforeUpdate', () => {
+      const time = engine.timing.timestamp / 1000;
+      animatedBodies.forEach((body) => {
+        const gimmick = (body.plugin as any)?.gimmick as GimmickConfig | undefined;
+        if (!gimmick) return;
+
+        switch (gimmick.type) {
+          case 'rotator':
+            Matter.Body.setAngle(body, gimmick.baseAngle + time * gimmick.speed);
+            Matter.Body.setPosition(body, gimmick.origin);
+            break;
+          case 'gate': {
+            const delta = ((Math.sin(time * gimmick.speed + gimmick.phase) + 1) / 2) * gimmick.distance;
+            Matter.Body.setPosition(body, {
+              x: gimmick.origin.x + (gimmick.axis === 'x' ? delta : 0),
+              y: gimmick.origin.y + (gimmick.axis === 'y' ? delta : 0),
+            });
+            Matter.Body.setAngle(body, gimmick.baseAngle);
+            break;
+          }
+          case 'tilt':
+            Matter.Body.setPosition(body, gimmick.origin);
+            Matter.Body.setAngle(body, gimmick.baseAngle + Math.sin(time * gimmick.speed) * gimmick.amplitude);
+            break;
+          case 'slider': {
+            const offset = Math.sin(time * gimmick.speed + gimmick.phase) * gimmick.distance;
+            Matter.Body.setPosition(body, {
+              x: gimmick.origin.x + (gimmick.axis === 'x' ? offset : 0),
+              y: gimmick.origin.y + (gimmick.axis === 'y' ? offset : 0),
+            });
+            Matter.Body.setAngle(body, gimmick.baseAngle);
+            break;
+          }
+        }
+      });
+    });
+
     // Sync loop
-    let wasMoving = false;
+    const wasMovingRef = { current: false };
     const syncInterval = setInterval(() => {
       if (ballRef.current) {
+        if (waterRespawningRef.current) {
+          return;
+        }
         // Out of bounds check
         if (ballRef.current.position.y > 650) {
           Matter.Body.setPosition(ballRef.current, level.startPos);
@@ -793,11 +971,16 @@ export default function GolfGame({
             });
           }
         }
-        if (isOnDirt && speed > 0.12) {
+        if (isOnDirt && speed > 0.05) {
+          if (speed > 0.7 && Date.now() - lastDirtCrunchRef.current > 280) {
+            lastDirtCrunchRef.current = Date.now();
+            playSandTrapSound();
+          }
           Matter.Body.setVelocity(ballRef.current, {
-            x: ballRef.current.velocity.x * 0.94,
-            y: ballRef.current.velocity.y * 0.94,
+            x: ballRef.current.velocity.x * 0.32,
+            y: ballRef.current.velocity.y * 0.32,
           });
+          Matter.Body.setAngularVelocity(ballRef.current, ballRef.current.angularVelocity * 0.2);
         }
         if (isSinglePlayer && speed < 0.18) {
           Matter.Body.setVelocity(ballRef.current, { x: 0, y: 0 });
@@ -813,10 +996,10 @@ export default function GolfGame({
               y: ballRef.current.position.y
             });
           }
-          wasMoving = true;
-        } else if (wasMoving) {
+          wasMovingRef.current = true;
+        } else if (wasMovingRef.current) {
           // Ball just stopped
-          wasMoving = false;
+          wasMovingRef.current = false;
           if (skipNextStopRef.current) {
             skipNextStopRef.current = false;
             clearShotEffect();
@@ -863,17 +1046,14 @@ export default function GolfGame({
         if (otherBody.label === 'water') {
           const speed = Math.sqrt(ball.velocity.x * ball.velocity.x + ball.velocity.y * ball.velocity.y);
           const now = Date.now();
-          if (speed > 4.2 && now - lastWaterBounceRef.current > 220) {
+          if (speed > 4.9 && now - lastWaterBounceRef.current > 220) {
             lastWaterBounceRef.current = now;
             Matter.Body.setVelocity(ball, {
-              x: ball.velocity.x * 1.03,
-              y: -Math.max(3.4, Math.abs(ball.velocity.x) * 0.2),
+              x: ball.velocity.x * 1.02,
+              y: -Math.max(3.9, Math.abs(ball.velocity.x) * 0.24),
             });
-          } else if (speed > 0.3) {
-            Matter.Body.setVelocity(ball, {
-              x: ball.velocity.x * 0.82,
-              y: ball.velocity.y * 0.55,
-            });
+          } else {
+            respawnFromWaterHazard(ball, level, wasMovingRef);
           }
         }
 
@@ -896,7 +1076,7 @@ export default function GolfGame({
             window.clearTimeout(turboTimeoutRef.current);
             turboTimeoutRef.current = null;
           }
-          wasMoving = false;
+          wasMovingRef.current = false;
           if (isSinglePlayer) {
             singleBallStoppedRef.current?.();
           } else {
@@ -915,6 +1095,11 @@ export default function GolfGame({
 
     return () => {
       clearInterval(syncInterval);
+      if (waterRespawnTimeoutRef.current) {
+        window.clearTimeout(waterRespawnTimeoutRef.current);
+        waterRespawnTimeoutRef.current = null;
+      }
+      waterRespawningRef.current = false;
       clearShotEffect();
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);

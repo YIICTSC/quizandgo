@@ -16,7 +16,7 @@ export default function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [playerName, setPlayerName] = useState<string>('');
   const [selectedGameType, setSelectedGameType] = useState<string>('golf');
-  const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string } | null>(null);
+  const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string; debugHole?: number; debugFreePlay?: boolean } | null>(null);
   const returnToTitle = () => {
     setRole('none');
     setRoomId('');
@@ -98,6 +98,8 @@ export default function App() {
         mode={singlePlayConfig.mode}
         timeLimit={singlePlayConfig.timeLimit}
         gameTitle={singlePlayConfig.gameTitle}
+        debugHole={singlePlayConfig.debugHole}
+        debugFreePlay={singlePlayConfig.debugFreePlay}
         onReturnToTitle={returnToTitle}
       />
     );
@@ -118,6 +120,17 @@ export default function App() {
       onStartSinglePlayer={(gameType) => {
         setSelectedGameType(gameType);
         setRole('single_setup');
+      }}
+      onStartDebugCourse={(hole) => {
+        setSelectedGameType('golf');
+        setSinglePlayConfig({
+          mode: 'debug_course',
+          timeLimit: 9999,
+          gameTitle: 'ゴルフゲーム デバッグ',
+          debugHole: hole,
+          debugFreePlay: true,
+        });
+        setRole('single_play');
       }}
     />
   );

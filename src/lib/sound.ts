@@ -86,6 +86,36 @@ export const playHitSound = () => {
   } catch (e) { console.error(e); }
 };
 
+export const playSandTrapSound = () => {
+  try {
+    const ctx = getCtx();
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = noiseBuffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 260;
+    filter.Q.value = 0.8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    source.start();
+    source.stop(ctx.currentTime + 0.12);
+  } catch (e) { console.error(e); }
+};
+
 export const playCupInSound = () => {
   try {
     const ctx = getCtx();

@@ -107,22 +107,26 @@ export default function SinglePlayScreen({
   mode,
   timeLimit,
   gameTitle,
+  debugHole,
+  debugFreePlay = false,
   onReturnToTitle,
 }: {
   questions?: SinglePlayQuestion[];
   mode: string;
   timeLimit: number;
   gameTitle: string;
+  debugHole?: number;
+  debugFreePlay?: boolean;
   onReturnToTitle: () => void;
 }) {
   const [timeRemaining, setTimeRemaining] = useState(timeLimit);
-  const [holesCompleted, setHolesCompleted] = useState(0);
+  const [holesCompleted, setHolesCompleted] = useState(() => Math.max(0, (debugHole || 1) - 1));
   const [totalStrokes, setTotalStrokes] = useState(0);
   const [currentStrokes, setCurrentStrokes] = useState(0);
-  const [canShoot, setCanShoot] = useState(false);
+  const [canShoot, setCanShoot] = useState(debugFreePlay);
   const [ballInMotion, setBallInMotion] = useState(false);
-  const [pinBallToStart, setPinBallToStart] = useState(true);
-  const [question, setQuestion] = useState<SinglePlayQuestion | null>(null);
+  const [pinBallToStart, setPinBallToStart] = useState(!debugFreePlay);
+  const [question, setQuestion] = useState<SinglePlayQuestion | null>(debugFreePlay ? null : null);
   const [answerResult, setAnswerResult] = useState<boolean | null>(null);
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -190,7 +194,9 @@ export default function SinglePlayScreen({
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
-    setNextQuestion();
+    if (!debugFreePlay) {
+      setNextQuestion();
+    }
     startBGM('play');
 
     const timer = window.setInterval(() => {
@@ -212,7 +218,7 @@ export default function SinglePlayScreen({
         window.speechSynthesis.cancel();
       }
     };
-  }, [setNextQuestion, stopRecognition]);
+  }, [debugFreePlay, setNextQuestion, stopRecognition]);
 
   useEffect(() => {
     if (!question?.audioPrompt || answerResult !== null) return;
@@ -297,22 +303,33 @@ export default function SinglePlayScreen({
 
   const onSingleBallStopped = useCallback(() => {
     setBallInMotion(false);
+    if (debugFreePlay) {
+      setCanShoot(true);
+      return;
+    }
     if (!canShoot && !question && timeRemaining > 0) {
       setNextQuestion();
     }
-  }, [canShoot, question, setNextQuestion, timeRemaining]);
+  }, [canShoot, debugFreePlay, question, setNextQuestion, timeRemaining]);
 
   const onSingleHoleCompleted = useCallback(() => {
     setHolesCompleted((current) => current + 1);
     setCurrentStrokes(0);
-    setCanShoot(false);
     setBallInMotion(false);
-    setPinBallToStart(true);
     setActiveItemId(null);
+    if (debugFreePlay) {
+      setCanShoot(true);
+      setPinBallToStart(false);
+      setPendingItemChoices(null);
+      setQuestion(null);
+      return;
+    }
+    setCanShoot(false);
+    setPinBallToStart(true);
     if (timeRemaining > 0) {
       setPendingItemChoices(getRandomItemChoices(2));
     }
-  }, [setNextQuestion, timeRemaining]);
+  }, [debugFreePlay, setNextQuestion, timeRemaining]);
 
   const chooseRewardItem = (itemId: GameItemId) => {
     setItems((current) => addItemToInventory(current, itemId, 3));
@@ -324,6 +341,17 @@ export default function SinglePlayScreen({
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const moveDebugHole = (delta: number) => {
+    setHolesCompleted((current) => Math.max(0, Math.min(29, current + delta)));
+    setCurrentStrokes(0);
+    setBallInMotion(false);
+    setCanShoot(true);
+    setPinBallToStart(false);
+    setQuestion(null);
+    setPendingItemChoices(null);
+    setActiveItemId(null);
   };
 
   if (timeRemaining <= 0) {
@@ -364,6 +392,7 @@ export default function SinglePlayScreen({
             <div className="w-6 h-6 rounded-full bg-sky-400"></div>
               <span className="text-xl font-bold md:text-2xl">シングルプレイ</span>
               <span className="truncate text-sm text-slate-400">{gameTitle}</span>
+              {debugFreePlay ? <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-bold text-cyan-200">DEBUG FREE PLAY</span> : null}
             </div>
             <div className="flex flex-1 flex-wrap items-start justify-end gap-2">
               <div className="flex gap-2">
@@ -381,10 +410,17 @@ export default function SinglePlayScreen({
                 <ItemSlots
                   items={items}
                   activeItemId={activeItemId}
-                  disabled={Boolean(pendingItemChoices?.length)}
+                  disabled={debugFreePlay || Boolean(pendingItemChoices?.length)}
                   onSelectItem={setActiveItemId}
                 />
               </div>
+              {debugFreePlay ? (
+                <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
+                  <button onClick={() => moveDebugHole(-1)} className="rounded-lg bg-slate-800 px-3 py-1 text-sm font-bold text-white hover:bg-slate-700">前のホール</button>
+                  <div className="text-sm font-bold text-cyan-100">Hole {holesCompleted + 1}</div>
+                  <button onClick={() => moveDebugHole(1)} className="rounded-lg bg-slate-800 px-3 py-1 text-sm font-bold text-white hover:bg-slate-700">次のホール</button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -401,11 +437,11 @@ export default function SinglePlayScreen({
             onSingleHoleCompleted={onSingleHoleCompleted}
           />
 
-          {pendingItemChoices?.length ? (
+          {pendingItemChoices?.length && !debugFreePlay ? (
             <ItemRewardOverlay choices={pendingItemChoices} onChoose={chooseRewardItem} />
           ) : null}
 
-          {question && !pendingItemChoices?.length && (!canShoot || answerResult !== null) && (
+          {question && !debugFreePlay && !pendingItemChoices?.length && (!canShoot || answerResult !== null) && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 p-4 backdrop-blur-md md:p-8">
               {answerResult === null || answerResult === false ? (
                 <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
