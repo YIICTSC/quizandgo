@@ -323,6 +323,7 @@ const LEVELS: Level[] = [
     holePos: { x: 710, y: 540 },
     createWorld: () => [
       ...bounds({ floor: false }),
+      grassRect(110, 560, 150, 18),
       wallRect(250, 470, 180, 18, { angle: -0.34 }),
       wallRect(550, 470, 180, 18, { angle: 0.34 }),
       grassRect(400, 330, 180, 18),
@@ -1053,7 +1054,7 @@ export default function GolfGame({
         if (otherBody.label === 'water') {
           const speed = Math.sqrt(ball.velocity.x * ball.velocity.x + ball.velocity.y * ball.velocity.y);
           const now = Date.now();
-          if (speed > 5.6 && Math.abs(ball.velocity.x) > 2.6 && now - lastWaterBounceRef.current > 220) {
+          if (speed > 6.2 && Math.abs(ball.velocity.x) > 3.1 && now - lastWaterBounceRef.current > 220) {
             lastWaterBounceRef.current = now;
             Matter.Body.setVelocity(ball, {
               x: ball.velocity.x * 1.01,
