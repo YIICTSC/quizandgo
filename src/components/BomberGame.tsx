@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 
-const CELL_SIZE = 28;
-
 type BomberGameProps = {
   roomId: string;
   me: any;
@@ -46,9 +44,9 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
 
   const width = bomberState.width || 21;
   const height = bomberState.height || 15;
+  const cellWidthPercent = 100 / width;
+  const cellHeightPercent = 100 / height;
   const boardStyle = {
-    width: `${width * CELL_SIZE}px`,
-    height: `${height * CELL_SIZE}px`,
     gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
     gridTemplateRows: `repeat(${height}, minmax(0, 1fr))`,
   } as const;
@@ -58,7 +56,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center">
       <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/70 p-2">
-        <div className="relative mx-auto grid max-h-full max-w-full" style={boardStyle}>
+        <div className="relative mx-auto grid h-full max-h-full w-full max-w-full" style={{ ...boardStyle, aspectRatio: `${width} / ${height}` }}>
           {bomberState.grid.flatMap((row: string[], y: number) =>
             row.map((cell: string, x: number) => {
               const className =
@@ -71,7 +69,6 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 <div
                   key={`cell-${x}-${y}`}
                   className={`border border-slate-800/50 ${className}`}
-                  style={{ width: CELL_SIZE, height: CELL_SIZE }}
                 />
               );
             })
@@ -82,10 +79,10 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               key={bomb.id}
               className="absolute flex items-center justify-center rounded-full border-2 border-white/40 bg-rose-500 text-xs font-black text-white"
               style={{
-                width: CELL_SIZE - 8,
-                height: CELL_SIZE - 8,
-                left: bomb.x * CELL_SIZE + 4,
-                top: bomb.y * CELL_SIZE + 4,
+                width: `calc(${cellWidthPercent}% - 6px)`,
+                height: `calc(${cellHeightPercent}% - 6px)`,
+                left: `calc(${bomb.x * cellWidthPercent}% + 3px)`,
+                top: `calc(${bomb.y * cellHeightPercent}% + 3px)`,
               }}
             >
               B
@@ -98,10 +95,10 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 key={`${explosion.id}-${cell.x}-${cell.y}-${index}`}
                 className="absolute rounded-lg bg-orange-400/80 shadow-[0_0_18px_rgba(251,146,60,0.7)]"
                 style={{
-                  width: CELL_SIZE - 6,
-                  height: CELL_SIZE - 6,
-                  left: cell.x * CELL_SIZE + 3,
-                  top: cell.y * CELL_SIZE + 3,
+                  width: `calc(${cellWidthPercent}% - 4px)`,
+                  height: `calc(${cellHeightPercent}% - 4px)`,
+                  left: `calc(${cell.x * cellWidthPercent}% + 2px)`,
+                  top: `calc(${cell.y * cellHeightPercent}% + 2px)`,
                 }}
               />
             ))
@@ -114,10 +111,10 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 player.alive ? 'opacity-100' : 'opacity-35'
               }`}
               style={{
-                width: CELL_SIZE - 8,
-                height: CELL_SIZE - 8,
-                left: player.bomberX * CELL_SIZE + 4,
-                top: player.bomberY * CELL_SIZE + 4,
+                width: `calc(${cellWidthPercent}% - 6px)`,
+                height: `calc(${cellHeightPercent}% - 6px)`,
+                left: `calc(${player.bomberX * cellWidthPercent}% + 3px)`,
+                top: `calc(${player.bomberY * cellHeightPercent}% + 3px)`,
                 backgroundColor: player.color || 'white',
                 borderColor: player.id === me?.id ? '#ffffff' : 'rgba(255,255,255,0.35)',
               }}

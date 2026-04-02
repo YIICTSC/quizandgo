@@ -415,7 +415,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 </div>
               </div>
             </div>
-            <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_330px]">
+            <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
               <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">
                 <BomberGame
                   roomId={roomId}
@@ -426,7 +426,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   onPlaceBomb={() => socket.emit('placeBomberBomb', { roomId })}
                 />
               </div>
-              <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-3">
+              <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">
                 {!me?.alive ? (
                   <div className="mb-3 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-3 text-center">
                     <div className="text-xl font-black text-rose-300">やられた！</div>
