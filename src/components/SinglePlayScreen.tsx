@@ -127,6 +127,7 @@ export default function SinglePlayScreen({
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechTranscript, setSpeechTranscript] = useState('');
   const [items, setItems] = useState<GameItemId[]>([]);
   const [activeItemId, setActiveItemId] = useState<GameItemId | null>(null);
   const [pendingItemChoices, setPendingItemChoices] = useState<GameItemId[] | null>(null);
@@ -176,6 +177,7 @@ export default function SinglePlayScreen({
     setQuestion(pickQuestion());
     setAnswerResult(null);
     setSelectedAnswerIndex(null);
+    setSpeechTranscript('');
   }, [pickQuestion]);
 
   const getOptionStateClass = (index: number) => {
@@ -232,6 +234,7 @@ export default function SinglePlayScreen({
       return;
     }
 
+    setSpeechTranscript('');
     const recognition = new RecognitionCtor();
     recognition.lang = question.speechPrompt.lang || 'en-US';
     recognition.continuous = false;
@@ -242,6 +245,7 @@ export default function SinglePlayScreen({
         .join(' ')
         .trim();
 
+      setSpeechTranscript(transcript);
       const correct = matchesSpeechAnswer(transcript, question.speechPrompt);
       if (correct) {
         playCorrectSound();
@@ -418,13 +422,16 @@ export default function SinglePlayScreen({
                       </button>
                     )}
                     {question.speechPrompt && (
-                      <button
-                        onClick={startSpeechRecognition}
-                        disabled={!speechSupported || isListening}
-                        className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600"
-                      >
-                        {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
-                      </button>
+                      <div className="flex flex-col items-center gap-2">
+                        <button
+                          onClick={startSpeechRecognition}
+                          disabled={!speechSupported || isListening}
+                          className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600"
+                        >
+                          {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                        </button>
+                        {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                      </div>
                     )}
                   </div>
                 )}

@@ -111,6 +111,7 @@ export default function SingleQuizScreen({
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechTranscript, setSpeechTranscript] = useState('');
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
 
@@ -146,6 +147,7 @@ export default function SingleQuizScreen({
       setQuestion(pickQuestion());
       setAnswerResult(null);
       setSelectedAnswerIndex(null);
+      setSpeechTranscript('');
     }, delay);
   }, [pickQuestion]);
 
@@ -216,6 +218,7 @@ export default function SingleQuizScreen({
       return;
     }
 
+    setSpeechTranscript('');
     const recognition = new RecognitionCtor();
     recognition.lang = question.speechPrompt.lang || 'en-US';
     recognition.continuous = false;
@@ -226,6 +229,7 @@ export default function SingleQuizScreen({
         .join(' ')
         .trim();
 
+      setSpeechTranscript(transcript);
       handleResult(matchesSpeechAnswer(transcript, question.speechPrompt));
     };
     recognition.onerror = () => stopRecognition();
@@ -295,9 +299,12 @@ export default function SingleQuizScreen({
                   </button>
                 )}
                 {question.speechPrompt && (
-                  <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
-                    {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
-                  </button>
+                  <div className="flex flex-col items-center gap-2">
+                    <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                      {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                    </button>
+                    {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                  </div>
                 )}
               </div>
             )}

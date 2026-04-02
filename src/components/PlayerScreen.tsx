@@ -36,6 +36,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechTranscript, setSpeechTranscript] = useState('');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
@@ -78,6 +79,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       return;
     }
 
+    setSpeechTranscript('');
     const recognition = new RecognitionCtor();
     recognition.lang = question.speechPrompt.lang || 'en-US';
     recognition.continuous = false;
@@ -88,6 +90,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
         .join(' ')
         .trim();
 
+      setSpeechTranscript(transcript);
       const correct = matchesSpeechAnswer(transcript, question.speechPrompt);
       socket.emit('submitAnswer', { roomId, isSpeechCorrect: correct });
     };
@@ -117,6 +120,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       setSelectedAnswerIndex(null);
       setCorrectAnswerIndex(null);
       setCorrectAnswerText(null);
+      setSpeechTranscript('');
     };
     const onTimeUpdate = (time: number) => {
       setTimeRemaining(time);
@@ -250,9 +254,12 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                       </button>
                     )}
                     {question.speechPrompt && (
-                      <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
-                        {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
-                      </button>
+                      <div className="flex flex-col items-center gap-2">
+                        <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                          {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                        </button>
+                        {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                      </div>
                     )}
                   </div>
                 )}
@@ -351,13 +358,16 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                         </button>
                       )}
                       {question.speechPrompt && (
-                        <button
-                          onClick={startSpeechRecognition}
-                          disabled={!speechSupported || isListening}
-                          className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600"
-                        >
-                          {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
-                        </button>
+                        <div className="flex flex-col items-center gap-2">
+                          <button
+                            onClick={startSpeechRecognition}
+                            disabled={!speechSupported || isListening}
+                            className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600"
+                          >
+                            {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                          </button>
+                          {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                        </div>
                       )}
                     </div>
                   )}
