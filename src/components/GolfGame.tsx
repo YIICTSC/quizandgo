@@ -258,6 +258,7 @@ const LEVELS: Level[] = [
     createWorld: () => [
       ...bounds(),
       grassRect(110, 150, 150, 20),
+      wallRect(405, 520, 20, 180),
       wallRect(300, 250, 20, 150, { angle: Math.PI / 4 }),
       wallRect(500, 400, 20, 150, { angle: -Math.PI / 4 }),
       rotatingBar(400, 280, 150, 16, 1.9),
@@ -321,7 +322,7 @@ const LEVELS: Level[] = [
     startPos: { x: 90, y: 540 },
     holePos: { x: 710, y: 540 },
     createWorld: () => [
-      ...bounds(),
+      ...bounds({ floor: false }),
       wallRect(250, 470, 180, 18, { angle: -0.34 }),
       wallRect(550, 470, 180, 18, { angle: 0.34 }),
       grassRect(400, 330, 180, 18),
@@ -336,7 +337,7 @@ const LEVELS: Level[] = [
       ...bounds(),
       wallRect(320, 520, 160, 18, { angle: -0.4 }),
       wallRect(480, 520, 160, 18, { angle: 0.4 }),
-      wallRect(400, 430, 180, 18),
+      wallRect(400, 430, 620, 18),
       grassRect(400, 560, 110, 18),
     ],
   },
@@ -349,7 +350,6 @@ const LEVELS: Level[] = [
       grassRect(180, 545, 220, 18),
       waterRect(380, 555, 150, 14),
       grassRect(560, 440, 180, 18),
-      waterRect(290, 350, 160, 14),
       grassRect(710, 205, 120, 18),
       wallRect(470, 300, 16, 170),
     ],
@@ -380,7 +380,7 @@ const LEVELS: Level[] = [
       grassRect(420, 340, 140, 18),
       grassRect(560, 250, 140, 18),
       grassRect(710, 160, 120, 18),
-      dirtRect(490, 365, 60, 12),
+      sliderBar(490, 365, 760, 12, { axis: 'x', distance: 250, speed: 1.35 }),
     ],
   },
   {
@@ -390,9 +390,13 @@ const LEVELS: Level[] = [
     createWorld: () => [
       ...bounds(),
       grassRect(110, 160, 150, 18),
+      wallRect(170, 180, 18, 110, { angle: -0.55 }),
       wallRect(250, 220, 18, 130, { angle: 0.5 }),
+      wallRect(330, 260, 18, 130, { angle: -0.52 }),
       wallRect(420, 320, 18, 130, { angle: -0.5 }),
+      wallRect(500, 370, 18, 130, { angle: 0.52 }),
       wallRect(590, 420, 18, 130, { angle: 0.5 }),
+      wallRect(670, 470, 18, 120, { angle: -0.48 }),
       dirtRect(705, 560, 120, 18),
     ],
   },
@@ -429,9 +433,9 @@ const LEVELS: Level[] = [
     createWorld: () => [
       ...bounds(),
       grassRect(150, 520, 170, 18),
-      waterRect(270, 460, 90, 14),
+      sliderBar(270, 460, 110, 14, { axis: 'x', distance: 150, speed: 1.9 }),
       tiltBar(390, 390, 130, 18, { amplitude: 0.72, speed: 1.8 }),
-      waterRect(510, 320, 90, 14),
+      sliderBar(510, 320, 110, 14, { axis: 'x', distance: 120, speed: 2.1, phase: Math.PI / 2 }),
       grassRect(640, 230, 130, 18),
       grassRect(730, 160, 100, 18),
     ],
@@ -444,7 +448,7 @@ const LEVELS: Level[] = [
       ...bounds(),
       wallRect(340, 470, 30, 220),
       wallRect(460, 470, 30, 220),
-      wallRect(400, 360, 140, 18),
+      sliderBar(400, 360, 140, 18, { axis: 'x', distance: 150, speed: 2.4, phase: Math.PI / 3, baseAngle: 0.4 }),
       grassRect(400, 560, 130, 18),
       dirtRect(650, 560, 140, 18),
     ],
@@ -495,9 +499,9 @@ const LEVELS: Level[] = [
     holePos: { x: 730, y: 520 },
     createWorld: () => [
       ...bounds(),
-      wallRect(190, 535, 150, 18, { angle: -0.2 }),
-      wallRect(360, 525, 150, 18, { angle: 0.18 }),
-      wallRect(530, 535, 150, 18, { angle: -0.2 }),
+      gateBar(190, 300, 150, 18, { axis: 'y', distance: 250, speed: 1.7, phase: 0, baseAngle: -0.2 }),
+      gateBar(360, 300, 150, 18, { axis: 'y', distance: 240, speed: 1.95, phase: Math.PI / 2, baseAngle: 0.18 }),
+      gateBar(530, 300, 150, 18, { axis: 'y', distance: 250, speed: 1.8, phase: Math.PI, baseAngle: -0.2 }),
       dirtRect(360, 560, 500, 18),
     ],
   },
@@ -522,9 +526,11 @@ const LEVELS: Level[] = [
     createWorld: () => [
       ...bounds(),
       grassRect(110, 175, 150, 18),
-      waterRect(250, 250, 90, 14),
-      waterRect(360, 340, 90, 14),
-      waterRect(470, 430, 90, 14),
+      waterRect(220, 220, 110, 14),
+      waterRect(300, 285, 110, 14),
+      waterRect(380, 350, 110, 14),
+      waterRect(460, 415, 110, 14),
+      waterRect(540, 480, 110, 14),
       grassRect(700, 560, 130, 18),
     ],
   },
@@ -536,7 +542,7 @@ const LEVELS: Level[] = [
       ...bounds(),
       grassRect(160, 520, 160, 18),
       wallRect(270, 430, 150, 18, { angle: -0.45 }),
-      grassRect(430, 330, 120, 18),
+      dirtRect(430, 330, 120, 18),
       wallRect(580, 230, 150, 18, { angle: -0.45 }),
       grassRect(720, 110, 100, 18),
     ],
@@ -971,16 +977,17 @@ export default function GolfGame({
             });
           }
         }
-        if (isOnDirt && speed > 0.05) {
-          if (speed > 0.7 && Date.now() - lastDirtCrunchRef.current > 280) {
+        if (isOnDirt && speed > 0.03) {
+          if (speed > 0.55 && Date.now() - lastDirtCrunchRef.current > 280) {
             lastDirtCrunchRef.current = Date.now();
             playSandTrapSound();
           }
+          const sinkRate = speed > 2.2 ? 0.14 : speed > 1.2 ? 0.2 : 0.28;
           Matter.Body.setVelocity(ballRef.current, {
-            x: ballRef.current.velocity.x * 0.32,
-            y: ballRef.current.velocity.y * 0.32,
+            x: ballRef.current.velocity.x * sinkRate,
+            y: ballRef.current.velocity.y * sinkRate,
           });
-          Matter.Body.setAngularVelocity(ballRef.current, ballRef.current.angularVelocity * 0.2);
+          Matter.Body.setAngularVelocity(ballRef.current, ballRef.current.angularVelocity * 0.08);
         }
         if (isSinglePlayer && speed < 0.18) {
           Matter.Body.setVelocity(ballRef.current, { x: 0, y: 0 });
@@ -1046,11 +1053,11 @@ export default function GolfGame({
         if (otherBody.label === 'water') {
           const speed = Math.sqrt(ball.velocity.x * ball.velocity.x + ball.velocity.y * ball.velocity.y);
           const now = Date.now();
-          if (speed > 4.9 && now - lastWaterBounceRef.current > 220) {
+          if (speed > 5.6 && Math.abs(ball.velocity.x) > 2.6 && now - lastWaterBounceRef.current > 220) {
             lastWaterBounceRef.current = now;
             Matter.Body.setVelocity(ball, {
-              x: ball.velocity.x * 1.02,
-              y: -Math.max(3.9, Math.abs(ball.velocity.x) * 0.24),
+              x: ball.velocity.x * 1.01,
+              y: -Math.max(4.1, Math.abs(ball.velocity.x) * 0.2),
             });
           } else {
             respawnFromWaterHazard(ball, level, wasMovingRef);
