@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { startBGM, stopBGM } from '../lib/sound';
+import { isBGMEnabled, setBGMEnabled, startBGM, stopBGM } from '../lib/sound';
 
 const HOST_GAME_OPTIONS = [
   { id: 'golf', title: 'ゴルフゲーム', subtitle: '現在プレイ可能', available: true },
@@ -22,6 +22,7 @@ export default function Home({
   const [singlePlayerMode, setSinglePlayerMode] = useState(false);
   const [titleTapCount, setTitleTapCount] = useState(0);
   const [showDebugMenu, setShowDebugMenu] = useState(false);
+  const [isBgmOn, setIsBgmOn] = useState(() => isBGMEnabled());
 
   useEffect(() => {
     startBGM('title');
@@ -53,6 +54,25 @@ export default function Home({
       >
         Quiz & Go!
       </h1>
+
+      <button
+        onClick={() => {
+          const next = !isBgmOn;
+          setIsBgmOn(next);
+          setBGMEnabled(next);
+          if (next) {
+            startBGM('title');
+          }
+        }}
+        className={`mb-6 rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+          isBgmOn
+            ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+            : 'border-slate-500 bg-slate-700 text-slate-200 hover:bg-slate-600'
+        }`}
+      >
+        BGM: {isBgmOn ? 'ON' : 'OFF'}
+      </button>
+
       
       <div className="w-full max-w-5xl bg-slate-800 rounded-2xl p-8 shadow-2xl border border-slate-700">
         <div className="space-y-6">
