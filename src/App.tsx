@@ -117,8 +117,16 @@ export default function App() {
         />
       );
     }
-    if (selectedGameType === 'dodge' && singlePlayConfig.mode === 'debug_dodge') {
-      return <SingleDodgeDebugScreen onReturnToTitle={returnToTitle} />;
+    if (selectedGameType === 'dodge') {
+      return (
+        <SingleDodgeDebugScreen
+          questions={singlePlayConfig.questions}
+          mode={singlePlayConfig.mode}
+          timeLimit={singlePlayConfig.timeLimit}
+          gameTitle={singlePlayConfig.gameTitle}
+          onReturnToTitle={returnToTitle}
+        />
+      );
     }
     return (
         <SinglePlayScreen
@@ -148,15 +156,6 @@ export default function App() {
       }}
       onStartSinglePlayer={(gameType) => {
         setSelectedGameType(gameType);
-        if (gameType === 'dodge') {
-          setSinglePlayConfig({
-            mode: 'debug_dodge',
-            timeLimit: 9999,
-            gameTitle: 'バトルドッジ 1人用',
-          });
-          setRole('single_play');
-          return;
-        }
         setRole('single_setup');
       }}
       onStartDebugCourse={(hole) => {
