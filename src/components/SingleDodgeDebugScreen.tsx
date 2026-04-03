@@ -138,10 +138,15 @@ export default function SingleDodgeDebugScreen({
   const heldDirectionRef = useRef<DodgeDirection | null>(null);
   const lastTickRef = useRef(performance.now());
   const defeatSoundCooldownRef = useRef(0);
+  const playersRef = useRef<DebugPlayer[]>(players);
 
   useEffect(() => {
     heldDirectionRef.current = heldDirection;
   }, [heldDirection]);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
   useEffect(() => {
     startBGM('play');
@@ -161,7 +166,7 @@ export default function SingleDodgeDebugScreen({
         const me = currentPlayers.find((player) => player.id === 'me');
         const meDirection = heldDirectionRef.current;
         const meVector = getMoveVector(meDirection);
-        let nextPlayers = currentPlayers.map((player) => {
+        const nextPlayers = currentPlayers.map((player) => {
           if (!player.alive) {
             if (player.respawnAt && now >= player.respawnAt) {
               const spawn = player.id === 'me' ? spawnPoints[0] : spawnPoints[(Number(player.id.split('-')[1]) || 1)] || spawnPoints[1];
@@ -224,68 +229,74 @@ export default function SingleDodgeDebugScreen({
             nextTurnAt: !player.nextTurnAt || now >= player.nextTurnAt ? now + 700 + Math.random() * 900 : player.nextTurnAt,
           };
         });
-
-        setBalls((currentBalls) => {
-          const spawnedBalls = [...currentBalls];
-          const survivors: DebugBall[] = [];
-          const defeatedIds = new Set<string>();
-          for (const ball of spawnedBalls) {
-            const nextBall = {
-              ...ball,
-              x: ball.x + ball.vx * dt,
-              y: ball.y + ball.vy * dt,
-            };
-            const outOfBounds =
-              now >= ball.expiresAt ||
-              nextBall.x < -DODGE_BALL_RADIUS ||
-              nextBall.x > DODGE_WIDTH + DODGE_BALL_RADIUS ||
-              nextBall.y < -DODGE_BALL_RADIUS ||
-              nextBall.y > DODGE_HEIGHT + DODGE_BALL_RADIUS;
-            if (outOfBounds) continue;
-
-            let hit = false;
-            for (const player of nextPlayers) {
-              if (!player.alive || player.id === nextBall.ownerId) continue;
-              const distance = Math.hypot(player.x - nextBall.x, player.y - nextBall.y);
-              if (distance <= DODGE_PLAYER_RADIUS + nextBall.radius) {
-                defeatedIds.add(player.id);
-                hit = true;
-                break;
-              }
-            }
-            if (!hit) {
-              survivors.push(nextBall);
-            }
-          }
-
-          if (defeatedIds.size > 0) {
-            nextPlayers = nextPlayers.map((player) => {
-              if (!defeatedIds.has(player.id)) return player;
-              if (player.id === 'me' && now - defeatSoundCooldownRef.current > 200) {
-                playDefeatSound();
-                defeatSoundCooldownRef.current = now;
-              }
-              return {
-                ...player,
-                alive: false,
-                deaths: player.deaths + 1,
-                respawnAt: now + DODGE_RESPAWN_MS,
-              };
-            });
-            nextPlayers = nextPlayers.map((player) => {
-              const hits = Array.from(defeatedIds).filter((id) => id !== player.id);
-              if (hits.length === 0) return player;
-              const scored = spawnedBalls.some((ball) => ball.ownerId === player.id);
-              if (!scored) return player;
-              const add = Array.from(defeatedIds).filter((id) => id !== player.id).length;
-              return add > 0 ? { ...player, kills: player.kills + add, score: player.score + add * 300 } : player;
-            });
-          }
-
-          return survivors;
-        });
-
         return nextPlayers;
+      });
+
+      setBalls((currentBalls) => {
+        const activePlayers = playersRef.current;
+        const survivors: DebugBall[] = [];
+        const defeatedIds = new Set<string>();
+        const scorerIds = new Set<string>();
+
+        for (const ball of currentBalls) {
+          const nextBall = {
+            ...ball,
+            x: ball.x + ball.vx * dt,
+            y: ball.y + ball.vy * dt,
+          };
+          const outOfBounds =
+            now >= ball.expiresAt ||
+            nextBall.x < -DODGE_BALL_RADIUS ||
+            nextBall.x > DODGE_WIDTH + DODGE_BALL_RADIUS ||
+            nextBall.y < -DODGE_BALL_RADIUS ||
+            nextBall.y > DODGE_HEIGHT + DODGE_BALL_RADIUS;
+          if (outOfBounds) continue;
+
+          let hit = false;
+          for (const player of activePlayers) {
+            if (!player.alive || player.id === nextBall.ownerId) continue;
+            const distance = Math.hypot(player.x - nextBall.x, player.y - nextBall.y);
+            if (distance <= DODGE_PLAYER_RADIUS + nextBall.radius) {
+              defeatedIds.add(player.id);
+              scorerIds.add(nextBall.ownerId);
+              hit = true;
+              break;
+            }
+          }
+
+          if (!hit) {
+            survivors.push(nextBall);
+          }
+        }
+
+        if (defeatedIds.size > 0) {
+          setPlayers((currentPlayers) =>
+            currentPlayers.map((player) => {
+              if (defeatedIds.has(player.id)) {
+                if (player.id === 'me' && now - defeatSoundCooldownRef.current > 200) {
+                  playDefeatSound();
+                  defeatSoundCooldownRef.current = now;
+                }
+                return {
+                  ...player,
+                  alive: false,
+                  deaths: player.deaths + 1,
+                  respawnAt: now + DODGE_RESPAWN_MS,
+                };
+              }
+              if (scorerIds.has(player.id)) {
+                return {
+                  ...player,
+                  kills: player.kills + 1,
+                  score: player.score + 300,
+                };
+              }
+              return player;
+            })
+          );
+        }
+
+        return survivors;
       });
 
       frame = window.requestAnimationFrame(tick);

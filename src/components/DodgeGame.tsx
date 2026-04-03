@@ -247,9 +247,10 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
                 style={{
                   width: `${(ball.radius * 2 / width) * 100}%`,
                   height: `${(ball.radius * 2 / height) * 100}%`,
-                  left: `calc(${((ball.x - ball.radius) / width) * 100}% )`,
-                  top: `calc(${((ball.y - ball.radius) / height) * 100}% )`,
-                  transition: 'left 48ms linear, top 48ms linear',
+                  left: 0,
+                  top: 0,
+                  transform: `translate(${((ball.x - ball.radius) / width) * 100}%, ${((ball.y - ball.radius) / height) * 100}%)`,
+                  willChange: 'transform',
                 }}
               />
             ))}
