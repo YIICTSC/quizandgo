@@ -97,6 +97,7 @@ export default function HostScreen({
   const [shotsPerQuestion, setShotsPerQuestion] = useState<number>(3);
   const [teamMode, setTeamMode] = useState(false);
   const [teamCount, setTeamCount] = useState<number>(2);
+  const [dodgeMode, setDodgeMode] = useState<'single' | 'team'>('single');
   const [bomberFriendlyFire, setBomberFriendlyFire] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
@@ -230,7 +231,10 @@ export default function HostScreen({
   
   // ランキング順にソート（スコアが高い順）
   const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
-  const effectiveTeamMode = resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' ? teamMode : teamMode);
+  const effectiveTeamMode =
+    resolvedGameType === 'team_bomber' ||
+    (resolvedGameType === 'color_bomber' ? teamMode : teamMode) ||
+    (resolvedGameType === 'dodge' && dodgeMode === 'team');
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     const scoreDiff = calculateGameScore(resolvedGameType, b) - calculateGameScore(resolvedGameType, a);
     if (scoreDiff !== 0) {
@@ -266,11 +270,11 @@ export default function HostScreen({
   }, [currentRoomState.teamCount, currentRoomState.teamNames, sortedPlayers, teamCount]);
   const requiresMorePlayersForTeams =
     !isSinglePlayer &&
-    (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'quiz') &&
+    (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'quiz' || resolvedGameType === 'dodge') &&
     effectiveTeamMode &&
     players.length < teamCount;
   const isTeamAggregateResults = !isSinglePlayer && (
-    ((resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && currentRoomState.teamMode)
+    ((resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'dodge') && currentRoomState.teamMode)
     || (resolvedGameType === 'quiz' && currentRoomState.quizVariant === 'team_battle' && currentRoomState.teamMode)
   );
   const teamRankings = useMemo(() => {
@@ -417,6 +421,7 @@ export default function HostScreen({
       shotsPerQuestion,
       teamMode: effectiveTeamMode,
       teamCount,
+      dodgeMode,
       bomberFriendlyFire,
       quizVariant,
       quizBattleLives,
@@ -853,6 +858,27 @@ export default function HostScreen({
                         )}
                       </>
                     )}
+                    {!isSinglePlayer && resolvedGameType === 'dodge' && (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                        <span className="text-[11px] font-bold text-slate-300">モード</span>
+                        <button
+                          onClick={() => setDodgeMode('single')}
+                          className={`rounded-lg px-3 py-1 text-xs font-bold ${dodgeMode === 'single' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                        >
+                          シングル
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDodgeMode('team');
+                            setTeamCount(2);
+                          }}
+                          className={`rounded-lg px-3 py-1 text-xs font-bold ${dodgeMode === 'team' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                        >
+                          チーム戦
+                        </button>
+                        {dodgeMode === 'team' ? <span className="text-[11px] text-cyan-200">2チーム固定</span> : null}
+                      </div>
+                    )}
                     <button 
                       onClick={startGame}
                       disabled={(!isSinglePlayer && players.length === 0) || (selectedMode === 'custom' && selectedQuestionCount === 0) || requiresMorePlayersForTeams}
@@ -917,7 +943,9 @@ export default function HostScreen({
                 )}
                 {isDodgeGameType(resolvedGameType) && (
                   <p className="mb-6 max-w-xl text-center text-slate-300">
-                    正解でボールを補充し、相手へ当てて撃破を重ねます。被弾しても復活するので、最後までテンポよく遊べます。
+                    {currentRoomState.dodgeMode === 'team'
+                      ? '2チーム固定。内野は自陣のみ移動可能で、当たると外野へ。外野は正解後に味方ボールで投球し、敵内野に当てると復帰できます。'
+                      : '正解でボールを補充し、相手へ当てて撃破を重ねるスコアアタックです。'}
                   </p>
                 )}
                 
@@ -1263,6 +1291,21 @@ export default function HostScreen({
                               <div className="font-mono text-base font-bold text-emerald-300 md:text-lg">{team.teamStats.maxQuizCombo || 0}</div>
                             </div>
                           </>
+                        ) : resolvedGameType === 'dodge' ? (
+                          <>
+                            <div>
+                              <div className="text-xs text-slate-400">合計撃破</div>
+                              <div className="font-mono text-base font-bold text-rose-300 md:text-lg">{team.teamStats.kills}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計被弾</div>
+                              <div className="font-mono text-base font-bold text-blue-300 md:text-lg">{team.teamStats.deaths}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計正答</div>
+                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                            </div>
+                          </>
                         ) : (
                           <>
                             <div>
@@ -1317,13 +1360,13 @@ export default function HostScreen({
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="truncate font-bold text-base md:text-lg">{p.name}</span>
-                            {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' && currentRoomState.teamMode)) && p.teamId ? (
+                            {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' && currentRoomState.teamMode) || (resolvedGameType === 'dodge' && currentRoomState.teamMode)) && p.teamId ? (
                               <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
                                 {getTeamName(p.teamId)}
                               </span>
                             ) : null}
                           </div>
-                          {currentRoomState.state === 'results' && (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' && currentRoomState.teamMode)) && p.teamId ? (
+                          {currentRoomState.state === 'results' && (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' && currentRoomState.teamMode) || (resolvedGameType === 'dodge' && currentRoomState.teamMode)) && p.teamId ? (
                             <div className="mt-1 truncate text-[11px] text-slate-400">
                               {getTeamMemberNames(p.teamId).join(' / ')}
                             </div>
