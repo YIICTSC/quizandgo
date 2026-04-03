@@ -282,6 +282,30 @@ const scatterDroppedItems = (room: Room, itemIds: BomberItemId[], around?: { x: 
   });
 };
 
+const defeatBomberPlayer = (room: Room, player: Player, owner?: Player | null, now = Date.now()) => {
+  if (!player.alive) return;
+
+  if (player.hasShield) {
+    player.hasShield = false;
+    return;
+  }
+
+  const dropX = player.bomberX;
+  const dropY = player.bomberY;
+  const droppedItems = collectPlayerBomberItems(player);
+  resetBomberItems(player);
+  scatterDroppedItems(room, droppedItems, { x: dropX, y: dropY });
+
+  player.alive = false;
+  player.deaths += 1;
+  player.respawnAt = now + BOMBER_RESPAWN_MS;
+  player.bomberX = player.bomberSpawnX;
+  player.bomberY = player.bomberSpawnY;
+  if (owner && owner.id !== player.id) {
+    owner.kills += 1;
+  }
+};
+
 const createBomberState = (players: Player[]): BomberState => {
   const { width, height } = getBomberDimensions(players.length);
   const grid = createBomberGrid(width, height);
@@ -543,25 +567,7 @@ const explodeBomb = (room: Room, bomb: BomberBomb, now: number) => {
       return;
     }
 
-    if (player.hasShield) {
-      player.hasShield = false;
-      return;
-    }
-
-    const dropX = player.bomberX;
-    const dropY = player.bomberY;
-    const droppedItems = collectPlayerBomberItems(player);
-    resetBomberItems(player);
-    scatterDroppedItems(room, droppedItems, { x: dropX, y: dropY });
-
-    player.alive = false;
-    player.deaths += 1;
-    player.respawnAt = now + BOMBER_RESPAWN_MS;
-    player.bomberX = player.bomberSpawnX;
-    player.bomberY = player.bomberSpawnY;
-    if (bomb.ownerId !== player.id && owner) {
-      owner.kills += 1;
-    }
+    defeatBomberPlayer(room, player, bomb.ownerId !== player.id ? owner : null, now);
   });
 };
 
@@ -1052,6 +1058,15 @@ async function startServer() {
 
       player.bomberX = nextX;
       player.bomberY = nextY;
+      const touchingExplosion = room.bomberState.explosions.find((explosion) =>
+        explosion.cells.some((cell) => cell.x === player.bomberX && cell.y === player.bomberY)
+      );
+      if (touchingExplosion) {
+        const owner = room.players[touchingExplosion.ownerId];
+        if (!(roomUsesTeams(room) && !room.bomberFriendlyFire && owner && player.teamId && owner.teamId && player.teamId === owner.teamId)) {
+          defeatBomberPlayer(room, player, owner && owner.id !== player.id ? owner : null);
+        }
+      }
       io.to(roomId).emit('roomStateUpdate', room);
     });
 
