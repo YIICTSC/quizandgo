@@ -860,7 +860,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <div>
                     <div className="text-lg font-bold md:text-xl">{playerName}</div>
                     <div className="text-xs text-slate-400">
-                      バトルドッジ {roomState?.dodgeMode === 'team' ? '（チーム戦）' : '（シングル）'}
+                      バトルドッジ {roomState?.dodgeMode === 'team' ? '（チーム戦）' : '（個人戦）'}
                     </div>
                   </div>
                 </div>
@@ -870,11 +870,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{me?.kills || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">被弾: <span className="font-bold text-rose-300">{me?.deaths || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">正答: <span className="font-bold text-amber-300">{me?.correctAnswers || 0}</span></div>
-                  {roomState?.dodgeMode === 'team' ? (
-                    <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">
-                      役割: <span className="font-bold text-violet-300">{me?.dodgeRole === 'outfield' ? '外野' : '内野'}</span>
-                    </div>
-                  ) : null}
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">
+                    役割: <span className="font-bold text-violet-300">{me?.dodgeRole === 'outfield' ? '外野' : '内野'}</span>
+                  </div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">スコア: <span className="font-bold text-yellow-300">{calculateGameScore(roomState?.gameType, me || {})}</span></div>
                 </div>
               </div>
@@ -897,15 +895,19 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                     <div className="mt-1 text-xs text-rose-100">少し待つとコートへ戻ります。</div>
                   </div>
                 ) : null}
-                {roomState?.dodgeMode === 'team' && me?.dodgeRole === 'outfield' ? (
+                {me?.dodgeRole === 'outfield' ? (
                   <div className="mb-3 rounded-2xl border border-violet-400/40 bg-violet-500/10 p-3 text-center">
                     <div className="text-lg font-black text-violet-200">外野プレイ中</div>
                     <div className="mt-1 text-xs text-violet-100">
-                      正解してから味方の球を受けると投げられます。敵内野に当てると内野復帰！
+                      {roomState?.dodgeMode === 'team'
+                        ? '正解してから味方の球を受けると投げられます。敵内野に当てると内野復帰！'
+                        : 'コート外周を自由に移動できます。相手内野に当てると内野復帰！'}
                     </div>
-                    <div className="mt-1 text-xs font-bold text-violet-300">
-                      {me?.dodgeReadyToAssist ? '投球準備OK' : 'まず問題に正解しよう'}
-                    </div>
+                    {roomState?.dodgeMode === 'team' ? (
+                      <div className="mt-1 text-xs font-bold text-violet-300">
+                        {me?.dodgeReadyToAssist ? '投球準備OK' : 'まず問題に正解しよう'}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 {question ? (

@@ -148,6 +148,15 @@ export default function App() {
       }}
       onStartSinglePlayer={(gameType) => {
         setSelectedGameType(gameType);
+        if (gameType === 'dodge') {
+          setSinglePlayConfig({
+            mode: 'debug_dodge',
+            timeLimit: 9999,
+            gameTitle: 'バトルドッジ 1人用',
+          });
+          setRole('single_play');
+          return;
+        }
         setRole('single_setup');
       }}
       onStartDebugCourse={(hole) => {

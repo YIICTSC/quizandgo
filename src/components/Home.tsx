@@ -10,7 +10,7 @@ import {
 
 const HOST_GAME_OPTIONS = [
   { id: 'golf', title: 'ゴルフゲーム', subtitle: '現在プレイ可能', available: true },
-  { id: 'dodge', title: 'バトルドッジ', subtitle: '現在プレイ可能', available: true, singleAvailable: false },
+  { id: 'dodge', title: 'バトルドッジ', subtitle: '現在プレイ可能', available: true, singleAvailable: true },
   { id: 'bomber', title: 'クイズボンバー', subtitle: '現在プレイ可能', available: true, singleAvailable: true },
   { id: 'team_bomber', title: 'チームボンバー', subtitle: '現在プレイ可能', available: true, singleAvailable: false },
   { id: 'color_bomber', title: 'カラーボンバー', subtitle: '現在プレイ可能', available: true, singleAvailable: false },

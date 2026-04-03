@@ -858,14 +858,14 @@ export default function HostScreen({
                         )}
                       </>
                     )}
-                    {!isSinglePlayer && resolvedGameType === 'dodge' && (
+                    {resolvedGameType === 'dodge' && (
                       <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
                         <span className="text-[11px] font-bold text-slate-300">モード</span>
                         <button
                           onClick={() => setDodgeMode('single')}
                           className={`rounded-lg px-3 py-1 text-xs font-bold ${dodgeMode === 'single' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
                         >
-                          シングル
+                          個人戦
                         </button>
                         <button
                           onClick={() => {
