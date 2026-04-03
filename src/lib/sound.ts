@@ -203,6 +203,30 @@ export const playDefeatSound = () => {
   } catch (e) { console.error(e); }
 };
 
+export const playSpecialShotSound = () => {
+  try {
+    const ctx = getCtx();
+    const oscA = ctx.createOscillator();
+    const oscB = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscA.type = 'sawtooth';
+    oscB.type = 'triangle';
+    oscA.frequency.setValueAtTime(360, ctx.currentTime);
+    oscA.frequency.exponentialRampToValueAtTime(980, ctx.currentTime + 0.22);
+    oscB.frequency.setValueAtTime(520, ctx.currentTime);
+    oscB.frequency.exponentialRampToValueAtTime(1280, ctx.currentTime + 0.22);
+    gain.gain.setValueAtTime(0.24, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+    oscA.connect(gain);
+    oscB.connect(gain);
+    gain.connect(ctx.destination);
+    oscA.start();
+    oscB.start();
+    oscA.stop(ctx.currentTime + 0.28);
+    oscB.stop(ctx.currentTime + 0.28);
+  } catch (e) { console.error(e); }
+};
+
 let bgmOscillators: OscillatorNode[] = [];
 let bgmGain: GainNode | null = null;
 let bgmInterval: number | null = null;

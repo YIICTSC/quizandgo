@@ -290,7 +290,15 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
             {(dodgeState.balls || []).map((ball: any) => (
               <div
                 key={ball.id}
-                className="absolute rounded-full border border-white/40 bg-orange-400 shadow-[0_0_18px_rgba(251,146,60,0.55)]"
+                className={`absolute rounded-full border ${
+                  ball.shotType === 'fast'
+                    ? 'border-rose-200 bg-rose-400 shadow-[0_0_22px_rgba(251,113,133,0.72)]'
+                    : ball.shotType === 'wave'
+                      ? 'border-fuchsia-200 bg-fuchsia-400 shadow-[0_0_22px_rgba(232,121,249,0.72)]'
+                      : ball.shotType === 'homing'
+                        ? 'border-lime-200 bg-lime-400 shadow-[0_0_22px_rgba(163,230,53,0.72)]'
+                        : 'border-white/40 bg-orange-400 shadow-[0_0_18px_rgba(251,146,60,0.55)]'
+                }`}
                 style={{
                   width: `${(ball.radius * 2 / width) * 100}%`,
                   height: `${(ball.radius * 2 / height) * 100}%`,
@@ -332,6 +340,11 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
                     >
                       {String(player.name || '?').slice(0, 1)}
                     </div>
+                    {player.dodgeRole === 'outfield' ? (
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-violet-500/80 px-2 py-0.5 text-[9px] font-bold text-white">
+                        外
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               );

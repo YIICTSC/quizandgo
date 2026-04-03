@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { socket } from '../socket';
 import GolfGame from './GolfGame';
-import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, stopBGM } from '../lib/sound';
+import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, playSpecialShotSound, stopBGM } from '../lib/sound';
 import { calculateGameScore } from '../lib/scoring';
 import { matchesSpeechAnswer } from '../lib/answerMatching';
 import ProblemVisual from './ProblemVisual';
@@ -60,6 +60,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const ignoreNextServerQuestionRef = useRef(false);
   const previousExplosionCountRef = useRef(0);
   const previousAliveRef = useRef<boolean | null>(null);
+  const previousSpecialBallCountRef = useRef(0);
   const isQuizMode = roomState?.gameType === 'quiz';
   const isDodgeMode = roomState?.gameType === 'dodge';
   const isBomberMode = isBomberGameType(roomState?.gameType);
@@ -246,6 +247,15 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   useEffect(() => {
     stopBGM();
   }, [roomState]);
+
+  useEffect(() => {
+    if (!isDodgeMode || !roomState) return;
+    const specialBallCount = (roomState.dodgeState?.balls || []).filter((ball: any) => ball.shotType && ball.shotType !== 'normal').length;
+    if (specialBallCount > previousSpecialBallCountRef.current) {
+      playSpecialShotSound();
+    }
+    previousSpecialBallCountRef.current = specialBallCount;
+  }, [isDodgeMode, roomState]);
 
   useEffect(() => {
     if (!isBomberMode || !roomState) return;
@@ -849,7 +859,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <AvatarPreview avatar={me?.avatar} size={38} />
                   <div>
                     <div className="text-lg font-bold md:text-xl">{playerName}</div>
-                    <div className="text-xs text-slate-400">バトルドッジ</div>
+                    <div className="text-xs text-slate-400">
+                      バトルドッジ {roomState?.dodgeMode === 'team' ? '（チーム戦）' : '（シングル）'}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
@@ -858,6 +870,11 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{me?.kills || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">被弾: <span className="font-bold text-rose-300">{me?.deaths || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">正答: <span className="font-bold text-amber-300">{me?.correctAnswers || 0}</span></div>
+                  {roomState?.dodgeMode === 'team' ? (
+                    <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">
+                      役割: <span className="font-bold text-violet-300">{me?.dodgeRole === 'outfield' ? '外野' : '内野'}</span>
+                    </div>
+                  ) : null}
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">スコア: <span className="font-bold text-yellow-300">{calculateGameScore(roomState?.gameType, me || {})}</span></div>
                 </div>
               </div>
@@ -878,6 +895,17 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <div className="mb-3 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-3 text-center">
                     <div className="text-xl font-black text-rose-300">OUT!</div>
                     <div className="mt-1 text-xs text-rose-100">少し待つとコートへ戻ります。</div>
+                  </div>
+                ) : null}
+                {roomState?.dodgeMode === 'team' && me?.dodgeRole === 'outfield' ? (
+                  <div className="mb-3 rounded-2xl border border-violet-400/40 bg-violet-500/10 p-3 text-center">
+                    <div className="text-lg font-black text-violet-200">外野プレイ中</div>
+                    <div className="mt-1 text-xs text-violet-100">
+                      正解してから味方の球を受けると投げられます。敵内野に当てると内野復帰！
+                    </div>
+                    <div className="mt-1 text-xs font-bold text-violet-300">
+                      {me?.dodgeReadyToAssist ? '投球準備OK' : 'まず問題に正解しよう'}
+                    </div>
                   </div>
                 ) : null}
                 {question ? (
