@@ -79,15 +79,6 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
     gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
     gridTemplateRows: `repeat(${height}, minmax(0, 1fr))`,
   } as const;
-  const meXPercent = ((me?.bomberX || 0) + 0.5) * cellWidthPercent;
-  const meYPercent = ((me?.bomberY || 0) + 0.5) * cellHeightPercent;
-  const minTranslateX = 100 * (1 / zoomScale - 1);
-  const minTranslateY = 100 * (1 / zoomScale - 1);
-  const focusXPercent = 44;
-  const focusYPercent = 34;
-  const translateX = zoomScale === 1 ? 0 : clamp(focusXPercent / zoomScale - meXPercent, minTranslateX, 0);
-  const translateY = zoomScale === 1 ? 0 : clamp(focusYPercent / zoomScale - meYPercent, minTranslateY, 0);
-
   useEffect(() => {
     const frame = boardFrameRef.current;
     if (!frame) return;
@@ -120,6 +111,39 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
     };
   }, [aspect]);
 
+  const translate = (() => {
+    if (!boardViewport || zoomScale === 1) {
+      return { x: 0, y: 0 };
+    }
+
+    const scaledWidth = boardViewport.width * zoomScale;
+    const scaledHeight = boardViewport.height * zoomScale;
+    const overflowX = Math.max(0, scaledWidth - boardViewport.width);
+    const overflowY = Math.max(0, scaledHeight - boardViewport.height);
+
+    const meXRatio = ((me?.bomberX || 0) + 0.5) / width;
+    const meYRatio = ((me?.bomberY || 0) + 0.5) / height;
+    const meX = scaledWidth * meXRatio;
+    const meY = scaledHeight * meYRatio;
+
+    // Keep a bit more space visible on the right and bottom so edge walls remain visible.
+    const focusX = boardViewport.width * 0.42;
+    const focusY = boardViewport.height * 0.32;
+    const edgeMarginX = boardViewport.width * 0.08;
+    const edgeMarginY = boardViewport.height * 0.1;
+
+    let x = focusX - meX;
+    let y = focusY - meY;
+
+    const rightEdgeVisibleX = boardViewport.width - scaledWidth + edgeMarginX;
+    const bottomEdgeVisibleY = boardViewport.height - scaledHeight + edgeMarginY;
+
+    x = clamp(x, rightEdgeVisibleX, 0);
+    y = clamp(y, bottomEdgeVisibleY, 0);
+
+    return { x, y };
+  })();
+
   const alivePlayers = Object.values(players || {});
 
   return (
@@ -138,7 +162,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               style={{
                 ...boardStyle,
                 transformOrigin: 'top left',
-                transform: `translate(${translateX}%, ${translateY}%) scale(${zoomScale})`,
+                transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoomScale})`,
               }}
             >
               {bomberState.grid.flatMap((row: string[], y: number) =>
