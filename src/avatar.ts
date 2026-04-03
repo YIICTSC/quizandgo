@@ -1,8 +1,8 @@
-export type AvatarEyeType = 'dot' | 'smile' | 'wide' | 'wink';
-export type AvatarMouthType = 'smile' | 'open' | 'flat' | 'tooth';
-export type AvatarHairType = 'none' | 'short' | 'bangs' | 'spike';
-export type AvatarAccessoryType = 'none' | 'glasses' | 'star' | 'headband';
-export type AvatarSpeciesType = 'human' | 'cat' | 'bear' | 'rabbit' | 'dog';
+export type AvatarEyeType = 'dot' | 'smile' | 'wide' | 'wink' | 'sleepy' | 'angry' | 'sparkle' | 'heart';
+export type AvatarMouthType = 'smile' | 'open' | 'flat' | 'tooth' | 'grin' | 'pout' | 'tongue' | 'surprised';
+export type AvatarHairType = 'none' | 'short' | 'bangs' | 'spike' | 'bob' | 'curl' | 'ponytail' | 'afro';
+export type AvatarAccessoryType = 'none' | 'glasses' | 'star' | 'headband' | 'ribbon' | 'crown' | 'flower' | 'cap';
+export type AvatarSpeciesType = 'human' | 'cat' | 'bear' | 'rabbit' | 'dog' | 'fox' | 'panda' | 'chick';
 
 export type AvatarConfig = {
   bodyColor: string;
@@ -20,11 +20,11 @@ export const AVATAR_STORAGE_KEY = 'quizandgo_avatar_v1';
 export const AVATAR_BODY_COLORS = ['#38bdf8', '#fb7185', '#34d399', '#fbbf24', '#c084fc', '#f97316', '#60a5fa', '#f472b6'];
 export const AVATAR_ACCENT_COLORS = ['#0f172a', '#ffffff', '#14532d', '#1d4ed8', '#7c2d12', '#581c87', '#7f1d1d', '#164e63'];
 export const AVATAR_SKIN_COLORS = ['#fff7ed', '#fde7d3', '#f7d2b6', '#dba57d', '#b97952', '#8d5a3c'];
-export const AVATAR_EYES: AvatarEyeType[] = ['dot', 'smile', 'wide', 'wink'];
-export const AVATAR_MOUTHS: AvatarMouthType[] = ['smile', 'open', 'flat', 'tooth'];
-export const AVATAR_HAIRS: AvatarHairType[] = ['none', 'short', 'bangs', 'spike'];
-export const AVATAR_ACCESSORIES: AvatarAccessoryType[] = ['none', 'glasses', 'star', 'headband'];
-export const AVATAR_SPECIES: AvatarSpeciesType[] = ['human', 'cat', 'bear', 'rabbit', 'dog'];
+export const AVATAR_EYES: AvatarEyeType[] = ['dot', 'smile', 'wide', 'wink', 'sleepy', 'angry', 'sparkle', 'heart'];
+export const AVATAR_MOUTHS: AvatarMouthType[] = ['smile', 'open', 'flat', 'tooth', 'grin', 'pout', 'tongue', 'surprised'];
+export const AVATAR_HAIRS: AvatarHairType[] = ['none', 'short', 'bangs', 'spike', 'bob', 'curl', 'ponytail', 'afro'];
+export const AVATAR_ACCESSORIES: AvatarAccessoryType[] = ['none', 'glasses', 'star', 'headband', 'ribbon', 'crown', 'flower', 'cap'];
+export const AVATAR_SPECIES: AvatarSpeciesType[] = ['human', 'cat', 'bear', 'rabbit', 'dog', 'fox', 'panda', 'chick'];
 export const AVATAR_BODY_COLOR_LABELS: Record<string, string> = {
   '#38bdf8': 'そらいろ',
   '#fb7185': 'さくら',
@@ -55,11 +55,56 @@ export const AVATAR_SKIN_COLOR_LABELS: Record<string, string> = {
 };
 
 export const AVATAR_LABELS = {
-  eyeType: { dot: 'まる目', smile: 'にこ目', wide: 'ぱっちり目', wink: 'ウィンク' },
-  mouthType: { smile: 'えがお', open: 'あき口', flat: 'まっすぐ', tooth: 'はみがき' },
-  hairType: { none: 'なし', short: 'ショート', bangs: 'ぱっつん', spike: 'ツンツン' },
-  accessoryType: { none: 'なし', glasses: 'メガネ', star: 'スター', headband: 'ヘッドバンド' },
-  speciesType: { human: 'ひと', cat: 'ねこ', bear: 'くま', rabbit: 'うさぎ', dog: 'いぬ' },
+  eyeType: {
+    dot: 'まる目',
+    smile: 'にこ目',
+    wide: 'ぱっちり目',
+    wink: 'ウィンク',
+    sleepy: 'ねむねむ',
+    angry: 'きりっと',
+    sparkle: 'キラキラ',
+    heart: 'ハート',
+  },
+  mouthType: {
+    smile: 'えがお',
+    open: 'あき口',
+    flat: 'まっすぐ',
+    tooth: 'はみがき',
+    grin: 'にやり',
+    pout: 'ぷくー',
+    tongue: 'べー',
+    surprised: 'びっくり',
+  },
+  hairType: {
+    none: 'なし',
+    short: 'ショート',
+    bangs: 'ぱっつん',
+    spike: 'ツンツン',
+    bob: 'ボブ',
+    curl: 'くるくる',
+    ponytail: 'ポニーテール',
+    afro: 'アフロ',
+  },
+  accessoryType: {
+    none: 'なし',
+    glasses: 'メガネ',
+    star: 'スター',
+    headband: 'ヘッドバンド',
+    ribbon: 'リボン',
+    crown: 'クラウン',
+    flower: 'おはな',
+    cap: 'ぼうし',
+  },
+  speciesType: {
+    human: 'ひと',
+    cat: 'ねこ',
+    bear: 'くま',
+    rabbit: 'うさぎ',
+    dog: 'いぬ',
+    fox: 'きつね',
+    panda: 'パンダ',
+    chick: 'ひよこ',
+  },
 } as const;
 
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];

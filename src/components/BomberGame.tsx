@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import AvatarPreview from './AvatarPreview';
 
 type BomberGameProps = {
   roomId: string;
@@ -307,19 +308,32 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               {alivePlayers.map((player: any) => (
                 <div
                   key={player.id}
-                  className={`absolute flex items-center justify-center rounded-lg border-2 text-[10px] font-black text-slate-950 ${
+                  className={`absolute ${
                     player.alive ? 'opacity-100' : 'opacity-35'
                   }`}
                   style={{
                     width: `calc(${cellWidthPercent}% - 6px)`,
-                    height: `calc(${cellHeightPercent}% - 6px)`,
+                    height: `calc(${cellHeightPercent}% + 8px)`,
                     left: `calc(${player.bomberX * cellWidthPercent}% + 3px)`,
-                    top: `calc(${player.bomberY * cellHeightPercent}% + 3px)`,
-                    backgroundColor: player.color || 'white',
-                    borderColor: player.id === me?.id ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                    top: `calc(${player.bomberY * cellHeightPercent}% - 5px)`,
                   }}
                 >
-                  {String(player.name || '?').slice(0, 1)}
+                  <div className="relative h-full w-full">
+                    <div className="absolute left-1/2 top-0 -translate-x-1/2">
+                      <AvatarPreview avatar={player.avatar} size={22} />
+                    </div>
+                    <div
+                      className="absolute bottom-0 left-0 flex items-center justify-center rounded-lg border-2 text-[10px] font-black text-slate-950"
+                      style={{
+                        width: '100%',
+                        height: 'calc(100% - 12px)',
+                        backgroundColor: player.color || 'white',
+                        borderColor: player.id === me?.id ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                      }}
+                    >
+                      {String(player.name || '?').slice(0, 1)}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
