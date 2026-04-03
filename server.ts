@@ -22,6 +22,11 @@ interface Player {
   totalStrokes: number;   // 全ホールの合計打数
   currentStrokes: number; // 現在のホールの打数
   correctAnswers: number;
+  quizPoints: number;
+  quizCombo: number;
+  maxQuizCombo: number;
+  fastestAnswerMs: number | null;
+  lastQuestionIssuedAt: number | null;
   canShoot: boolean;
   x: number;
   y: number;
@@ -113,6 +118,9 @@ interface Room {
   teamNames?: Record<number, string>;
   bomberFriendlyFire?: boolean;
   bomberState?: BomberState | null;
+  quizVariant?: 'classic' | 'combo' | 'speed' | 'team_battle' | 'boss';
+  bossHp?: number;
+  bossMaxHp?: number;
 }
 
 const rooms: Record<string, Room> = {};
@@ -133,7 +141,10 @@ const isBomberGameType = (gameType?: string) => BOMBER_GAME_TYPES.has(gameType |
 const isTeamBomberGameType = (gameType?: string) => gameType === 'team_bomber';
 const isColorBomberGameType = (gameType?: string) => gameType === 'color_bomber';
 const roomUsesTeams = (room: Room) =>
-  room.gameType === 'golf' || room.gameType === 'team_bomber' || (room.gameType === 'color_bomber' && room.teamMode);
+  room.gameType === 'golf' ||
+  room.gameType === 'team_bomber' ||
+  (room.gameType === 'color_bomber' && room.teamMode) ||
+  (room.gameType === 'quiz' && room.quizVariant === 'team_battle' && room.teamMode);
 const getBomberMoveRepeatMs = (moveSpeedLevel = 0) => {
   const clamped = Math.max(0, Math.min(BOMBER_MAX_SPEED_LEVEL, moveSpeedLevel));
   return [180, 160, 140, 125][clamped];
@@ -411,6 +422,11 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.totalStrokes = 0;
   player.currentStrokes = 0;
   player.correctAnswers = 0;
+  player.quizPoints = 0;
+  player.quizCombo = 0;
+  player.maxQuizCombo = 0;
+  player.fastestAnswerMs = null;
+  player.lastQuestionIssuedAt = null;
   player.canShoot = false;
   player.x = 100;
   player.y = 100;
@@ -449,6 +465,7 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
 
 const emitPersonalQuestion = (io: Server, player: Player) => {
   if (!player.currentQuestion) return;
+  player.lastQuestionIssuedAt = Date.now();
   io.to(player.id).emit('personalQuestion', {
     text: player.currentQuestion.text,
     options: player.currentQuestion.options,
@@ -499,6 +516,14 @@ const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questi
   room.questions = questions;
   room.shotsPerQuestion = room.shotsPerQuestion || 3;
   room.bomberState = null;
+  if (room.gameType === 'quiz' && room.quizVariant === 'boss') {
+    const playerCount = Math.max(1, Object.keys(room.players).length);
+    room.bossMaxHp = 1500 + playerCount * 500;
+    room.bossHp = room.bossMaxHp;
+  } else {
+    room.bossMaxHp = undefined;
+    room.bossHp = undefined;
+  }
 
   Object.values(room.players).forEach((player) => {
     resetPlayerState(player, { preserveTeam: options?.preserveTeams });
@@ -516,6 +541,8 @@ const resetRoomToWaiting = (room: Room) => {
   room.questions = undefined;
   room.teamNames = {};
   room.bomberState = null;
+  room.bossHp = undefined;
+  room.bossMaxHp = undefined;
   Object.values(room.players).forEach((player) => resetPlayerState(player));
 };
 
@@ -724,6 +751,7 @@ async function startServer() {
         players: {},
         state: 'waiting',
         questionMode: 'mix',
+        quizVariant: 'classic',
         timeLimit: 300, // Default 5 minutes
         timeRemaining: 300,
         shotsPerQuestion: 3,
@@ -756,6 +784,11 @@ async function startServer() {
           totalStrokes: 0,
           currentStrokes: 0,
           correctAnswers: 0,
+          quizPoints: 0,
+          quizCombo: 0,
+          maxQuizCombo: 0,
+          fastestAnswerMs: null,
+          lastQuestionIssuedAt: null,
           canShoot: false,
           x: 100,
           y: 100,
@@ -839,11 +872,16 @@ async function startServer() {
       }
     });
 
-    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire }) => {
+    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire, quizVariant }) => {
       const room = rooms[roomId];
       if (room && room.hostId === socket.id) {
         room.shotsPerQuestion = Math.max(1, Math.min(5, Number(shotsPerQuestion) || 3));
-        room.teamMode = isTeamBomberGameType(room.gameType) ? true : Boolean(teamMode);
+        room.quizVariant = room.gameType === 'quiz'
+          ? (['classic', 'combo', 'speed', 'team_battle', 'boss'].includes(quizVariant) ? quizVariant : 'classic')
+          : room.quizVariant;
+        room.teamMode = room.gameType === 'quiz'
+          ? room.quizVariant === 'team_battle'
+          : (isTeamBomberGameType(room.gameType) ? true : Boolean(teamMode));
         room.teamCount = Math.max(2, Math.min(10, Number(teamCount) || room.teamCount || 2));
         room.bomberFriendlyFire = Boolean(bomberFriendlyFire);
 
@@ -933,6 +971,7 @@ async function startServer() {
         const currentQuestion = player.currentQuestion;
         let nextQuestion: any = null;
         let nextDelayMs: number | null = null;
+        const answerElapsedMs = player.lastQuestionIssuedAt ? Math.max(0, Date.now() - player.lastQuestionIssuedAt) : null;
         const isCorrect = typeof isSpeechCorrect === 'boolean'
           ? isSpeechCorrect
           : answerIndex === currentQuestion.correctIndex;
@@ -940,6 +979,30 @@ async function startServer() {
         if (isCorrect) {
           player.correctAnswers += 1;
           if (room.gameType === 'quiz') {
+            if (room.quizVariant === 'combo') {
+              player.quizCombo += 1;
+              player.maxQuizCombo = Math.max(player.maxQuizCombo, player.quizCombo);
+              player.quizPoints += 100 + (player.quizCombo - 1) * 35;
+            } else if (room.quizVariant === 'speed') {
+              const speedBonus = answerElapsedMs == null ? 0 : Math.max(0, 220 - Math.floor(answerElapsedMs / 18));
+              player.quizPoints += 100 + speedBonus;
+              if (answerElapsedMs != null) {
+                player.fastestAnswerMs = player.fastestAnswerMs == null
+                  ? answerElapsedMs
+                  : Math.min(player.fastestAnswerMs, answerElapsedMs);
+              }
+            } else if (room.quizVariant === 'team_battle') {
+              player.quizPoints += 100;
+            } else if (room.quizVariant === 'boss') {
+              const bossDamage = 90 + Math.max(0, 40 - Math.floor((answerElapsedMs ?? 0) / 80));
+              player.quizPoints += bossDamage;
+              room.bossHp = Math.max(0, (room.bossHp || room.bossMaxHp || 0) - bossDamage);
+              if (room.bossHp <= 0) {
+                room.state = 'results';
+              }
+            } else {
+              player.quizPoints += 100;
+            }
             player.currentQuestion = getQuestionForRoom(room);
             nextQuestion = player.currentQuestion;
             nextDelayMs = 700;
@@ -953,17 +1016,24 @@ async function startServer() {
             player.currentQuestion = null;
             player.shotsRemaining = room.shotsPerQuestion || 3;
           }
+          if (room.gameType === 'quiz' && room.state === 'results') {
+            nextQuestion = null;
+            player.currentQuestion = null;
+          }
           socket.emit('answerResult', {
             correct: true,
             correctIndex: currentQuestion.correctIndex,
             correctText: currentQuestion.correctText,
           });
-          if (room.gameType === 'quiz' || isBomberGameType(room.gameType)) {
+          if ((room.gameType === 'quiz' && room.state !== 'results') || isBomberGameType(room.gameType)) {
             setTimeout(() => {
               emitPersonalQuestion(io, player);
             }, nextDelayMs || 700);
           }
         } else {
+          if (room.gameType === 'quiz' && room.quizVariant === 'combo') {
+            player.quizCombo = 0;
+          }
           // 不正解の場合は新しい問題を生成（当てずっぽう防止）
           player.currentQuestion = getQuestionForRoom(room);
           nextQuestion = player.currentQuestion;
