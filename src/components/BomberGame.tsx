@@ -36,22 +36,45 @@ const getAutoZoomScale = (width: number, height: number) => {
 export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb, onDetonateRemote, canUseRemote = false }: BomberGameProps) {
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
+  const moveHoldIntervalRef = useRef<number | null>(null);
+  const activeMoveDirectionRef = useRef<'up' | 'down' | 'left' | 'right' | null>(null);
+
+  const stopMoveHold = () => {
+    activeMoveDirectionRef.current = null;
+    if (moveHoldIntervalRef.current !== null) {
+      window.clearInterval(moveHoldIntervalRef.current);
+      moveHoldIntervalRef.current = null;
+    }
+  };
+
+  const startMoveHold = (direction: 'up' | 'down' | 'left' | 'right') => {
+    if (activeMoveDirectionRef.current === direction && moveHoldIntervalRef.current !== null) {
+      return;
+    }
+
+    stopMoveHold();
+    activeMoveDirectionRef.current = direction;
+    onMove(direction);
+    moveHoldIntervalRef.current = window.setInterval(() => {
+      if (activeMoveDirectionRef.current !== direction) return;
+      onMove(direction);
+    }, 120);
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) return;
       if (['ArrowUp', 'w', 'W'].includes(event.key)) {
         event.preventDefault();
-        onMove('up');
+        startMoveHold('up');
       } else if (['ArrowDown', 's', 'S'].includes(event.key)) {
         event.preventDefault();
-        onMove('down');
+        startMoveHold('down');
       } else if (['ArrowLeft', 'a', 'A'].includes(event.key)) {
         event.preventDefault();
-        onMove('left');
+        startMoveHold('left');
       } else if (['ArrowRight', 'd', 'D'].includes(event.key)) {
         event.preventDefault();
-        onMove('right');
+        startMoveHold('right');
       } else if (event.key === ' ' || event.key === 'Enter' || event.key === 'b' || event.key === 'B') {
         event.preventDefault();
         onPlaceBomb();
@@ -61,8 +84,30 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
       }
     };
 
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (
+        (activeMoveDirectionRef.current === 'up' && ['ArrowUp', 'w', 'W'].includes(event.key)) ||
+        (activeMoveDirectionRef.current === 'down' && ['ArrowDown', 's', 'S'].includes(event.key)) ||
+        (activeMoveDirectionRef.current === 'left' && ['ArrowLeft', 'a', 'A'].includes(event.key)) ||
+        (activeMoveDirectionRef.current === 'right' && ['ArrowRight', 'd', 'D'].includes(event.key))
+      ) {
+        stopMoveHold();
+      }
+    };
+
+    const stopAllMovement = () => {
+      stopMoveHold();
+    };
+
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', stopAllMovement);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', stopAllMovement);
+      stopMoveHold();
+    };
   }, [canUseRemote, onDetonateRemote, onMove, onPlaceBomb, roomId]);
 
   if (!bomberState) {
@@ -147,6 +192,19 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   })();
 
   const alivePlayers = Object.values(players || {});
+  const bindMoveButton = (direction: 'up' | 'down' | 'left' | 'right') => ({
+    onPointerDown: (event: any) => {
+      event.preventDefault();
+      startMoveHold(direction);
+    },
+    onPointerUp: () => stopMoveHold(),
+    onPointerCancel: () => stopMoveHold(),
+    onPointerLeave: () => {
+      if (activeMoveDirectionRef.current === direction) {
+        stopMoveHold();
+      }
+    },
+  });
 
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center">
@@ -269,13 +327,13 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
       <div className="pointer-events-none absolute inset-0 z-20">
         <div className="absolute bottom-3 left-3 grid grid-cols-3 gap-2 md:bottom-4 md:left-4">
           <div />
-          <button className={CONTROL_BUTTON} onClick={() => onMove('up')}>↑</button>
+          <button className={CONTROL_BUTTON} {...bindMoveButton('up')}>↑</button>
           <div />
-          <button className={CONTROL_BUTTON} onClick={() => onMove('left')}>←</button>
+          <button className={CONTROL_BUTTON} {...bindMoveButton('left')}>←</button>
           <div className="h-11 w-11 md:h-12 md:w-12" />
-          <button className={CONTROL_BUTTON} onClick={() => onMove('right')}>→</button>
+          <button className={CONTROL_BUTTON} {...bindMoveButton('right')}>→</button>
           <div />
-          <button className={CONTROL_BUTTON} onClick={() => onMove('down')}>↓</button>
+          <button className={CONTROL_BUTTON} {...bindMoveButton('down')}>↓</button>
           <div />
         </div>
         <button
