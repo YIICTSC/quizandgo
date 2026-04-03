@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DodgeGame from './DodgeGame';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
-import { playDefeatSound, startBGM, stopBGM } from '../lib/sound';
+import { playCorrectSound, playDefeatSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
+import { shuffleOptionsWithFirstCorrect } from '../lib/answerMatching';
 import {
   DODGE_BALL_LIFETIME_MS,
   DODGE_BALL_RADIUS,
@@ -17,6 +18,13 @@ import {
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
 type MoveVector = { x: number; y: number };
+
+type SingleDodgeQuestion = {
+  question: string;
+  answer: string;
+  options: string[];
+  hint?: string;
+};
 
 type DebugPlayer = {
   id: string;
@@ -50,7 +58,67 @@ type DebugBall = {
 const BOT_COUNT = 3;
 const BOT_COLORS = ['#f97316', '#22c55e', '#a855f7', '#f43f5e', '#06b6d4'];
 
+const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const generateMathQuestion = (type: string): SingleDodgeQuestion => {
+  const resolvedType = type === 'mix'
+    ? ['add', 'sub', 'mul', 'div'][Math.floor(Math.random() * 4)]
+    : type;
+
+  let num1 = 0;
+  let num2 = 0;
+  let answer = 0;
+  let text = '';
+
+  switch (resolvedType) {
+    case 'add':
+      num1 = Math.floor(Math.random() * 20) + 1;
+      num2 = Math.floor(Math.random() * 20) + 1;
+      answer = num1 + num2;
+      text = `${num1} + ${num2} = ?`;
+      break;
+    case 'sub':
+      num1 = Math.floor(Math.random() * 20) + 10;
+      num2 = Math.floor(Math.random() * num1);
+      answer = num1 - num2;
+      text = `${num1} - ${num2} = ?`;
+      break;
+    case 'mul':
+      num1 = Math.floor(Math.random() * 9) + 2;
+      num2 = Math.floor(Math.random() * 9) + 2;
+      answer = num1 * num2;
+      text = `${num1} × ${num2} = ?`;
+      break;
+    case 'div':
+      num2 = Math.floor(Math.random() * 9) + 2;
+      answer = Math.floor(Math.random() * 9) + 2;
+      num1 = num2 * answer;
+      text = `${num1} ÷ ${num2} = ?`;
+      break;
+    default:
+      num1 = Math.floor(Math.random() * 20) + 1;
+      num2 = Math.floor(Math.random() * 20) + 1;
+      answer = num1 + num2;
+      text = `${num1} + ${num2} = ?`;
+      break;
+  }
+
+  const options = new Set<number>();
+  options.add(answer);
+  while (options.size < 4) {
+    const offset = Math.floor(Math.random() * 11) - 5;
+    if (offset !== 0 && answer + offset >= 0) {
+      options.add(answer + offset);
+    }
+  }
+
+  return {
+    question: text,
+    answer: String(answer),
+    options: shuffle(Array.from(options).map(String)),
+  };
+};
 
 const getMoveVector = (direction: DodgeDirection | null) => {
   switch (direction) {
@@ -66,6 +134,7 @@ const getMoveVector = (direction: DodgeDirection | null) => {
       return { x: 0, y: 0 };
   }
 };
+
 const vectorToFacing = (vector: MoveVector | null): DodgeDirection | null => {
   if (!vector) return null;
   if (Math.abs(vector.x) < 0.08 && Math.abs(vector.y) < 0.08) return null;
@@ -80,7 +149,7 @@ const spawnPoints = [
   { x: 480, y: 270 },
 ];
 
-const createBot = (index: number): DebugPlayer => {
+const createBot = (index: number, debug: boolean): DebugPlayer => {
   const spawn = spawnPoints[index + 1] || spawnPoints[0];
   const directions: DodgeDirection[] = ['left', 'right', 'up', 'down'];
   return {
@@ -91,7 +160,7 @@ const createBot = (index: number): DebugPlayer => {
     alive: true,
     color: BOT_COLORS[index % BOT_COLORS.length],
     avatar: createRandomAvatar(),
-    dodgeBallStock: 999,
+    dodgeBallStock: debug ? 999 : 1,
     kills: 0,
     deaths: 0,
     correctAnswers: 0,
@@ -103,17 +172,13 @@ const createBot = (index: number): DebugPlayer => {
 };
 
 const loadPlayerAvatar = () => {
-  try {
-    const saved = window.localStorage.getItem(AVATAR_STORAGE_KEY);
-    const avatar = normalizeAvatar(saved ? JSON.parse(saved) : null);
-    window.localStorage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(avatar));
-    return avatar;
-  } catch {
-    return createRandomAvatar();
-  }
+  const saved = window.localStorage.getItem(AVATAR_STORAGE_KEY);
+  const avatar = normalizeAvatar(saved ? JSON.parse(saved) : null);
+  window.localStorage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(avatar));
+  return avatar;
 };
 
-const createInitialPlayers = () => {
+const createInitialPlayers = (debug: boolean) => {
   const meSpawn = spawnPoints[0];
   const me: DebugPlayer = {
     id: 'me',
@@ -123,7 +188,7 @@ const createInitialPlayers = () => {
     alive: true,
     color: '#fde047',
     avatar: loadPlayerAvatar(),
-    dodgeBallStock: 999,
+    dodgeBallStock: debug ? 999 : 0,
     kills: 0,
     deaths: 0,
     correctAnswers: 0,
@@ -131,27 +196,61 @@ const createInitialPlayers = () => {
     dodgeFacing: 'right',
     respawnAt: null,
   };
-  return [me, ...Array.from({ length: BOT_COUNT }, (_, index) => createBot(index))];
+  return [me, ...Array.from({ length: BOT_COUNT }, (_, index) => createBot(index, debug))];
 };
 
 export default function SingleDodgeDebugScreen({
+  questions,
+  mode,
+  timeLimit,
+  gameTitle,
   onReturnToTitle,
 }: {
+  questions?: SingleDodgeQuestion[];
+  mode?: string;
+  timeLimit?: number;
+  gameTitle?: string;
   onReturnToTitle: () => void;
 }) {
-  const [players, setPlayers] = useState<DebugPlayer[]>(() => createInitialPlayers());
+  const debugMode = mode === 'debug_dodge';
+  const [players, setPlayers] = useState<DebugPlayer[]>(() => createInitialPlayers(debugMode));
   const [balls, setBalls] = useState<DebugBall[]>([]);
   const [heldDirection, setHeldDirection] = useState<DodgeDirection | null>(null);
   const [heldVector, setHeldVector] = useState<MoveVector | null>(null);
   const [lastAimVector, setLastAimVector] = useState<MoveVector>({ x: 1, y: 0 });
   const [lastThrowAt, setLastThrowAt] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(() => debugMode ? 9999 : (timeLimit || 300));
+  const [question, setQuestion] = useState<SingleDodgeQuestion | null>(null);
+  const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const heldDirectionRef = useRef<DodgeDirection | null>(null);
   const heldVectorRef = useRef<MoveVector | null>(null);
   const lastAimVectorRef = useRef<MoveVector>({ x: 1, y: 0 });
   const lastTickRef = useRef(performance.now());
   const defeatSoundCooldownRef = useRef(0);
   const playersRef = useRef<DebugPlayer[]>(players);
+
+  const pickQuestion = useCallback(() => {
+    if (debugMode) return null;
+    if (mode !== 'custom') {
+      return generateMathQuestion(mode || 'mix');
+    }
+    if (!questions?.length) return null;
+    const source = questions[Math.floor(Math.random() * questions.length)];
+    const { correctAnswer, shuffledOptions } = shuffleOptionsWithFirstCorrect(source.options, source.answer);
+    return {
+      ...source,
+      answer: correctAnswer,
+      options: shuffledOptions,
+    };
+  }, [debugMode, mode, questions]);
+
+  const setNextQuestion = useCallback(() => {
+    setQuestion(pickQuestion());
+    setAnswerResult(null);
+    setSelectedAnswerIndex(null);
+  }, [pickQuestion]);
 
   const handleSetHeldDirection = (direction: DodgeDirection | null) => {
     heldDirectionRef.current = direction;
@@ -178,8 +277,23 @@ export default function SingleDodgeDebugScreen({
 
   useEffect(() => {
     startBGM('play');
-    return () => stopBGM();
-  }, []);
+    if (!debugMode) setNextQuestion();
+
+    const timer = window.setInterval(() => {
+      if (debugMode) return;
+      setTimeRemaining((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+      stopBGM();
+    };
+  }, [debugMode, setNextQuestion]);
+
+  useEffect(() => {
+    if (debugMode || timeRemaining > 0) return;
+    stopBGM();
+  }, [debugMode, timeRemaining]);
 
   useEffect(() => {
     let frame = 0;
@@ -248,6 +362,29 @@ export default function SingleDodgeDebugScreen({
             const bounceVector = getMoveVector(direction);
             nextX = clamp(player.x + bounceVector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
             nextY = clamp(player.y + bounceVector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
+          }
+
+          if (!debugMode && now - lastThrowAt > 450 && player.dodgeBallStock > 0 && Math.random() < 0.02) {
+            const throwVector = getMoveVector(direction);
+            setBalls((current) => [
+              ...current,
+              {
+                id: `${player.id}-${now}`,
+                ownerId: player.id,
+                x: player.x + throwVector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
+                y: player.y + throwVector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
+                vx: throwVector.x * DODGE_BALL_SPEED,
+                vy: throwVector.y * DODGE_BALL_SPEED,
+                radius: DODGE_BALL_RADIUS,
+                expiresAt: now + DODGE_BALL_LIFETIME_MS,
+              },
+            ]);
+            return {
+              ...player,
+              dodgeBallStock: Math.max(0, player.dodgeBallStock - 1),
+              dodgeFacing: direction,
+              nextTurnAt: !player.nextTurnAt || now >= player.nextTurnAt ? now + 700 + Math.random() * 900 : player.nextTurnAt,
+            };
           }
 
           return {
@@ -333,7 +470,7 @@ export default function SingleDodgeDebugScreen({
 
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [debugMode, lastThrowAt]);
 
   const me = players.find((player) => player.id === 'me');
   const playerMap = useMemo(
@@ -353,9 +490,13 @@ export default function SingleDodgeDebugScreen({
   const throwBall = () => {
     const now = performance.now();
     if (!me || !me.alive || now - lastThrowAt < DODGE_THROW_COOLDOWN_MS) return;
+    if (!debugMode && me.dodgeBallStock <= 0) return;
     const vector = heldVectorRef.current || lastAimVectorRef.current || getMoveVector(me.dodgeFacing);
     if (!vector.x && !vector.y) return;
     setLastThrowAt(now);
+    if (!debugMode) {
+      setPlayers((current) => current.map((player) => player.id === 'me' ? { ...player, dodgeBallStock: Math.max(0, player.dodgeBallStock - 1) } : player));
+    }
     setBalls((current) => [
       ...current,
       {
@@ -371,8 +512,31 @@ export default function SingleDodgeDebugScreen({
     ]);
   };
 
+  const submitAnswer = (index: number) => {
+    if (!question || answerResult !== null || !me || timeRemaining <= 0) return;
+    setSelectedAnswerIndex(index);
+    const isCorrect = question.options[index] === question.answer;
+    setAnswerResult(isCorrect);
+    if (isCorrect) {
+      playCorrectSound();
+      setPlayers((current) =>
+        current.map((player) =>
+          player.id === 'me'
+            ? { ...player, correctAnswers: player.correctAnswers + 1, dodgeBallStock: player.dodgeBallStock + 1 }
+            : player
+        )
+      );
+    } else {
+      playIncorrectSound();
+    }
+
+    window.setTimeout(() => {
+      setNextQuestion();
+    }, 700);
+  };
+
   const resetArena = () => {
-    setPlayers(createInitialPlayers());
+    setPlayers(createInitialPlayers(debugMode));
     setBalls([]);
     handleSetHeldDirection(null);
     handleSetHeldVector(null);
@@ -380,15 +544,25 @@ export default function SingleDodgeDebugScreen({
     heldVectorRef.current = null;
     setLastThrowAt(0);
     setElapsedSeconds(0);
+    if (!debugMode) {
+      setTimeRemaining(timeLimit || 300);
+      setNextQuestion();
+    }
   };
+
+  const answerStatus = answerResult == null
+    ? '正解するとボール +1'
+    : answerResult
+      ? '正解！ボール +1'
+      : `不正解… 正解: ${question?.answer ?? '-'}`;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-slate-950 text-white">
       <div className="border-b border-slate-800 bg-slate-900/90 px-3 py-2.5 backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2">
           <div>
-            <div className="text-xs font-bold tracking-[0.25em] text-cyan-300">DEBUG DODGE</div>
-            <h1 className="text-lg font-black text-white sm:text-2xl">バトルドッジ 挙動確認</h1>
+            <div className="text-xs font-bold tracking-[0.25em] text-cyan-300">{debugMode ? 'DEBUG DODGE' : 'SINGLE DODGE'}</div>
+            <h1 className="text-lg font-black text-white sm:text-2xl">{gameTitle || (debugMode ? 'バトルドッジ 挙動確認' : 'バトルドッジ 1人用')}</h1>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
@@ -420,53 +594,55 @@ export default function SingleDodgeDebugScreen({
         </div>
 
         <div className="w-full min-h-0 flex-1 overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
-          <div className="mb-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 sm:mb-4 sm:p-4">
-            <div className="text-xs font-bold tracking-[0.22em] text-amber-200">CHECK POINT</div>
-            <div className="mt-2 text-sm text-slate-100">
-              移動、向き、投球、被弾、復活の挙動をローカルで確認できます。
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
-              <div className="rounded-xl bg-slate-800/80 px-3 py-2">移動方向: {me?.dodgeFacing ?? '-'}</div>
-              <div className="rounded-xl bg-slate-800/80 px-3 py-2">投球ベクトル: x {lastAimVector.x.toFixed(2)} / y {lastAimVector.y.toFixed(2)}</div>
-              <div className="rounded-xl bg-slate-800/80 px-3 py-2">飛行中ボール: {balls.length}</div>
-              <div className="rounded-xl bg-slate-800/80 px-3 py-2">撃破: {me?.kills ?? 0}</div>
-              <div className="rounded-xl bg-slate-800/80 px-3 py-2">被弾: {me?.deaths ?? 0}</div>
-            </div>
+          <div className="mb-3 grid grid-cols-2 gap-2 text-xs text-slate-300 sm:text-sm">
+            <div className="rounded-xl bg-slate-800/80 px-3 py-2">残り時間: <span className="font-bold text-cyan-300">{debugMode ? Math.floor(elapsedSeconds) : timeRemaining}s</span></div>
+            <div className="rounded-xl bg-slate-800/80 px-3 py-2">ボール: <span className="font-bold text-cyan-300">{debugMode ? '∞' : (me?.dodgeBallStock ?? 0)}</span></div>
+            <div className="rounded-xl bg-slate-800/80 px-3 py-2">撃破: {me?.kills ?? 0}</div>
+            <div className="rounded-xl bg-slate-800/80 px-3 py-2">被弾: {me?.deaths ?? 0}</div>
           </div>
 
-          <div className="mb-3 rounded-2xl border border-slate-700 bg-slate-800/70 p-3 sm:mb-4 sm:p-4">
-            <div className="text-sm font-bold text-white">操作</div>
-            <div className="mt-2 space-y-1 text-sm text-slate-300">
-              <div>・盤面のどこでもタッチするとジョイスティックが表示され、360°移動できます</div>
-              <div>・十字キー / WASD でも移動できます</div>
-              <div>・右下の `THROW` か Space / Enter で投球</div>
-              <div>・最後に動いた向きへボールが飛びます</div>
+          {debugMode ? (
+            <div className="mb-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 sm:mb-4 sm:p-4">
+              <div className="text-xs font-bold tracking-[0.22em] text-amber-200">CHECK POINT</div>
+              <div className="mt-2 text-sm text-slate-100">移動、向き、投球、被弾、復活の挙動をローカルで確認できます。</div>
+              <div className="mt-3 text-xs text-slate-300">投球ベクトル: x {lastAimVector.x.toFixed(2)} / y {lastAimVector.y.toFixed(2)}</div>
             </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-sm font-bold text-white">ローカル参加者</div>
-              <div className="text-xs text-slate-400">{Math.floor(elapsedSeconds)} sec</div>
-            </div>
-            <div className="space-y-2">
-              {players.map((player) => (
-                <div key={player.id} className="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/60 px-3 py-2">
-                  <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: player.color }} />
-                    <div>
-                      <div className="text-sm font-bold text-white">{player.id === 'me' ? 'YOU' : player.name}</div>
-                      <div className="text-xs text-slate-400">{player.alive ? '出場中' : '復活待ち'}</div>
-                    </div>
+          ) : (
+            <div className="mb-3 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-3 sm:mb-4 sm:p-4">
+              <div className="text-xs font-bold tracking-[0.22em] text-cyan-200">問題に答えて投球</div>
+              <div className="mt-2 text-sm text-slate-100">{answerStatus}</div>
+              {question ? (
+                <>
+                  <div className="mt-3 text-base font-bold text-white">{question.question}</div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {question.options.map((option, index) => {
+                      const isCorrect = option === question.answer;
+                      const isSelected = selectedAnswerIndex === index;
+                      const highlight = answerResult == null
+                        ? 'border-slate-600 bg-slate-800/70 hover:bg-slate-700'
+                        : isCorrect
+                          ? 'border-emerald-400 bg-emerald-500/25'
+                          : isSelected
+                            ? 'border-rose-400 bg-rose-500/25'
+                            : 'border-slate-700 bg-slate-800/40 opacity-60';
+                      return (
+                        <button
+                          key={`${option}-${index}`}
+                          onClick={() => submitAnswer(index)}
+                          disabled={answerResult !== null || timeRemaining <= 0}
+                          className={`rounded-xl border px-3 py-2 text-left text-sm font-bold text-white transition ${highlight}`}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="text-right text-xs text-slate-300">
-                    <div>K {player.kills}</div>
-                    <div>D {player.deaths}</div>
-                  </div>
-                </div>
-              ))}
+                </>
+              ) : (
+                <div className="mt-3 text-sm text-slate-300">問題を準備中...</div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
