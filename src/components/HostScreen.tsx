@@ -44,6 +44,11 @@ const QUIZ_VARIANTS = [
     title: 'ボスクイズ',
     description: '全員でボスHPを削る協力戦です。正解すると大きなダメージを与えます。',
   },
+  {
+    id: 'battle_royale',
+    title: '早押しバトルロイヤル',
+    description: '1対1の早押しを繰り返し、最後の1人になるまで戦います。負けるとライフが減ります。',
+  },
 ] as const;
 
 const getGradeLabel = (grade: string) => {
@@ -64,6 +69,9 @@ const getReadableUnitName = (unit: SubjectUnit) => {
 const isBomberGameType = (gameType?: string) =>
   gameType === 'bomber' || gameType === 'team_bomber' || gameType === 'color_bomber';
 
+const isBattleQuizVariant = (variant?: string) =>
+  variant === 'team_battle' || variant === 'boss' || variant === 'battle_royale';
+
 export default function HostScreen({
   roomId,
   onReturnToTitle,
@@ -82,6 +90,8 @@ export default function HostScreen({
   const [roomState, setRoomState] = useState<any>(null);
   const [selectedMode, setSelectedMode] = useState<string>('mix');
   const [quizVariant, setQuizVariant] = useState<string>('classic');
+  const [quizBattleLives, setQuizBattleLives] = useState<number>(3);
+  const [quizBattleQuestionLimit, setQuizBattleQuestionLimit] = useState<number>(10);
   const [inputMinutes, setInputMinutes] = useState<string>('5'); // Default 5 minutes
   const [shotsPerQuestion, setShotsPerQuestion] = useState<number>(3);
   const [teamMode, setTeamMode] = useState(false);
@@ -91,6 +101,11 @@ export default function HostScreen({
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
   const [showPinOverlay, setShowPinOverlay] = useState(false);
   const [inviteCopyState, setInviteCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [showQuizVariantModal, setShowQuizVariantModal] = useState(false);
+  const [quizVariantDraft, setQuizVariantDraft] = useState<string>('classic');
+  const [quizBattleLivesDraft, setQuizBattleLivesDraft] = useState<number>(3);
+  const [quizBattleQuestionLimitDraft, setQuizBattleQuestionLimitDraft] = useState<number>(10);
+  const [teamCountDraft, setTeamCountDraft] = useState<number>(2);
 
   const isSinglePlayer = mode === 'single';
   const allUnits = useMemo(() => getAllUnits(), []);
@@ -208,6 +223,9 @@ export default function HostScreen({
     .filter((u) => selectedUnits.includes(u.unit))
     .reduce((total, unit) => total + unit.questions.length, 0);
   const selectedQuizVariant = QUIZ_VARIANTS.find((variant) => variant.id === quizVariant) || QUIZ_VARIANTS[0];
+  const selectedQuizVariantDraft =
+    QUIZ_VARIANTS.find((variant) => variant.id === quizVariantDraft) || QUIZ_VARIANTS[0];
+  const activeQuizVariant = isSinglePlayer ? quizVariant : currentRoomState?.quizVariant || quizVariant;
   
   // ランキング順にソート（スコアが高い順）
   const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
@@ -302,15 +320,47 @@ export default function HostScreen({
       }
       return 'bomber_host';
     }
+    if (resolvedGameType === 'quiz') {
+      if (isBattleQuizVariant(activeQuizVariant)) {
+        if (currentRoomState.state === 'results') return 'bomber_results';
+        if (currentRoomState.state === 'playing') {
+          return activeQuizVariant === 'battle_royale' && (timeRemaining ?? currentRoomState.timeRemaining ?? 0) <= 10
+            ? 'bomber_last10'
+            : 'bomber_play';
+        }
+        return 'bomber_host';
+      }
+      if (currentRoomState.state === 'results') return 'results';
+      if (currentRoomState.state === 'playing') return 'play';
+      return 'host';
+    }
     if (currentRoomState.state === 'results') return 'results';
     if (currentRoomState.state === 'playing') return 'play';
     return 'host';
-  }, [currentRoomState.state, currentRoomState.timeRemaining, isSinglePlayer, resolvedGameType, timeRemaining]);
+  }, [activeQuizVariant, currentRoomState.state, currentRoomState.timeRemaining, isSinglePlayer, resolvedGameType, timeRemaining]);
 
   useEffect(() => {
     startBGM(bgmScene);
     return () => stopBGM();
   }, [bgmScene]);
+
+  const openQuizVariantModal = () => {
+    setQuizVariantDraft(quizVariant);
+    setQuizBattleLivesDraft(quizBattleLives);
+    setQuizBattleQuestionLimitDraft(quizBattleQuestionLimit);
+    setTeamCountDraft(teamCount);
+    setShowQuizVariantModal(true);
+  };
+
+  const applyQuizVariantSelection = () => {
+    setQuizVariant(quizVariantDraft);
+    setQuizBattleLives(quizBattleLivesDraft);
+    setQuizBattleQuestionLimit(quizBattleQuestionLimitDraft);
+    if (quizVariantDraft === 'team_battle') {
+      setTeamCount(teamCountDraft);
+    }
+    setShowQuizVariantModal(false);
+  };
 
   useEffect(() => {
     if (isSinglePlayer || currentRoomState.state !== 'results' || (!supportsPodiumReveal && !isTeamAggregateResults)) {
@@ -368,6 +418,8 @@ export default function HostScreen({
       teamCount,
       bomberFriendlyFire,
       quizVariant,
+      quizBattleLives,
+      quizBattleQuestionLimit,
     });
   };
 
@@ -510,50 +562,6 @@ export default function HostScreen({
                   </div>
                 </div>
 
-                {resolvedGameType === 'quiz' && (
-                  <div className="mb-2 shrink-0 rounded-xl border border-amber-400/30 bg-amber-500/10 p-2.5">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-bold text-amber-100">クイズモードの遊び方</h3>
-                      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200">
-                        {selectedQuizVariant.title}
-                      </span>
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                      {QUIZ_VARIANTS.map((variant) => (
-                        <button
-                          key={variant.id}
-                          onClick={() => setQuizVariant(variant.id)}
-                          className={`rounded-xl border px-3 py-2 text-left transition-colors ${
-                            quizVariant === variant.id
-                              ? 'border-amber-300 bg-amber-500/25 text-white'
-                              : 'border-slate-600 bg-slate-800/60 text-slate-200 hover:bg-slate-700'
-                          }`}
-                        >
-                          <div className="text-sm font-bold">{variant.title}</div>
-                          <div className="mt-1 text-[11px] leading-relaxed text-slate-300">{variant.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                    {quizVariant === 'team_battle' && !isSinglePlayer ? (
-                      <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/50 px-3 py-2">
-                        <span className="text-[11px] font-bold text-slate-300">チーム数</span>
-                        <select
-                          value={teamCount}
-                          onChange={(e) => setTeamCount(Number(e.target.value))}
-                          className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
-                        >
-                          {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-[11px] font-bold text-slate-300">チーム</span>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-
                 {selectedMode === 'custom' && (
                   <div className="mb-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-2.5 flex flex-col">
                     <div className="mb-2 flex flex-wrap items-center gap-1">
@@ -641,18 +649,84 @@ export default function HostScreen({
                     {isSinglePlayer ? '単元を選んでシングルプレイを開始できます。' : (players.length === 0 ? '参加者を待っています...' : `${players.length}人が参加中`)}
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
-                      <span className="text-[11px] font-bold text-slate-300">制限時間</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={inputMinutes}
-                        onChange={(e) => setInputMinutes(e.target.value)}
-                        className="w-14 rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-center text-sm font-bold text-white focus:border-green-400 focus:outline-none"
-                      />
-                      <span className="text-[11px] font-bold text-slate-300">分</span>
-                    </div>
+                    {resolvedGameType === 'quiz' ? (
+                      <button
+                        onClick={openQuizVariantModal}
+                        className="flex min-w-[220px] items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-left transition-colors hover:bg-amber-500/15"
+                      >
+                        <div>
+                          <div className="text-[11px] font-bold text-amber-100">遊び方</div>
+                          <div className="text-sm font-bold text-white">{selectedQuizVariant.title}</div>
+                          <div className="line-clamp-1 text-[10px] text-amber-50/80">{selectedQuizVariant.description}</div>
+                        </div>
+                        <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-200">
+                          変更
+                        </span>
+                      </button>
+                    ) : null}
+                    {resolvedGameType === 'quiz' && quizVariant === 'team_battle' && !isSinglePlayer ? (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                        <span className="text-[11px] font-bold text-slate-300">チーム数</span>
+                        <select
+                          value={teamCount}
+                          onChange={(e) => setTeamCount(Number(e.target.value))}
+                          className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                        >
+                          {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[11px] font-bold text-slate-300">チーム</span>
+                      </div>
+                    ) : null}
+                    {resolvedGameType === 'quiz' && quizVariant === 'battle_royale' ? (
+                      <>
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                          <span className="text-[11px] font-bold text-slate-300">ライフ</span>
+                          <select
+                            value={quizBattleLives}
+                            onChange={(e) => setQuizBattleLives(Number(e.target.value))}
+                            className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                          >
+                            {[1, 2, 3, 4, 5].map((value) => (
+                              <option key={value} value={value}>{value}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                          <span className="text-[11px] font-bold text-slate-300">1問制限</span>
+                          <select
+                            value={quizBattleQuestionLimit}
+                            onChange={(e) => setQuizBattleQuestionLimit(Number(e.target.value))}
+                            className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                          >
+                            {Array.from({ length: 11 }, (_, index) => index + 10).map((value) => (
+                              <option key={value} value={value}>{value}秒</option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    ) : null}
+                    {!(resolvedGameType === 'quiz' && quizVariant === 'battle_royale') ? (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                        <span className="text-[11px] font-bold text-slate-300">制限時間</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={inputMinutes}
+                          onChange={(e) => setInputMinutes(e.target.value)}
+                          className="w-14 rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-center text-sm font-bold text-white focus:border-green-400 focus:outline-none"
+                        />
+                        <span className="text-[11px] font-bold text-slate-300">分</span>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-[11px] font-bold text-amber-100">
+                        最後の1人が残るまで続行
+                      </div>
+                    )}
                     {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && (
                       <>
                         {resolvedGameType === 'golf' && (
@@ -850,6 +924,39 @@ export default function HostScreen({
                   </div>
                 </div>
 
+                {resolvedGameType === 'quiz' && currentRoomState.quizVariant === 'battle_royale' ? (
+                  <div className="mb-8 w-full max-w-4xl rounded-2xl border border-fuchsia-400/30 bg-slate-900/50 p-5 text-left">
+                    <div className="mb-2 text-sm font-bold tracking-[0.25em] text-fuchsia-200">
+                      {currentRoomState.quizBattlePhase === 'question' ? 'NOW QUESTION' : currentRoomState.quizBattlePhase === 'reveal' ? 'ANSWER STATS' : currentRoomState.quizBattlePhase === 'result' ? 'BATTLE RESULT' : 'MATCH UP'}
+                    </div>
+                    {(() => {
+                      const activeQuestion = (currentRoomState.quizBattlePairs || []).find((pair: any) => pair.question)?.question;
+                      if (!activeQuestion) {
+                        return <div className="text-sm text-slate-300">再マッチ準備中です。</div>;
+                      }
+                      return (
+                        <>
+                          <div className="text-xl font-bold text-white">{activeQuestion.text}</div>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            {(activeQuestion.options || []).map((opt: string, index: number) => {
+                              const totalCount = (currentRoomState.quizBattlePairs || []).reduce((sum: number, pair: any) => sum + (pair.answerCounts?.[index] || 0), 0);
+                              return (
+                                <div
+                                  key={index}
+                                  className={`rounded-xl px-3 py-2 text-sm ${index === activeQuestion.correctIndex ? 'border border-emerald-300 bg-emerald-500/15 text-emerald-100' : 'border border-slate-700 bg-slate-800/70 text-slate-100'}`}
+                                >
+                                  <div className="font-bold">{opt}</div>
+                                  <div className="mt-1 text-xs text-slate-300">全体選択: {totalCount}人</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : null}
+
                 <p className="text-center text-slate-400 text-lg">
                   このPINで途中参加できます:{' '}
                   <button
@@ -1018,6 +1125,29 @@ export default function HostScreen({
               </h2>
               
               <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+                {currentRoomState.state === 'playing' && resolvedGameType === 'quiz' && currentRoomState.quizVariant === 'battle_royale' ? (
+                  <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3">
+                    <div className="mb-2 text-sm font-bold text-amber-100">現在のVS一覧</div>
+                    <div className="space-y-2">
+                      {(currentRoomState.quizBattlePairs || []).map((pair: any) => (
+                        <div key={pair.id} className="rounded-lg bg-slate-900/50 px-3 py-2 text-xs text-slate-100">
+                          {pair.playerIds.length === 2 ? (
+                            <>
+                              <div className="font-bold">
+                                {currentRoomState.players?.[pair.playerIds[0]]?.name || '?'} VS {currentRoomState.players?.[pair.playerIds[1]]?.name || '?'}
+                              </div>
+                              {(currentRoomState.quizBattlePhase === 'reveal' || currentRoomState.quizBattlePhase === 'result') && pair.resultLabel ? (
+                                <div className="mt-1 text-[11px] text-fuchsia-200">{pair.resultLabel}</div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div className="font-bold">{currentRoomState.players?.[pair.playerIds[0]]?.name || '?'} は待機</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {currentRoomState.state === 'teamReveal' && (
                   <div className="space-y-3">
                     {renderTeamBoard(true)}
@@ -1151,10 +1281,27 @@ export default function HostScreen({
                       {(currentRoomState.state === 'playing' || currentRoomState.state === 'results') && (
                         <div className="flex space-x-4 text-right">
                           {resolvedGameType === 'quiz' ? (
-                            <div>
-                              <div className="text-xs text-slate-400">正答数</div>
-                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{p.correctAnswers || 0}</div>
-                            </div>
+                            <>
+                              <div>
+                                <div className="text-xs text-slate-400">{currentRoomState.quizVariant === 'battle_royale' ? 'ライフ' : '正答数'}</div>
+                                <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">
+                                  {currentRoomState.quizVariant === 'battle_royale' ? (p.quizLives ?? 0) : (p.correctAnswers || 0)}
+                                </div>
+                              </div>
+                              {currentRoomState.quizVariant === 'battle_royale' ? (
+                                <div>
+                                  <div className="text-xs text-slate-400">対戦相手</div>
+                                  <div className="font-mono text-base font-bold text-rose-300 md:text-lg">
+                                    {(() => {
+                                      const pair = (currentRoomState.quizBattlePairs || []).find((entry: any) => entry.id === p.currentBattlePairId);
+                                      if (!pair || pair.playerIds.length < 2) return '待機';
+                                      const opponentId = pair.playerIds.find((id: string) => id !== p.id);
+                                      return opponentId ? (currentRoomState.players?.[opponentId]?.name || '-') : '待機';
+                                    })()}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </>
                           ) : isBomberGameType(resolvedGameType) ? (
                             <>
                               <div>
@@ -1211,6 +1358,113 @@ export default function HostScreen({
           )}
         </div>
       </div>
+
+      {resolvedGameType === 'quiz' && showQuizVariantModal ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl rounded-[1.75rem] border border-amber-400/20 bg-slate-900 p-5 shadow-2xl md:p-6">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-lg font-black text-amber-100 md:text-2xl">クイズモードを選ぶ</div>
+                <div className="mt-1 text-sm text-slate-300">遊び方を決めてから設定画面へ戻ります。</div>
+              </div>
+              <button
+                onClick={() => setShowQuizVariantModal(false)}
+                className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700"
+              >
+                閉じる
+              </button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {QUIZ_VARIANTS.map((variant) => (
+                <button
+                  key={variant.id}
+                  onClick={() => setQuizVariantDraft(variant.id)}
+                  className={`rounded-2xl border px-4 py-4 text-left transition-colors ${
+                    quizVariantDraft === variant.id
+                      ? 'border-amber-300 bg-amber-500/20 text-white'
+                      : 'border-slate-700 bg-slate-800/70 text-slate-100 hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-base font-black">{variant.title}</div>
+                    {quizVariantDraft === variant.id ? (
+                      <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-200">選択中</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-xs leading-relaxed text-slate-300">{variant.description}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {quizVariantDraft === 'team_battle' && !isSinglePlayer ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3">
+                  <span className="text-sm font-bold text-slate-200">チーム数</span>
+                  <select
+                    value={teamCountDraft}
+                    onChange={(e) => setTeamCountDraft(Number(e.target.value))}
+                    className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                  >
+                    {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                      <option key={value} value={value}>
+                        {value}チーム
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              {quizVariantDraft === 'battle_royale' ? (
+                <>
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3">
+                    <span className="text-sm font-bold text-slate-200">ライフ</span>
+                    <select
+                      value={quizBattleLivesDraft}
+                      onChange={(e) => setQuizBattleLivesDraft(Number(e.target.value))}
+                      className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                    >
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3">
+                    <span className="text-sm font-bold text-slate-200">1問の制限時間</span>
+                    <select
+                      value={quizBattleQuestionLimitDraft}
+                      onChange={(e) => setQuizBattleQuestionLimitDraft(Number(e.target.value))}
+                      className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                    >
+                      {Array.from({ length: 11 }, (_, index) => index + 10).map((value) => (
+                        <option key={value} value={value}>
+                          {value}秒
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+              <button
+                onClick={() => setShowQuizVariantModal(false)}
+                className="rounded-xl border border-slate-600 bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={applyQuizVariantSelection}
+                className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-black text-slate-950 transition-colors hover:bg-amber-400"
+              >
+                決定して戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {!isSinglePlayer && showPinOverlay ? (
         <button

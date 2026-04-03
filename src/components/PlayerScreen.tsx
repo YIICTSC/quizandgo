@@ -66,6 +66,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     quizVariant === 'speed' ? '早押しポイント' :
     quizVariant === 'team_battle' ? 'チームクイズバトル' :
     quizVariant === 'boss' ? 'ボスクイズ' :
+    quizVariant === 'battle_royale' ? '早押しバトルロイヤル' :
     'クラシック';
   const isTeamBomberMode = roomState?.gameType === 'team_bomber';
   const isColorBomberMode = roomState?.gameType === 'color_bomber';
@@ -304,6 +305,10 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     return (a.totalStrokes || 0) - (b.totalStrokes || 0);
   });
   const myRank = Math.max(0, sortedPlayers.findIndex((player: any) => player.id === socket.id)) + 1;
+  const myBattlePair = (roomState.quizBattlePairs || []).find((pair: any) => pair.id === me?.currentBattlePairId) || null;
+  const myBattleOpponentId = myBattlePair?.playerIds?.find((id: string) => id !== socket.id) || null;
+  const myBattleOpponent = myBattleOpponentId ? roomState.players?.[myBattleOpponentId] : null;
+  const myBattleQuestion = myBattlePair?.question || question;
   const myTeamId = me?.teamId ?? null;
   const teammates = sortedPlayers.filter((player: any) => player.teamId === myTeamId);
   const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
@@ -424,6 +429,33 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">スコア: <span className="font-bold text-yellow-300">{calculateGameScore('quiz', me || {})}</span></div>
               </div>
             </div>
+            {quizVariant === 'battle_royale' ? (
+              <div className="mb-5 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="rounded-xl bg-slate-900/50 px-4 py-3">
+                    <div className="text-xs text-slate-400">あなたのライフ</div>
+                    <div className="text-3xl font-black text-cyan-200">{me?.quizLives ?? 0}</div>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="text-xs font-bold tracking-[0.25em] text-fuchsia-200">MATCH UP</div>
+                    <div className="mt-2 text-2xl font-black text-white">
+                      {myBattleOpponent ? `${playerName} VS ${myBattleOpponent.name}` : `${playerName} は待機中`}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-300">
+                      {roomState?.quizBattlePhase === 'matchup'
+                        ? '次の相手が決まりました'
+                        : myBattleOpponent
+                          ? '先に正解した方が勝ち'
+                          : 'このラウンドはお休みです'}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-slate-900/50 px-4 py-3 text-right">
+                    <div className="text-xs text-slate-400">相手のライフ</div>
+                    <div className="text-3xl font-black text-rose-200">{myBattleOpponent?.quizLives ?? '-'}</div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {quizVariant === 'boss' ? (
               <div className="mb-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 p-3">
                 <div className="mb-2 flex items-center justify-between text-sm font-bold text-rose-100">
@@ -438,7 +470,47 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 </div>
               </div>
             ) : null}
-            {question ? (
+            {quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'matchup' ? (
+              <div className="rounded-2xl border border-fuchsia-400/30 bg-slate-900/60 p-8 text-center">
+                <div className="mb-2 text-sm font-bold tracking-[0.3em] text-fuchsia-200">NEXT MATCH</div>
+                <div className="text-5xl font-black text-white">{myBattleOpponent ? 'VS' : 'WAIT'}</div>
+                <div className="mt-4 text-xl text-slate-200">
+                  {myBattleOpponent ? `${playerName}  VS  ${myBattleOpponent.name}` : '対戦相手のいないラウンドです'}
+                </div>
+                <div className="mt-3 text-sm text-slate-400">格闘ゲーム風マッチング演出中...</div>
+              </div>
+            ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'reveal' ? (
+              <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
+                <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{myBattleQuestion?.text}</h2>
+                {myBattleQuestion?.visual ? <ProblemVisual visual={myBattleQuestion.visual} /> : null}
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                  {(myBattleQuestion?.options || []).map((opt: string, i: number) => {
+                    const total = (myBattlePair?.answerCounts || []).reduce((sum: number, count: number) => sum + count, 0);
+                    const count = myBattlePair?.answerCounts?.[i] || 0;
+                    const ratio = total > 0 ? Math.round((count / total) * 100) : 0;
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-2xl border-2 p-4 text-center ${i === myBattleQuestion?.correctIndex ? 'border-emerald-300 bg-emerald-500/15' : 'border-slate-700 bg-slate-800/70'}`}
+                      >
+                        <div className="text-lg font-bold">{opt}</div>
+                        <div className="mt-2 text-sm text-slate-300">選択 {count}人 / {ratio}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-5 text-center text-sm text-slate-300">全体の選択割合を集計中</div>
+              </div>
+            ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'result' ? (
+              <div className="rounded-2xl border border-fuchsia-400/30 bg-slate-900/60 p-8 text-center">
+                <div className="mb-2 text-sm font-bold tracking-[0.3em] text-fuchsia-200">ROUND RESULT</div>
+                <div className="text-4xl font-black text-white">{myBattlePair?.resultLabel || '勝敗判定中'}</div>
+                <div className="mt-4 text-lg text-slate-300">
+                  {myBattlePair?.winnerId === socket.id ? 'このラウンドに勝利しました' : myBattlePair?.loserIds?.includes(socket.id) ? 'このラウンドに敗北しました' : 'このラウンドは待機でした'}
+                </div>
+                <div className="mt-3 text-sm text-slate-400">次の再マッチへ進みます...</div>
+              </div>
+            ) : question ? (
               <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
                 <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>
                 {question.visual && <ProblemVisual visual={question.visual} />}
