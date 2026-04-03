@@ -1,6 +1,6 @@
 export type AvatarEyeType = 'dot' | 'smile' | 'wide' | 'wink' | 'sleepy' | 'angry' | 'sparkle' | 'heart';
 export type AvatarMouthType = 'smile' | 'open' | 'flat' | 'tooth' | 'grin' | 'pout' | 'tongue' | 'surprised';
-export type AvatarHairType = 'none' | 'short' | 'bangs' | 'spike' | 'bob' | 'curl' | 'ponytail' | 'afro';
+export type AvatarHairType = 'none' | 'short' | 'bangs' | 'spike' | 'bob' | 'curl' | 'ponytail' | 'princess';
 export type AvatarAccessoryType = 'none' | 'glasses' | 'star' | 'headband' | 'ribbon' | 'crown' | 'flower' | 'cap';
 export type AvatarSpeciesType = 'human' | 'cat' | 'bear' | 'rabbit' | 'dog' | 'fox' | 'panda' | 'chick';
 
@@ -22,7 +22,7 @@ export const AVATAR_ACCENT_COLORS = ['#0f172a', '#ffffff', '#14532d', '#1d4ed8',
 export const AVATAR_SKIN_COLORS = ['#fff7ed', '#fde7d3', '#f7d2b6', '#dba57d', '#b97952', '#8d5a3c'];
 export const AVATAR_EYES: AvatarEyeType[] = ['dot', 'smile', 'wide', 'wink', 'sleepy', 'angry', 'sparkle', 'heart'];
 export const AVATAR_MOUTHS: AvatarMouthType[] = ['smile', 'open', 'flat', 'tooth', 'grin', 'pout', 'tongue', 'surprised'];
-export const AVATAR_HAIRS: AvatarHairType[] = ['none', 'short', 'bangs', 'spike', 'bob', 'curl', 'ponytail', 'afro'];
+export const AVATAR_HAIRS: AvatarHairType[] = ['none', 'short', 'bangs', 'spike', 'bob', 'curl', 'ponytail', 'princess'];
 export const AVATAR_ACCESSORIES: AvatarAccessoryType[] = ['none', 'glasses', 'star', 'headband', 'ribbon', 'crown', 'flower', 'cap'];
 export const AVATAR_SPECIES: AvatarSpeciesType[] = ['human', 'cat', 'bear', 'rabbit', 'dog', 'fox', 'panda', 'chick'];
 export const AVATAR_BODY_COLOR_LABELS: Record<string, string> = {
@@ -77,13 +77,13 @@ export const AVATAR_LABELS = {
   },
   hairType: {
     none: 'なし',
-    short: 'ショート',
+    short: 'シースルー',
     bangs: 'ぱっつん',
-    spike: 'ツンツン',
-    bob: 'ボブ',
-    curl: 'くるくる',
-    ponytail: 'ポニーテール',
-    afro: 'アフロ',
+    spike: 'ふわバング',
+    bob: 'ひめボブ',
+    curl: 'くるふわ',
+    ponytail: 'ながし前髪ポニー',
+    princess: 'おひめロング',
   },
   accessoryType: {
     none: 'なし',

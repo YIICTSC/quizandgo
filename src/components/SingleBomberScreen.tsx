@@ -5,6 +5,7 @@ import { calculateGameScore } from '../lib/scoring';
 import { findMatchingOptionIndex, matchesSpeechAnswer, shuffleOptionsWithFirstCorrect } from '../lib/answerMatching';
 import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
 import { getBomberDimensions } from '../lib/bomberDimensions';
+import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -37,7 +38,7 @@ type SingleBomberQuestion = {
 
 type BomberCell = 'solid' | 'breakable' | 'floor';
 type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire' | 'speed_up';
-type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean };
+type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean; avatar: AvatarConfig };
 type Bomb = {
   id: string;
   ownerId: string;
@@ -216,6 +217,16 @@ export default function SingleBomberScreen({
   }
 
   const [timeRemaining, setTimeRemaining] = useState(timeLimit);
+  const [singleAvatar] = useState<AvatarConfig>(() => {
+    try {
+      const saved = window.localStorage.getItem(AVATAR_STORAGE_KEY);
+      const avatar = normalizeAvatar(saved ? JSON.parse(saved) : null);
+      window.localStorage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(avatar));
+      return avatar;
+    } catch (e) {
+      return createRandomAvatar();
+    }
+  });
   const [floor, setFloor] = useState(1);
   const [grid, setGrid] = useState<BomberCell[][]>([]);
   const [bombs, setBombs] = useState<Bomb[]>([]);
@@ -362,6 +373,7 @@ export default function SingleBomberScreen({
         x: spawn.x,
         y: spawn.y,
         alive: true,
+        avatar: createRandomAvatar(),
       };
     });
 
@@ -683,6 +695,7 @@ export default function SingleBomberScreen({
     id: 'single-player',
     name: 'あなた',
     color: '#38bdf8',
+    avatar: singleAvatar,
     bomberX: playerPos.x,
     bomberY: playerPos.y,
     alive: playerPos.alive,
@@ -698,7 +711,7 @@ export default function SingleBomberScreen({
     hasShield,
     hasRemoteBomb,
     hasPierceFire,
-  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, fireLevel, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, kills, moveSpeedLevel, playerPos.alive, playerPos.x, playerPos.y, timeAliveMs]);
+  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, fireLevel, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, kills, moveSpeedLevel, playerPos.alive, playerPos.x, playerPos.y, singleAvatar, timeAliveMs]);
 
   const combinedPlayers = useMemo(() => {
     const players: Record<string, any> = { [me.id]: me };
@@ -707,6 +720,7 @@ export default function SingleBomberScreen({
         id: enemy.id,
         name: enemy.name,
         color: enemy.color,
+        avatar: enemy.avatar,
         bomberX: enemy.x,
         bomberY: enemy.y,
         alive: enemy.alive,

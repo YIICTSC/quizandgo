@@ -86,37 +86,50 @@ export default function AvatarPreview({
       ) : null}
 
       {config.hairType === 'short' ? (
-        <path d="M34 58 C38 26 91 22 97 58 L97 46 C87 18 42 20 34 46 Z" fill={config.accentColor} />
+        <>
+          <path d="M34 54 C38 26 90 24 96 54 L96 44 C86 19 42 21 34 44 Z" fill={config.accentColor} />
+          <path d="M41 54 C47 46 54 44 60 52 C66 42 76 42 85 53" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
+        </>
       ) : null}
       {config.hairType === 'bangs' ? (
-        <path d="M30 52 C36 18 92 18 98 52 C84 50 76 46 64 54 C51 46 43 49 30 52 Z" fill={config.accentColor} />
+        <>
+          <path d="M30 52 C36 18 92 18 98 52 C91 51 84 52 78 55 C74 48 68 46 64 56 C58 47 50 47 44 55 C39 51 35 50 30 52 Z" fill={config.accentColor} />
+          <path d="M48 54 L55 64 L62 53 L69 64 L78 54" stroke={config.accentColor} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        </>
       ) : null}
       {config.hairType === 'spike' ? (
-        <path d="M30 56 L40 24 L56 42 L66 18 L78 42 L92 24 L98 56 C82 46 46 46 30 56 Z" fill={config.accentColor} />
+        <>
+          <path d="M31 54 C37 24 91 22 97 54 C88 49 80 47 73 53 C69 43 60 43 55 53 C48 47 40 49 31 54 Z" fill={config.accentColor} />
+          <path d="M44 56 C50 47 57 45 63 54 C69 44 78 46 84 56" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
+        </>
       ) : null}
       {config.hairType === 'bob' ? (
-        <path d="M28 54 C31 24 97 24 100 54 L92 84 C82 77 46 77 36 84 Z" fill={config.accentColor} />
+        <>
+          <path d="M28 54 C31 24 97 24 100 54 L93 86 C84 80 45 80 35 86 Z" fill={config.accentColor} />
+          <path d="M40 54 C45 45 54 43 61 51 C67 42 76 42 87 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
+        </>
       ) : null}
       {config.hairType === 'curl' ? (
         <>
-          <circle cx="40" cy="46" r="12" fill={config.accentColor} />
-          <circle cx="52" cy="36" r="12" fill={config.accentColor} />
-          <circle cx="64" cy="34" r="12" fill={config.accentColor} />
-          <circle cx="76" cy="36" r="12" fill={config.accentColor} />
-          <circle cx="88" cy="46" r="12" fill={config.accentColor} />
+          <circle cx="40" cy="46" r="11" fill={config.accentColor} />
+          <circle cx="52" cy="36" r="11" fill={config.accentColor} />
+          <circle cx="64" cy="34" r="11" fill={config.accentColor} />
+          <circle cx="76" cy="36" r="11" fill={config.accentColor} />
+          <circle cx="88" cy="46" r="11" fill={config.accentColor} />
+          <path d="M42 53 C49 45 56 44 63 52 C69 43 78 44 86 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.86" />
         </>
       ) : null}
       {config.hairType === 'ponytail' ? (
         <>
-          <path d="M34 54 C39 24 89 22 96 54 L92 48 C82 22 46 22 36 48 Z" fill={config.accentColor} />
-          <path d="M93 58 C108 58 108 88 89 92 C94 82 94 70 93 58 Z" fill={config.accentColor} />
+          <path d="M34 54 C39 24 89 22 96 54 L92 48 C83 26 50 21 38 47 Z" fill={config.accentColor} />
+          <path d="M43 55 C49 46 56 44 63 53 C70 44 78 45 86 55" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.88" />
+          <path d="M92 58 C110 58 109 91 88 95 C96 83 97 71 92 58 Z" fill={config.accentColor} />
         </>
       ) : null}
-      {config.hairType === 'afro' ? (
+      {config.hairType === 'princess' ? (
         <>
-          <circle cx="64" cy="40" r="24" fill={config.accentColor} />
-          <circle cx="44" cy="44" r="16" fill={config.accentColor} />
-          <circle cx="84" cy="44" r="16" fill={config.accentColor} />
+          <path d="M30 52 C36 18 92 18 98 52 L94 95 C86 90 80 86 74 86 L74 60 C69 48 59 48 54 60 L54 86 C47 86 41 90 34 95 Z" fill={config.accentColor} />
+          <path d="M41 54 C47 44 55 42 62 51 C69 42 78 43 87 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
         </>
       ) : null}
 
