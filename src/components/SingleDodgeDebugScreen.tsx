@@ -148,12 +148,15 @@ export default function SingleDodgeDebugScreen({
   const defeatSoundCooldownRef = useRef(0);
   const playersRef = useRef<DebugPlayer[]>(players);
 
-  useEffect(() => {
-    heldDirectionRef.current = heldDirection;
-  }, [heldDirection]);
-  useEffect(() => {
-    heldVectorRef.current = heldVector;
-  }, [heldVector]);
+  const handleSetHeldDirection = (direction: DodgeDirection | null) => {
+    heldDirectionRef.current = direction;
+    setHeldDirection(direction);
+  };
+
+  const handleSetHeldVector = (vector: MoveVector | null) => {
+    heldVectorRef.current = vector;
+    setHeldVector(vector);
+  };
 
   useEffect(() => {
     playersRef.current = players;
@@ -357,8 +360,8 @@ export default function SingleDodgeDebugScreen({
   const resetArena = () => {
     setPlayers(createInitialPlayers());
     setBalls([]);
-    setHeldDirection(null);
-    setHeldVector(null);
+    handleSetHeldDirection(null);
+    handleSetHeldVector(null);
     heldDirectionRef.current = null;
     heldVectorRef.current = null;
     setLastThrowAt(0);
@@ -396,8 +399,8 @@ export default function SingleDodgeDebugScreen({
             me={me}
             players={playerMap}
             dodgeState={{ width: DODGE_WIDTH, height: DODGE_HEIGHT, playerRadius: DODGE_PLAYER_RADIUS, balls }}
-            onSetMove={setHeldDirection}
-            onSetMoveVector={setHeldVector}
+            onSetMove={handleSetHeldDirection}
+            onSetMoveVector={handleSetHeldVector}
             onThrow={throwBall}
           />
         </div>
