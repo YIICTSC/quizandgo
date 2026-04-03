@@ -20,6 +20,7 @@ const itemLabelMap: Record<string, string> = {
   shield: '🛡️',
   remote_bomb: '📡',
   pierce_fire: '💥',
+  speed_up: '⚡',
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -33,11 +34,17 @@ const getAutoZoomScale = (width: number, height: number) => {
   return 1.95;
 };
 
+const getBomberMoveRepeatMs = (moveSpeedLevel = 0) => {
+  const clamped = Math.max(0, Math.min(3, moveSpeedLevel));
+  return [180, 160, 140, 125][clamped];
+};
+
 export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb, onDetonateRemote, canUseRemote = false }: BomberGameProps) {
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const moveHoldIntervalRef = useRef<number | null>(null);
   const activeMoveDirectionRef = useRef<'up' | 'down' | 'left' | 'right' | null>(null);
+  const moveRepeatMs = getBomberMoveRepeatMs(me?.moveSpeedLevel || 0);
 
   const stopMoveHold = () => {
     activeMoveDirectionRef.current = null;
@@ -58,7 +65,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
     moveHoldIntervalRef.current = window.setInterval(() => {
       if (activeMoveDirectionRef.current !== direction) return;
       onMove(direction);
-    }, 120);
+    }, moveRepeatMs);
   };
 
   useEffect(() => {
@@ -108,7 +115,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
       window.removeEventListener('blur', stopAllMovement);
       stopMoveHold();
     };
-  }, [canUseRemote, onDetonateRemote, onMove, onPlaceBomb, roomId]);
+  }, [canUseRemote, moveRepeatMs, onDetonateRemote, onMove, onPlaceBomb, roomId]);
 
   if (!bomberState) {
     return <div className="flex h-full items-center justify-center text-slate-400">盤面を準備しています...</div>;

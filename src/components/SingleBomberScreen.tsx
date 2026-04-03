@@ -36,7 +36,7 @@ type SingleBomberQuestion = {
 };
 
 type BomberCell = 'solid' | 'breakable' | 'floor';
-type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire';
+type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire' | 'speed_up';
 type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean };
 type Bomb = {
   id: string;
@@ -60,8 +60,9 @@ const EXPLOSION_MS = 500;
 const RESPAWN_MS = 2200;
 const ITEM_DROP_RATE = 0.22;
 const MAX_FIRE_LEVEL = 4;
-const ITEM_POOL: BomberItemId[] = ['fire_up', 'kick_bomb', 'shield', 'remote_bomb', 'pierce_fire'];
+const ITEM_POOL: BomberItemId[] = ['fire_up', 'kick_bomb', 'shield', 'remote_bomb', 'pierce_fire', 'speed_up'];
 const getEnemyMoveTickInterval = (floor: number) => Math.max(2, 7 - Math.floor((floor - 1) / 2));
+const MAX_SPEED_LEVEL = 3;
 
 const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
 const toOddSize = (value: number) => {
@@ -229,6 +230,7 @@ export default function SingleBomberScreen({
   const [hasShield, setHasShield] = useState(false);
   const [hasRemoteBomb, setHasRemoteBomb] = useState(false);
   const [hasPierceFire, setHasPierceFire] = useState(false);
+  const [moveSpeedLevel, setMoveSpeedLevel] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [kills, setKills] = useState(0);
   const [blocksDestroyed, setBlocksDestroyed] = useState(0);
@@ -291,6 +293,7 @@ export default function SingleBomberScreen({
       ...(hasRemoteBomb ? (['remote_bomb'] as const) : []),
       ...(hasPierceFire ? (['pierce_fire'] as const) : []),
       ...(hasShield ? (['shield'] as const) : []),
+      ...Array.from({ length: moveSpeedLevel }, () => 'speed_up' as const),
     ];
     if (dropped.length > 0) {
       setItemDrops((current) => {
@@ -317,12 +320,13 @@ export default function SingleBomberScreen({
     setHasShield(false);
     setHasRemoteBomb(false);
     setHasPierceFire(false);
+    setMoveSpeedLevel(0);
     setDeaths((current) => current + 1);
     setPlayerPos((current) => {
       if (!current.alive) return current;
       return { ...current, x: current.spawnX, y: current.spawnY, alive: false, respawnAt: Date.now() + RESPAWN_MS };
     });
-  }, [fireLevel, grid, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield]);
+  }, [fireLevel, grid, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, moveSpeedLevel]);
 
   const resolveImmediateHazardAt = useCallback((x: number, y: number) => {
     const hitExplosion = explosions.some((explosion) => explosion.cells.some((cell) => cell.x === x && cell.y === y));
@@ -374,6 +378,7 @@ export default function SingleBomberScreen({
     setHasShield(false);
     setHasRemoteBomb(false);
     setHasPierceFire(false);
+    setMoveSpeedLevel(0);
     setQuestion(pickQuestion());
     setAnswerResult(null);
     setSelectedAnswerIndex(null);
@@ -492,6 +497,7 @@ export default function SingleBomberScreen({
                 ...(hasRemoteBomb ? (['remote_bomb'] as const) : []),
                 ...(hasPierceFire ? (['pierce_fire'] as const) : []),
                 ...(hasShield ? (['shield'] as const) : []),
+                ...Array.from({ length: moveSpeedLevel }, () => 'speed_up' as const),
               ];
               if (dropped.length > 0) {
                 setItemDrops((current) => {
@@ -517,6 +523,7 @@ export default function SingleBomberScreen({
               setHasShield(false);
               setHasRemoteBomb(false);
               setHasPierceFire(false);
+              setMoveSpeedLevel(0);
               setDeaths((current) => current + 1);
               return { ...currentPlayer, x: currentPlayer.spawnX, y: currentPlayer.spawnY, alive: false, respawnAt: now + RESPAWN_MS };
             });
@@ -554,6 +561,8 @@ export default function SingleBomberScreen({
           setHasRemoteBomb(true);
         } else if (pickup.itemId === 'pierce_fire') {
           setHasPierceFire(true);
+        } else if (pickup.itemId === 'speed_up') {
+          setMoveSpeedLevel((value) => Math.min(MAX_SPEED_LEVEL, value + 1));
         }
         return [...current.slice(0, pickupIndex), ...current.slice(pickupIndex + 1)];
       });
@@ -583,7 +592,7 @@ export default function SingleBomberScreen({
     }, 100);
 
     return () => window.clearInterval(interval);
-  }, [bombs, enemies, fireLevel, floor, grid, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, playerPos.alive, playerPos.x, playerPos.y, prepareFloor, timeRemaining]);
+  }, [bombs, enemies, fireLevel, floor, grid, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, moveSpeedLevel, playerPos.alive, playerPos.x, playerPos.y, prepareFloor, timeRemaining]);
 
   useEffect(() => {
     const aliveEnemies = enemies.filter((enemy) => enemy.alive);
@@ -684,11 +693,12 @@ export default function SingleBomberScreen({
     timeAliveMs,
     bombsAvailable,
     fireLevel,
+    moveSpeedLevel,
     hasKickBomb,
     hasShield,
     hasRemoteBomb,
     hasPierceFire,
-  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, fireLevel, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, kills, playerPos.alive, playerPos.x, playerPos.y, timeAliveMs]);
+  }), [bombsAvailable, blocksDestroyed, correctAnswers, deaths, fireLevel, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield, kills, moveSpeedLevel, playerPos.alive, playerPos.x, playerPos.y, timeAliveMs]);
 
   const combinedPlayers = useMemo(() => {
     const players: Record<string, any> = { [me.id]: me };
@@ -746,6 +756,7 @@ export default function SingleBomberScreen({
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
             {fireLevel > 0 ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🔥x{fireLevel}</span> : null}
+            {moveSpeedLevel > 0 ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">⚡x{moveSpeedLevel}</span> : null}
             {hasKickBomb ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🥾キック</span> : null}
             {hasShield ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🛡️シールド</span> : null}
             {hasRemoteBomb ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">📡リモコン</span> : null}

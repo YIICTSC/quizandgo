@@ -272,6 +272,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
   const bomberItems = [
     me?.fireLevel > 0 ? `🔥x${me.fireLevel}` : null,
+    (me?.moveSpeedLevel || 0) > 0 ? `⚡x${me.moveSpeedLevel}` : null,
     me?.hasKickBomb ? '🥾キック' : null,
     me?.hasShield ? '🛡️シールド' : null,
     me?.hasRemoteBomb ? '📡リモコン' : null,
