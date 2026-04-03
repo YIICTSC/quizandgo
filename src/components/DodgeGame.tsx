@@ -12,12 +12,6 @@ const normalizeVector = (vector: MoveVector) => {
   return { x: vector.x / length, y: vector.y / length };
 };
 
-const vectorToDirection = (vector: MoveVector | null): DodgeDirection | null => {
-  if (!vector) return null;
-  if (Math.abs(vector.x) < 0.08 && Math.abs(vector.y) < 0.08) return null;
-  return Math.abs(vector.x) > Math.abs(vector.y) ? (vector.x >= 0 ? 'right' : 'left') : (vector.y >= 0 ? 'down' : 'up');
-};
-
 const getMoveVector = (direction: DodgeDirection | null) => {
   switch (direction) {
     case 'up':
@@ -73,6 +67,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
   }, [onSetMove, onSetMoveVector, onThrow]);
 
   const setMoveDirection = (direction: DodgeDirection | null) => {
+    activeVectorRef.current = null;
     activeDirectionRef.current = direction;
     onSetMoveRef.current?.(direction);
   };
@@ -87,7 +82,6 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     const normalized = normalizeVector(vector);
     activeVectorRef.current = normalized;
     onSetMoveVectorRef.current?.(normalized);
-    setMoveDirection(vectorToDirection(normalized));
   };
 
   useEffect(() => {
@@ -198,16 +192,16 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     const onKeyDown = (event: KeyboardEvent) => {
       if (['ArrowUp', 'w', 'W'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'up') setMoveVector(getMoveVector('up'));
+        if (activeDirectionRef.current !== 'up') setMoveDirection('up');
       } else if (['ArrowDown', 's', 'S'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'down') setMoveVector(getMoveVector('down'));
+        if (activeDirectionRef.current !== 'down') setMoveDirection('down');
       } else if (['ArrowLeft', 'a', 'A'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'left') setMoveVector(getMoveVector('left'));
+        if (activeDirectionRef.current !== 'left') setMoveDirection('left');
       } else if (['ArrowRight', 'd', 'D'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'right') setMoveVector(getMoveVector('right'));
+        if (activeDirectionRef.current !== 'right') setMoveDirection('right');
       } else if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         onThrowRef.current?.();
