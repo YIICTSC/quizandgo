@@ -705,6 +705,29 @@ const resolveTeamDodgeWinner = (room: Room) => {
   return null;
 };
 
+const restoreSingleDodgeInfieldIfEmpty = (room: Room, now: number) => {
+  if (isTeamDodgeMode(room) || !isDodgeGameType(room.gameType)) return;
+  const players = Object.values(room.players).filter((player) => player.alive);
+  const infieldPlayers = players.filter((player) => player.dodgeRole === 'infield');
+  if (infieldPlayers.length > 0) return;
+
+  const outfieldPlayers = players.filter((player) => player.dodgeRole === 'outfield');
+  if (outfieldPlayers.length === 0) return;
+  const points = getDodgeSpawnPoints(outfieldPlayers.length || 1).sort(() => Math.random() - 0.5);
+  outfieldPlayers.forEach((player, index) => {
+    const point = points[index] || { x: DODGE_WIDTH / 2, y: DODGE_HEIGHT / 2 };
+    player.x = point.x;
+    player.y = point.y;
+    player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
+    player.dodgeRole = 'infield';
+    player.dodgeReadyToAssist = false;
+    player.dodgeMoveDirection = null;
+    player.dodgeMoveVector = null;
+    player.dodgeAimVector = null;
+    player.dodgeInvulnerableUntil = now + 700;
+  });
+};
+
 const getDodgeMoveVector = (direction: Player['dodgeMoveDirection']) => {
   switch (direction) {
     case 'up':
@@ -1260,10 +1283,11 @@ const startDodgeLoop = (io: Server, roomId: string) => {
         if ((player.dodgeInvulnerableUntil || 0) > now) continue;
         if (Math.hypot(player.x - ball.x, player.y - ball.y) <= playerRadius + ball.radius) {
           const owner = room.players[ball.ownerId] || null;
+          const wasInfieldHit = player.dodgeRole === 'infield';
           defeatDodgePlayer(room, player, owner, ball.id, now);
           if (
             owner?.dodgeRole === 'outfield' &&
-            player.dodgeRole === 'infield' &&
+            wasInfieldHit &&
             (isTeamDodgeMode(room) || (isDodgeGameType(room.gameType) && room.dodgeMode === 'single'))
           ) {
             owner.dodgeRole = 'infield';
@@ -1274,6 +1298,7 @@ const startDodgeLoop = (io: Server, roomId: string) => {
               : DODGE_WIDTH * (0.35 + Math.random() * 0.3);
             owner.y = clamp(owner.y, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
           }
+          restoreSingleDodgeInfieldIfEmpty(room, now);
           const winner = resolveTeamDodgeWinner(room);
           if (winner) {
             room.dodgeWinnerTeamId = winner;
