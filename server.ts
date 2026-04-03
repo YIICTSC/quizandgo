@@ -898,6 +898,16 @@ async function startServer() {
       }
     });
 
+    socket.on('updateAvatar', ({ roomId, avatar }) => {
+      const room = rooms[roomId];
+      const player = room?.players?.[socket.id];
+      if (!room || !player) return;
+      if (room.state !== 'waiting' && room.state !== 'teamReveal') return;
+
+      player.avatar = normalizeAvatar(avatar);
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
     socket.on('endGameEarly', ({ roomId }) => {
       const room = rooms[roomId];
       if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
