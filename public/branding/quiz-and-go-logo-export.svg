@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="120 140 1220 620" role="img" aria-labelledby="title desc">
+  <title id="title">Quiz &amp; Go! logo export</title>
+  <desc id="desc">Tight-cropped logo export for PNG rendering.</desc>
+  <defs>
+    <linearGradient id="wordFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff7c2"/>
+      <stop offset="45%" stop-color="#ffd84d"/>
+      <stop offset="100%" stop-color="#ff8a00"/>
+    </linearGradient>
+    <linearGradient id="accentFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#59f0ff"/>
+      <stop offset="100%" stop-color="#3c82ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="18" flood-color="#52d8ff" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <path d="M124 686 C260 552 392 530 526 600 C660 670 800 664 976 506" fill="none" stroke="#35e98d" stroke-width="18" stroke-linecap="round" opacity="0.92"/>
+  <circle cx="124" cy="686" r="28" fill="#ffffff"/>
+  <circle cx="124" cy="686" r="16" fill="#35e98d"/>
+  <circle cx="976" cy="506" r="20" fill="#35e98d"/>
+
+  <g filter="url(#shadow)">
+    <path d="M403 226 L620 170 L577 304 L752 252 L700 414 L914 360 L866 522 L1050 474 L1008 604 L838 654 L870 548 L660 602 L714 436 L522 492 L566 350 L384 402 L437 262 Z" fill="#16304e" opacity="0.95"/>
+  </g>
+
+  <g filter="url(#softGlow)">
+    <text x="152" y="396" font-size="236" font-weight="900" font-style="italic" letter-spacing="2" fill="url(#wordFill)" stroke="#10253d" stroke-width="22" paint-order="stroke fill" font-family="Trebuchet MS, Verdana, sans-serif">Quiz</text>
+    <text x="830" y="388" font-size="184" font-weight="900" font-style="italic" fill="#ffffff" stroke="#10253d" stroke-width="18" paint-order="stroke fill" font-family="Trebuchet MS, Verdana, sans-serif">&amp;</text>
+    <text x="930" y="590" font-size="252" font-weight="900" font-style="italic" letter-spacing="4" fill="url(#accentFill)" stroke="#0e2034" stroke-width="24" paint-order="stroke fill" font-family="Trebuchet MS, Verdana, sans-serif">Go!</text>
+  </g>
+
+  <text x="1292" y="706" text-anchor="end" font-size="44" font-weight="900" letter-spacing="3" fill="#dffaff" stroke="#0e2034" stroke-width="8" paint-order="stroke fill" font-family="Trebuchet MS, Verdana, sans-serif">クイズアンドゴー</text>
+
+  <g transform="translate(1270 220) rotate(15)">
+    <rect x="-16" y="-16" width="36" height="176" rx="18" fill="#e7f2ff"/>
+    <path d="M18 -6 L126 26 L32 86 Z" fill="#ff5b3d"/>
+    <path d="M18 6 L84 26 L26 58 Z" fill="#ffd95a"/>
+  </g>
+</svg>
