@@ -23,6 +23,7 @@ export default function Home({
   onStartDebugCourse: (hole: number) => void,
   onStartDebugBomberMap: (playerCount: number) => void,
 }) {
+  const logoSrc = `${import.meta.env.BASE_URL}branding/quiz-and-go-logo-concept.svg`;
   const [roomId, setRoomId] = useState('');
   const [name, setName] = useState('');
   const [singlePlayerMode, setSinglePlayerMode] = useState(false);
@@ -54,12 +55,17 @@ export default function Home({
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-      <h1
+      <button
         onClick={handleTitleTap}
-        className="text-5xl font-bold mb-12 text-center bg-gradient-to-r from-green-400 to-blue-500 text-transparent bg-clip-text cursor-pointer select-none"
+        className="mb-8 w-full max-w-5xl cursor-pointer select-none border-0 bg-transparent p-0"
+        aria-label="Quiz & Go!"
       >
-        Quiz & Go!
-      </h1>
+        <img
+          src={logoSrc}
+          alt="Quiz & Go!"
+          className="mx-auto w-full max-w-4xl drop-shadow-[0_18px_36px_rgba(0,0,0,0.38)]"
+        />
+      </button>
 
       <button
         onClick={() => {
