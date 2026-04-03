@@ -303,6 +303,10 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     socket.emit('setDodgeMove', { roomId, direction });
   }, [roomId]);
 
+  const handleDodgeMoveVector = useCallback((vector: { x: number; y: number } | null) => {
+    socket.emit('setDodgeMoveVector', { roomId, vector });
+  }, [roomId]);
+
   const handleDodgeThrow = useCallback(() => {
     socket.emit('throwDodgeBall', { roomId });
   }, [roomId]);
@@ -865,6 +869,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   players={roomState.players}
                   dodgeState={roomState.dodgeState}
                   onSetMove={handleDodgeMove}
+                  onSetMoveVector={handleDodgeMoveVector}
                   onThrow={handleDodgeThrow}
                 />
               </div>
