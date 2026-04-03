@@ -271,6 +271,73 @@ export default function SingleBomberScreen({
     window.speechSynthesis.speak(utterance);
   }, []);
 
+  const defeatByEnemy = useCallback((x: number, y: number) => {
+    setDeaths((current) => current + 1);
+    setPlayerPos((current) => {
+      if (!current.alive) return current;
+      return { ...current, x: current.spawnX, y: current.spawnY, alive: false, respawnAt: Date.now() + RESPAWN_MS };
+    });
+  }, []);
+
+  const defeatByExplosion = useCallback((x: number, y: number) => {
+    if (hasShield) {
+      setHasShield(false);
+      return;
+    }
+
+    const dropped: BomberItemId[] = [
+      ...Array.from({ length: fireLevel }, () => 'fire_up' as const),
+      ...(hasKickBomb ? (['kick_bomb'] as const) : []),
+      ...(hasRemoteBomb ? (['remote_bomb'] as const) : []),
+      ...(hasPierceFire ? (['pierce_fire'] as const) : []),
+      ...(hasShield ? (['shield'] as const) : []),
+    ];
+    if (dropped.length > 0) {
+      setItemDrops((current) => {
+        const used = new Set(current.map((item) => `${item.x},${item.y}`));
+        const additions = dropped.flatMap((itemId, index) => {
+          for (let tries = 0; tries < 20; tries += 1) {
+            const nx = x + (Math.floor(Math.random() * 7) - 3);
+            const ny = y + (Math.floor(Math.random() * 7) - 3);
+            if (!grid[ny]?.[nx] || grid[ny][nx] !== 'floor') continue;
+            const key = `${nx},${ny}`;
+            if (used.has(key)) continue;
+            used.add(key);
+            return [{ id: `drop-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`, itemId, x: nx, y: ny }];
+          }
+          return [];
+        });
+        return [...current, ...additions];
+      });
+    }
+
+    setFireLevel(0);
+    setBombRange(2);
+    setHasKickBomb(false);
+    setHasShield(false);
+    setHasRemoteBomb(false);
+    setHasPierceFire(false);
+    setDeaths((current) => current + 1);
+    setPlayerPos((current) => {
+      if (!current.alive) return current;
+      return { ...current, x: current.spawnX, y: current.spawnY, alive: false, respawnAt: Date.now() + RESPAWN_MS };
+    });
+  }, [fireLevel, grid, hasKickBomb, hasPierceFire, hasRemoteBomb, hasShield]);
+
+  const resolveImmediateHazardAt = useCallback((x: number, y: number) => {
+    const hitExplosion = explosions.some((explosion) => explosion.cells.some((cell) => cell.x === x && cell.y === y));
+    if (hitExplosion) {
+      defeatByExplosion(x, y);
+      return true;
+    }
+    const hitEnemy = enemies.some((enemy) => enemy.alive && enemy.x === x && enemy.y === y);
+    if (hitEnemy) {
+      defeatByEnemy(x, y);
+      return true;
+    }
+    return false;
+  }, [defeatByEnemy, defeatByExplosion, enemies, explosions]);
+
   const prepareFloor = useCallback((nextFloor: number) => {
     const { width, height } = getDimensionsForFloor(nextFloor);
     const nextGrid = createGrid(width, height);
@@ -712,6 +779,7 @@ export default function SingleBomberScreen({
                   return;
                 }
                 setPlayerPos((current) => ({ ...current, x: nextX, y: nextY }));
+                resolveImmediateHazardAt(nextX, nextY);
               }}
               onPlaceBomb={() => {
                 if (!playerPos.alive || bombsAvailable <= 0) return;
