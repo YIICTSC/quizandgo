@@ -6,6 +6,7 @@ import path from 'path';
 import { addItemToInventory, GameItemId, getRandomItemChoices } from './src/gameItems.ts';
 import { findMatchingOptionIndex, shuffleOptionsWithFirstCorrect } from './src/lib/answerMatching.ts';
 import { BOMBER_BASE_HEIGHT, BOMBER_BASE_WIDTH, getBomberDimensions } from './src/lib/bomberDimensions.ts';
+import { AvatarConfig, normalizeAvatar } from './src/avatar.ts';
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -16,6 +17,7 @@ const PORT = Number(process.env.PORT || 3000);
 interface Player {
   id: string;
   name: string;
+  avatar: AvatarConfig;
   holesCompleted: number; // クリアしたホール数
   totalStrokes: number;   // 全ホールの合計打数
   currentStrokes: number; // 現在のホールの打数
@@ -736,7 +738,7 @@ async function startServer() {
       socket.emit('roomStateUpdate', rooms[roomId]);
     });
 
-    socket.on('joinRoom', ({ roomId, name }) => {
+    socket.on('joinRoom', ({ roomId, name, avatar }) => {
       const room = rooms[roomId];
       if (room) {
         // Allow mid-game joins
@@ -749,6 +751,7 @@ async function startServer() {
         room.players[socket.id] = {
           id: socket.id,
           name,
+          avatar: normalizeAvatar(avatar),
           holesCompleted: 0,
           totalStrokes: 0,
           currentStrokes: 0,
@@ -801,11 +804,11 @@ async function startServer() {
             );
             const spawn = randomFloorPosition(room.bomberState.grid, used);
             clearBomberSpawnArea(room.bomberState.grid, spawn.x, spawn.y);
-            Object.assign(room.players[socket.id], {
-              bomberX: spawn.x,
-              bomberY: spawn.y,
-              bomberSpawnX: spawn.x,
-              bomberSpawnY: spawn.y,
+              Object.assign(room.players[socket.id], {
+                bomberX: spawn.x,
+                bomberY: spawn.y,
+                bomberSpawnX: spawn.x,
+                bomberSpawnY: spawn.y,
               alive: true,
               bombsAvailable: 1,
               bombRange: 2,
@@ -893,6 +896,14 @@ async function startServer() {
         resetRoomToWaiting(room);
         io.to(roomId).emit('roomStateUpdate', room);
       }
+    });
+
+    socket.on('endGameEarly', ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
+
+      room.state = 'results';
+      io.to(roomId).emit('roomStateUpdate', room);
     });
 
     socket.on('closeRoom', ({ roomId }) => {
