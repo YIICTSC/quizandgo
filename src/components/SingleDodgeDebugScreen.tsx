@@ -391,7 +391,7 @@ export default function SingleDodgeDebugScreen({
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
-        <div className="min-h-[38dvh] flex-[1.15] sm:min-h-[420px]">
+        <div className="w-full flex-none overflow-hidden rounded-2xl min-h-[36dvh] max-h-[52dvh] sm:max-h-none sm:min-h-[420px] sm:flex-[1.15]">
           <DodgeGame
             me={me}
             players={playerMap}
