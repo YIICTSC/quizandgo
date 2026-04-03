@@ -319,7 +319,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
               <p className="mt-3 text-lg text-slate-400">ホストの開始を待ちながら、アバターを作成できます。</p>
             </div>
             <div className="mb-5 flex items-center justify-center gap-4 rounded-2xl border border-slate-700 bg-slate-900/40 px-6 py-4">
-              <AvatarPreview avatar={me?.avatar || editableAvatar} size={72} />
+              <AvatarPreview avatar={editableAvatar} size={72} />
               <div>
                 <div className="text-sm text-slate-400">参加中の名前</div>
                 <div className="text-3xl font-bold" style={{ color: me?.color || 'white' }}>{playerName}</div>

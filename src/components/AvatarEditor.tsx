@@ -2,12 +2,15 @@ import AvatarPreview from './AvatarPreview';
 import {
   AVATAR_ACCESSORIES,
   AVATAR_ACCENT_COLORS,
+  AVATAR_ACCENT_COLOR_LABELS,
   AVATAR_BODY_COLORS,
+  AVATAR_BODY_COLOR_LABELS,
   AVATAR_EYES,
   AVATAR_HAIRS,
   AVATAR_LABELS,
   AVATAR_MOUTHS,
   AVATAR_SKIN_COLORS,
+  AVATAR_SKIN_COLOR_LABELS,
   AVATAR_SPECIES,
   AvatarConfig,
   createRandomAvatar,
@@ -44,19 +47,19 @@ export default function AvatarEditor({
           <label className="text-xs text-slate-300">
             本体色
             <select value={avatar.bodyColor} onChange={(e) => onChange({ ...avatar, bodyColor: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white">
-              {AVATAR_BODY_COLORS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {AVATAR_BODY_COLORS.map((value) => <option key={value} value={value}>{AVATAR_BODY_COLOR_LABELS[value] || value}</option>)}
             </select>
           </label>
           <label className="text-xs text-slate-300">
             差し色
             <select value={avatar.accentColor} onChange={(e) => onChange({ ...avatar, accentColor: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white">
-              {AVATAR_ACCENT_COLORS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {AVATAR_ACCENT_COLORS.map((value) => <option key={value} value={value}>{AVATAR_ACCENT_COLOR_LABELS[value] || value}</option>)}
             </select>
           </label>
           <label className="text-xs text-slate-300">
             肌の色
             <select value={avatar.skinColor} onChange={(e) => onChange({ ...avatar, skinColor: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white">
-              {AVATAR_SKIN_COLORS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {AVATAR_SKIN_COLORS.map((value) => <option key={value} value={value}>{AVATAR_SKIN_COLOR_LABELS[value] || value}</option>)}
             </select>
           </label>
           <label className="text-xs text-slate-300">
@@ -94,4 +97,3 @@ export default function AvatarEditor({
     </div>
   );
 }
-

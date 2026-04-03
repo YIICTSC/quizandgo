@@ -46,6 +46,16 @@ export default function Home({
   });
 
   useEffect(() => {
+    try {
+      const currentUrl = new URL(window.location.href);
+      const pinFromUrl = currentUrl.searchParams.get('pin');
+      if (pinFromUrl) {
+        setRoomId(pinFromUrl.toUpperCase().slice(0, 6));
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
     startBGM('title');
     return () => stopBGM();
   }, []);
@@ -116,9 +126,6 @@ export default function Home({
                     </button>
                   </div>
                   <div className="space-y-3">
-                    <div className="rounded-xl border border-slate-600 bg-slate-700/50 px-4 py-3 text-sm text-slate-300">
-                      アバターは参加後、ホストが開始するまでの待ち時間に作成できます。
-                    </div>
                     <input 
                       type="text" 
                       placeholder="ゲームPIN" 

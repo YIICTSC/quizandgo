@@ -61,6 +61,7 @@ export default function HostScreen({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
   const [showPinOverlay, setShowPinOverlay] = useState(false);
+  const [inviteCopyState, setInviteCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const isSinglePlayer = mode === 'single';
   const allUnits = useMemo(() => getAllUnits(), []);
@@ -167,6 +168,12 @@ export default function HostScreen({
   }, [isSinglePlayer, roomId]);
 
   const currentRoomState = isSinglePlayer ? { state: 'waiting', players: {} } : (roomState ?? { state: 'loading', players: {} });
+  const inviteUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !roomId) return '';
+    const url = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
+    url.searchParams.set('pin', roomId);
+    return url.toString();
+  }, [roomId]);
   const players = Object.values(currentRoomState.players);
   const selectedQuestionCount = units
     .filter((u) => selectedUnits.includes(u.unit))
@@ -186,6 +193,16 @@ export default function HostScreen({
     return a.totalStrokes - b.totalStrokes;
   });
   const supportsPodiumReveal = resolvedGameType === 'golf' || isBomberGameType(resolvedGameType);
+  const handleCopyInviteUrl = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setInviteCopyState('copied');
+    } catch (e) {
+      setInviteCopyState('error');
+    }
+    window.setTimeout(() => setInviteCopyState('idle'), 2200);
+  };
   const podiumPlayers = useMemo(() => {
     if (!supportsPodiumReveal) return [];
     return sortedPlayers.slice(0, 3);
@@ -387,13 +404,26 @@ export default function HostScreen({
         <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold md:text-3xl">{isSinglePlayer ? 'Quiz & Go! シングル設定' : 'Quiz & Go! ホスト画面'}</h1>
           {!isSinglePlayer && (
-            <button
-              onClick={() => setShowPinOverlay(true)}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-left transition-colors hover:bg-slate-700 md:px-6 md:py-3"
-            >
-              <span className="mr-3 text-sm text-slate-400 md:text-lg">ゲームPIN:</span>
-              <span className="text-2xl font-mono font-bold tracking-widest text-green-400 md:text-4xl">{roomId}</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                onClick={() => setShowPinOverlay(true)}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-left transition-colors hover:bg-slate-700 md:px-6 md:py-3"
+              >
+                <span className="mr-3 text-sm text-slate-400 md:text-lg">ゲームPIN:</span>
+                <span className="text-2xl font-mono font-bold tracking-widest text-green-400 md:text-4xl">{roomId}</span>
+              </button>
+              <button
+                onClick={handleCopyInviteUrl}
+                className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-500/20 md:px-5 md:py-3"
+              >
+                招待URLをコピー
+              </button>
+              {inviteCopyState !== 'idle' ? (
+                <div className={`text-xs font-bold ${inviteCopyState === 'copied' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {inviteCopyState === 'copied' ? 'コピーしました' : 'コピーできませんでした'}
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
 
@@ -749,6 +779,19 @@ export default function HostScreen({
                     {roomId}
                   </button>
                 </p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={handleCopyInviteUrl}
+                    className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-500/20"
+                  >
+                    PIN付き招待URLをコピー
+                  </button>
+                  {inviteCopyState !== 'idle' ? (
+                    <span className={`text-sm font-bold ${inviteCopyState === 'copied' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {inviteCopyState === 'copied' ? '参加用URLをコピーしました' : 'コピーできませんでした'}
+                    </span>
+                  ) : null}
+                </div>
                 <button
                   onClick={() => socket.emit('endGameEarly', { roomId })}
                   className="mt-8 rounded-xl border border-rose-300/40 bg-rose-500/15 px-6 py-3 text-base font-bold text-rose-100 transition-colors hover:bg-rose-500/25"
@@ -1083,6 +1126,20 @@ export default function HostScreen({
               {roomId}
             </div>
             <div className="mt-6 text-base text-slate-300 md:text-2xl">参加者にこのPINを見せてください</div>
+            <div className="mt-4 break-all rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 md:text-lg">
+              {inviteUrl}
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleCopyInviteUrl();
+                }}
+                className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-5 py-3 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-500/20 md:text-base"
+              >
+                PIN付き招待URLをコピー
+              </button>
+            </div>
             <div className="mt-4 text-sm text-slate-500 md:text-base">画面をクリックすると閉じます</div>
           </div>
         </button>

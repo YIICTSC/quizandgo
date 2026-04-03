@@ -25,6 +25,34 @@ export const AVATAR_MOUTHS: AvatarMouthType[] = ['smile', 'open', 'flat', 'tooth
 export const AVATAR_HAIRS: AvatarHairType[] = ['none', 'short', 'bangs', 'spike'];
 export const AVATAR_ACCESSORIES: AvatarAccessoryType[] = ['none', 'glasses', 'star', 'headband'];
 export const AVATAR_SPECIES: AvatarSpeciesType[] = ['human', 'cat', 'bear', 'rabbit', 'dog'];
+export const AVATAR_BODY_COLOR_LABELS: Record<string, string> = {
+  '#38bdf8': 'そらいろ',
+  '#fb7185': 'さくら',
+  '#34d399': 'みどり',
+  '#fbbf24': 'ひまわり',
+  '#c084fc': 'すみれ',
+  '#f97316': 'だいだい',
+  '#60a5fa': 'あお',
+  '#f472b6': 'もも',
+};
+export const AVATAR_ACCENT_COLOR_LABELS: Record<string, string> = {
+  '#0f172a': 'くろ',
+  '#ffffff': 'しろ',
+  '#14532d': 'ふかみどり',
+  '#1d4ed8': 'こいあお',
+  '#7c2d12': 'こげちゃ',
+  '#581c87': 'むらさき',
+  '#7f1d1d': 'えんじ',
+  '#164e63': 'あおみどり',
+};
+export const AVATAR_SKIN_COLOR_LABELS: Record<string, string> = {
+  '#fff7ed': 'ミルク',
+  '#fde7d3': 'アイボリー',
+  '#f7d2b6': 'ピーチ',
+  '#dba57d': 'キャラメル',
+  '#b97952': 'シナモン',
+  '#8d5a3c': 'ココア',
+};
 
 export const AVATAR_LABELS = {
   eyeType: { dot: 'まる目', smile: 'にこ目', wide: 'ぱっちり目', wink: 'ウィンク' },
