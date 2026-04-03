@@ -27,6 +27,9 @@ interface Player {
   maxQuizCombo: number;
   fastestAnswerMs: number | null;
   lastQuestionIssuedAt: number | null;
+  quizLives: number;
+  battleRoyaleWins: number;
+  currentBattlePairId?: string | null;
   canShoot: boolean;
   x: number;
   y: number;
@@ -118,9 +121,24 @@ interface Room {
   teamNames?: Record<number, string>;
   bomberFriendlyFire?: boolean;
   bomberState?: BomberState | null;
-  quizVariant?: 'classic' | 'combo' | 'speed' | 'team_battle' | 'boss';
+  quizVariant?: 'classic' | 'combo' | 'speed' | 'team_battle' | 'boss' | 'battle_royale';
   bossHp?: number;
   bossMaxHp?: number;
+  quizBattleLives?: number;
+  quizBattleQuestionLimit?: number;
+  quizBattlePhase?: 'matchup' | 'question' | 'reveal' | 'result';
+  quizBattleRound?: number;
+  quizBattlePairs?: {
+    id: string;
+    playerIds: string[];
+    winnerId: string | null;
+    loserIds: string[];
+    resolved: boolean;
+    question?: any;
+    answerCounts?: number[];
+    answers?: Record<string, number | null>;
+    resultLabel?: string;
+  }[];
 }
 
 const rooms: Record<string, Room> = {};
@@ -145,6 +163,8 @@ const roomUsesTeams = (room: Room) =>
   room.gameType === 'team_bomber' ||
   (room.gameType === 'color_bomber' && room.teamMode) ||
   (room.gameType === 'quiz' && room.quizVariant === 'team_battle' && room.teamMode);
+
+const isQuizBattleRoyale = (room?: Room) => room?.gameType === 'quiz' && room?.quizVariant === 'battle_royale';
 const getBomberMoveRepeatMs = (moveSpeedLevel = 0) => {
   const clamped = Math.max(0, Math.min(BOMBER_MAX_SPEED_LEVEL, moveSpeedLevel));
   return [180, 160, 140, 125][clamped];
@@ -427,6 +447,9 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.maxQuizCombo = 0;
   player.fastestAnswerMs = null;
   player.lastQuestionIssuedAt = null;
+  player.quizLives = 0;
+  player.battleRoyaleWins = 0;
+  player.currentBattlePairId = null;
   player.canShoot = false;
   player.x = 100;
   player.y = 100;
@@ -476,6 +499,29 @@ const emitPersonalQuestion = (io: Server, player: Player) => {
   });
 };
 
+const pairBattleRoyalePlayers = (players: Player[]) => {
+  const shuffled = [...players].sort((a, b) => {
+    if (a.quizLives !== b.quizLives) return a.quizLives - b.quizLives;
+    return Math.random() - 0.5;
+  });
+  const pairs: Player[][] = [];
+  for (let index = 0; index < shuffled.length; index += 2) {
+    pairs.push(shuffled.slice(index, index + 2));
+  }
+  return pairs;
+};
+
+const buildBattleRoyaleQuestionPayload = (question: any) => question
+  ? {
+      text: question.text,
+      options: question.options,
+      hint: question.hint,
+      visual: question.visual,
+      audioPrompt: question.audioPrompt,
+      speechPrompt: question.speechPrompt,
+    }
+  : null;
+
 const assignRandomTeams = (room: Room, requestedTeamCount?: number) => {
   const players = Object.values(room.players);
   if (players.length === 0) {
@@ -516,6 +562,9 @@ const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questi
   room.questions = questions;
   room.shotsPerQuestion = room.shotsPerQuestion || 3;
   room.bomberState = null;
+  room.quizBattlePairs = [];
+  room.quizBattleRound = 0;
+  room.quizBattlePhase = undefined;
   if (room.gameType === 'quiz' && room.quizVariant === 'boss') {
     const playerCount = Math.max(1, Object.keys(room.players).length);
     room.bossMaxHp = 1500 + playerCount * 500;
@@ -533,6 +582,121 @@ const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questi
   if (isBomberGameType(room.gameType)) {
     room.bomberState = createBomberState(Object.values(room.players));
   }
+};
+
+const beginBattleRoyaleRevealPhase = (io: Server, roomId: string) => {
+  const room = rooms[roomId];
+  if (!room || !isQuizBattleRoyale(room) || room.state !== 'playing') return;
+  const pairs = room.quizBattlePairs || [];
+  if (pairs.some((pair) => !pair.resolved)) return;
+
+  room.quizBattlePhase = 'reveal';
+  room.timeRemaining = 4;
+  io.to(roomId).emit('roomStateUpdate', room);
+
+  setTimeout(() => {
+    const latestRoom = rooms[roomId];
+    if (!latestRoom || !isQuizBattleRoyale(latestRoom) || latestRoom.state !== 'playing') return;
+    if (latestRoom.quizBattlePhase !== 'reveal') return;
+    latestRoom.quizBattlePhase = 'result';
+    latestRoom.timeRemaining = 3;
+    io.to(roomId).emit('roomStateUpdate', latestRoom);
+    setTimeout(() => finalizeBattleRoyaleRoundIfNeeded(io, roomId), 3000);
+  }, 4000);
+};
+
+const finalizeBattleRoyaleRoundIfNeeded = (io: Server, roomId: string) => {
+  const room = rooms[roomId];
+  if (!room || !isQuizBattleRoyale(room) || room.state !== 'playing') return;
+  const pairs = room.quizBattlePairs || [];
+  if (pairs.some((pair) => !pair.resolved)) return;
+
+  const survivors = Object.values(room.players).filter((player) => player.quizLives > 0);
+  if (survivors.length <= 1) {
+    room.state = 'results';
+    io.to(roomId).emit('roomStateUpdate', room);
+    return;
+  }
+
+  const nextRound = (room.quizBattleRound || 0) + 1;
+  room.quizBattleRound = nextRound;
+  room.quizBattlePhase = 'matchup';
+  room.timeRemaining = 3;
+  room.quizBattlePairs = [];
+  Object.values(room.players).forEach((player) => {
+    player.currentQuestion = undefined;
+    player.currentBattlePairId = null;
+  });
+
+  const groups = pairBattleRoyalePlayers(Object.values(room.players));
+  groups.forEach((group, index) => {
+    const pairId = `battle-${nextRound}-${index}`;
+    const question = group.length === 2 ? getQuestionForRoom(room) : null;
+    room.quizBattlePairs?.push({
+      id: pairId,
+      playerIds: group.map((player) => player.id),
+      winnerId: group.length === 1 ? group[0].id : null,
+      loserIds: [],
+      resolved: group.length === 1,
+      question,
+      answerCounts: question?.options?.map(() => 0) || [],
+      answers: {},
+      resultLabel: group.length === 1 ? '不戦勝' : '',
+    });
+    group.forEach((player) => {
+      player.currentBattlePairId = pairId;
+      player.currentQuestion = question || undefined;
+    });
+    if (group.length === 1) {
+      group[0].quizPoints += 30;
+    }
+  });
+
+  io.to(roomId).emit('roomStateUpdate', room);
+
+  const scheduledRound = nextRound;
+  setTimeout(() => {
+    const latestRoom = rooms[roomId];
+    if (!latestRoom || !isQuizBattleRoyale(latestRoom) || latestRoom.state !== 'playing') return;
+    if (latestRoom.quizBattleRound !== scheduledRound) return;
+
+    latestRoom.quizBattlePhase = 'question';
+    latestRoom.timeRemaining = latestRoom.quizBattleQuestionLimit || 10;
+    Object.values(latestRoom.players).forEach((player) => {
+      if (player.currentQuestion) {
+        emitPersonalQuestion(io, player);
+      }
+    });
+    io.to(roomId).emit('roomStateUpdate', latestRoom);
+
+    const battleTimer = setInterval(() => {
+      const timerRoom = rooms[roomId];
+      if (!timerRoom || !isQuizBattleRoyale(timerRoom) || timerRoom.state !== 'playing' || timerRoom.quizBattleRound !== scheduledRound) {
+        clearInterval(battleTimer);
+        return;
+      }
+      timerRoom.timeRemaining = Math.max(0, (timerRoom.timeRemaining || 0) - 1);
+      io.to(roomId).emit('timeUpdate', timerRoom.timeRemaining);
+      if (timerRoom.timeRemaining <= 0) {
+        clearInterval(battleTimer);
+        (timerRoom.quizBattlePairs || []).forEach((pair) => {
+          if (pair.resolved || pair.playerIds.length !== 2) return;
+          pair.resolved = true;
+          pair.winnerId = null;
+          pair.loserIds = [...pair.playerIds];
+          pair.resultLabel = '時間切れで両者敗北';
+          pair.playerIds.forEach((playerId) => {
+            const player = timerRoom.players[playerId];
+            if (!player) return;
+            player.quizLives -= 1;
+            player.currentQuestion = undefined;
+          });
+        });
+        io.to(roomId).emit('roomStateUpdate', timerRoom);
+        beginBattleRoyaleRevealPhase(io, roomId);
+      }
+    }, 1000);
+  }, 2200);
 };
 
 const resetRoomToWaiting = (room: Room) => {
@@ -752,6 +916,11 @@ async function startServer() {
         state: 'waiting',
         questionMode: 'mix',
         quizVariant: 'classic',
+        quizBattleLives: 3,
+        quizBattleQuestionLimit: 10,
+        quizBattlePhase: undefined,
+        quizBattleRound: 0,
+        quizBattlePairs: [],
         timeLimit: 300, // Default 5 minutes
         timeRemaining: 300,
         shotsPerQuestion: 3,
@@ -789,6 +958,9 @@ async function startServer() {
           maxQuizCombo: 0,
           fastestAnswerMs: null,
           lastQuestionIssuedAt: null,
+          quizLives: 0,
+          battleRoyaleWins: 0,
+          currentBattlePairId: null,
           canShoot: false,
           x: 100,
           y: 100,
@@ -872,13 +1044,15 @@ async function startServer() {
       }
     });
 
-    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire, quizVariant }) => {
+    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire, quizVariant, quizBattleLives, quizBattleQuestionLimit }) => {
       const room = rooms[roomId];
       if (room && room.hostId === socket.id) {
         room.shotsPerQuestion = Math.max(1, Math.min(5, Number(shotsPerQuestion) || 3));
         room.quizVariant = room.gameType === 'quiz'
-          ? (['classic', 'combo', 'speed', 'team_battle', 'boss'].includes(quizVariant) ? quizVariant : 'classic')
+          ? (['classic', 'combo', 'speed', 'team_battle', 'boss', 'battle_royale'].includes(quizVariant) ? quizVariant : 'classic')
           : room.quizVariant;
+        room.quizBattleLives = Math.max(1, Math.min(5, Number(quizBattleLives) || 3));
+        room.quizBattleQuestionLimit = Math.max(10, Math.min(20, Number(quizBattleQuestionLimit) || 10));
         room.teamMode = room.gameType === 'quiz'
           ? room.quizVariant === 'team_battle'
           : (isTeamBomberGameType(room.gameType) ? true : Boolean(teamMode));
@@ -898,6 +1072,13 @@ async function startServer() {
         }
 
         prepareRoomForGame(room, mode, timeLimit, questions);
+        if (isQuizBattleRoyale(room)) {
+          Object.values(room.players).forEach((player) => {
+            player.quizLives = room.quizBattleLives || 3;
+          });
+          finalizeBattleRoyaleRoundIfNeeded(io, roomId);
+          return;
+        }
         Object.values(room.players).forEach((player) => emitPersonalQuestion(io, player));
         io.to(roomId).emit('roomStateUpdate', room);
         startRoomTimer(io, roomId);
@@ -976,6 +1157,78 @@ async function startServer() {
           ? isSpeechCorrect
           : answerIndex === currentQuestion.correctIndex;
         console.log(`[submitAnswer] isCorrect: ${isCorrect}, correctIndex: ${currentQuestion.correctIndex}`);
+        if (isQuizBattleRoyale(room)) {
+          const pair = (room.quizBattlePairs || []).find((entry) => entry.id === player.currentBattlePairId);
+          if (!pair || pair.resolved || room.quizBattlePhase !== 'question') {
+            callback?.({ ok: false });
+            return;
+          }
+          if (typeof answerIndex === 'number') {
+            pair.answerCounts = pair.answerCounts || currentQuestion.options.map(() => 0);
+            pair.answers = pair.answers || {};
+            pair.answerCounts[answerIndex] = (pair.answerCounts[answerIndex] || 0) + 1;
+            pair.answers[player.id] = answerIndex;
+          }
+          const opponentId = pair.playerIds.find((id) => id !== player.id) || null;
+          const opponent = opponentId ? room.players[opponentId] : null;
+          if (isCorrect) {
+            player.correctAnswers += 1;
+            player.quizPoints += 180;
+            player.battleRoyaleWins += 1;
+            pair.resolved = true;
+            pair.winnerId = player.id;
+            pair.loserIds = opponent ? [opponent.id] : [];
+            pair.resultLabel = opponent ? `${player.name} の勝利` : `${player.name} の不戦勝`;
+            player.currentQuestion = undefined;
+            if (opponent) {
+              opponent.quizLives -= 1;
+              opponent.currentQuestion = undefined;
+              io.to(opponent.id).emit('answerResult', {
+                correct: false,
+                correctIndex: currentQuestion.correctIndex,
+                correctText: currentQuestion.correctText,
+              });
+            }
+            socket.emit('answerResult', {
+              correct: true,
+              correctIndex: currentQuestion.correctIndex,
+              correctText: currentQuestion.correctText,
+            });
+          } else {
+            pair.resolved = true;
+            pair.winnerId = opponent?.id || null;
+            pair.loserIds = [player.id];
+            pair.resultLabel = opponent ? `${opponent.name} の勝利` : `${player.name} の敗北`;
+            player.quizLives -= 1;
+            player.currentQuestion = undefined;
+            socket.emit('answerResult', {
+              correct: false,
+              correctIndex: currentQuestion.correctIndex,
+              correctText: currentQuestion.correctText,
+            });
+            if (opponent) {
+              opponent.quizPoints += 120;
+              opponent.battleRoyaleWins += 1;
+              opponent.currentQuestion = undefined;
+              io.to(opponent.id).emit('answerResult', {
+                correct: true,
+                correctIndex: currentQuestion.correctIndex,
+                correctText: currentQuestion.correctText,
+              });
+            }
+          }
+          callback?.({
+            ok: true,
+            correct: isCorrect,
+            correctIndex: currentQuestion.correctIndex,
+            correctText: currentQuestion.correctText,
+            nextQuestion: null,
+            nextDelayMs: 1200,
+          });
+          io.to(roomId).emit('roomStateUpdate', room);
+          beginBattleRoyaleRevealPhase(io, roomId);
+          return;
+        }
         if (isCorrect) {
           player.correctAnswers += 1;
           if (room.gameType === 'quiz') {

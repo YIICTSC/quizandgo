@@ -50,6 +50,16 @@
     - `bomber_battle.mp3`: 通常バトル用の主旋律
     - `bomber_last10.mp3`: 残り10秒など終盤加速用
     - `bomber_results.mp3`: クイズボンバー専用の勝敗まとめ
+- クイズモード
+  - `クラシック / コンボクイズ / 早押しポイント`
+    - 待機: `host_lobby.mp3`
+    - プレイ中: `gameplay_main.mp3`
+    - 結果: `results_win.mp3`
+  - `チームクイズバトル / ボスクイズ / 早押しバトルロイヤル`
+    - 待機: `bomber_lobby.mp3`
+    - プレイ中: `bomber_battle.mp3`
+    - 終盤加速: `bomber_last10.mp3`
+    - 結果: `bomber_results.mp3`
 - 結果画面
   - 祝福感のある短めループ
   - リトライの邪魔にならない長さ
