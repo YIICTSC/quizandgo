@@ -19,6 +19,19 @@
     </filter>
   </defs>
 
+  <g opacity="0.9">
+    <rect x="1030" y="188" width="54" height="54" rx="14" fill="#0f2438" stroke="#304c68" stroke-width="4"/>
+    <rect x="1092" y="188" width="54" height="54" rx="14" fill="#0f2438" stroke="#304c68" stroke-width="4"/>
+    <rect x="1030" y="250" width="54" height="54" rx="14" fill="#0f2438" stroke="#304c68" stroke-width="4"/>
+    <circle cx="1118" cy="274" r="26" fill="#111827" stroke="#e6edf7" stroke-width="8"/>
+    <circle cx="1118" cy="274" r="8" fill="#ffffff"/>
+    <path d="M1128 248 C1138 230 1156 226 1168 234" fill="none" stroke="#ffd95a" stroke-width="8" stroke-linecap="round"/>
+    <g opacity="0.95">
+      <rect x="1180" y="236" width="28" height="84" rx="12" fill="#ffb43a"/>
+      <rect x="1152" y="264" width="84" height="28" rx="12" fill="#ff7a18"/>
+      <rect x="1162" y="246" width="64" height="64" rx="20" fill="none" stroke="#ffe08a" stroke-width="10"/>
+    </g>
+  </g>
   <path d="M124 686 C260 552 392 530 526 600 C660 670 800 664 976 506" fill="none" stroke="#35e98d" stroke-width="18" stroke-linecap="round" opacity="0.92"/>
   <circle cx="124" cy="686" r="28" fill="#ffffff"/>
   <circle cx="124" cy="686" r="16" fill="#35e98d"/>
