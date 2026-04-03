@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type BomberGameProps = {
   roomId: string;
@@ -34,6 +34,9 @@ const getAutoZoomScale = (width: number, height: number) => {
 };
 
 export default function BomberGame({ roomId, me, players, bomberState, onMove, onPlaceBomb, onDetonateRemote, canUseRemote = false }: BomberGameProps) {
+  const boardFrameRef = useRef<HTMLDivElement | null>(null);
+  const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
@@ -68,6 +71,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
 
   const width = bomberState.width || 21;
   const height = bomberState.height || 15;
+  const aspect = width / height;
   const zoomScale = getAutoZoomScale(width, height);
   const cellWidthPercent = 100 / width;
   const cellHeightPercent = 100 / height;
@@ -79,107 +83,146 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   const meYPercent = ((me?.bomberY || 0) + 0.5) * cellHeightPercent;
   const minTranslateX = 100 * (1 / zoomScale - 1);
   const minTranslateY = 100 * (1 / zoomScale - 1);
-  const focusXPercent = 50;
-  const focusYPercent = 42;
+  const focusXPercent = 44;
+  const focusYPercent = 34;
   const translateX = zoomScale === 1 ? 0 : clamp(focusXPercent / zoomScale - meXPercent, minTranslateX, 0);
   const translateY = zoomScale === 1 ? 0 : clamp(focusYPercent / zoomScale - meYPercent, minTranslateY, 0);
+
+  useEffect(() => {
+    const frame = boardFrameRef.current;
+    if (!frame) return;
+
+    const updateViewport = () => {
+      const rect = frame.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      let nextWidth = rect.width;
+      let nextHeight = nextWidth / aspect;
+      if (nextHeight > rect.height) {
+        nextHeight = rect.height;
+        nextWidth = nextHeight * aspect;
+      }
+
+      setBoardViewport({
+        width: nextWidth,
+        height: nextHeight,
+      });
+    };
+
+    updateViewport();
+    const observer = new ResizeObserver(() => updateViewport());
+    observer.observe(frame);
+    window.addEventListener('resize', updateViewport);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, [aspect]);
 
   const alivePlayers = Object.values(players || {});
 
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center">
       <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/70 p-2">
-        <div className="relative h-full w-full overflow-hidden">
+        <div ref={boardFrameRef} className="relative flex h-full w-full items-center justify-center overflow-hidden">
           <div
-            className="absolute inset-0 mx-auto grid h-full max-h-full w-full max-w-full transition-transform duration-200 ease-out"
+            className="relative shrink-0 overflow-hidden"
             style={{
-              ...boardStyle,
-              aspectRatio: `${width} / ${height}`,
-              transformOrigin: 'top left',
-              transform: `translate(${translateX}%, ${translateY}%) scale(${zoomScale})`,
+              width: boardViewport?.width ?? '100%',
+              height: boardViewport?.height ?? '100%',
             }}
           >
-          {bomberState.grid.flatMap((row: string[], y: number) =>
-            row.map((cell: string, x: number) => {
-              const className =
-                cell === 'solid'
-                  ? 'bg-slate-500'
-                  : cell === 'breakable'
-                    ? 'bg-amber-700'
-                    : 'bg-slate-900';
-              return (
+            <div
+              className="absolute inset-0 grid transition-transform duration-200 ease-out"
+              style={{
+                ...boardStyle,
+                transformOrigin: 'top left',
+                transform: `translate(${translateX}%, ${translateY}%) scale(${zoomScale})`,
+              }}
+            >
+              {bomberState.grid.flatMap((row: string[], y: number) =>
+                row.map((cell: string, x: number) => {
+                  const className =
+                    cell === 'solid'
+                      ? 'bg-slate-500'
+                      : cell === 'breakable'
+                        ? 'bg-amber-700'
+                        : 'bg-slate-900';
+                  return (
+                    <div
+                      key={`cell-${x}-${y}`}
+                      className={`border border-slate-800/50 ${className}`}
+                    />
+                  );
+                })
+              )}
+
+              {bomberState.bombs.map((bomb: any) => (
                 <div
-                  key={`cell-${x}-${y}`}
-                  className={`border border-slate-800/50 ${className}`}
-                />
-              );
-            })
-          )}
+                  key={bomb.id}
+                  className="absolute flex items-center justify-center rounded-full border-2 border-white/40 bg-rose-500 text-xs font-black text-white"
+                  style={{
+                    width: `calc(${cellWidthPercent}% - 6px)`,
+                    height: `calc(${cellHeightPercent}% - 6px)`,
+                    left: `calc(${bomb.x * cellWidthPercent}% + 3px)`,
+                    top: `calc(${bomb.y * cellHeightPercent}% + 3px)`,
+                  }}
+                >
+                  B
+                </div>
+              ))}
 
-          {bomberState.bombs.map((bomb: any) => (
-            <div
-              key={bomb.id}
-              className="absolute flex items-center justify-center rounded-full border-2 border-white/40 bg-rose-500 text-xs font-black text-white"
-              style={{
-                width: `calc(${cellWidthPercent}% - 6px)`,
-                height: `calc(${cellHeightPercent}% - 6px)`,
-                left: `calc(${bomb.x * cellWidthPercent}% + 3px)`,
-                top: `calc(${bomb.y * cellHeightPercent}% + 3px)`,
-              }}
-            >
-              B
+              {bomberState.explosions.map((explosion: any) =>
+                explosion.cells.map((cell: any, index: number) => (
+                  <div
+                    key={`${explosion.id}-${cell.x}-${cell.y}-${index}`}
+                    className="absolute rounded-lg bg-orange-400/80 shadow-[0_0_18px_rgba(251,146,60,0.7)]"
+                    style={{
+                      width: `calc(${cellWidthPercent}% - 4px)`,
+                      height: `calc(${cellHeightPercent}% - 4px)`,
+                      left: `calc(${cell.x * cellWidthPercent}% + 2px)`,
+                      top: `calc(${cell.y * cellHeightPercent}% + 2px)`,
+                    }}
+                  />
+                ))
+              )}
+
+              {(bomberState.itemDrops || []).map((drop: any) => (
+                <div
+                  key={drop.id}
+                  className="absolute flex items-center justify-center rounded-md border border-white/25 bg-slate-800/80 text-[10px]"
+                  style={{
+                    width: `calc(${cellWidthPercent}% - 8px)`,
+                    height: `calc(${cellHeightPercent}% - 8px)`,
+                    left: `calc(${drop.x * cellWidthPercent}% + 4px)`,
+                    top: `calc(${drop.y * cellHeightPercent}% + 4px)`,
+                  }}
+                  title={drop.itemId}
+                >
+                  {itemLabelMap[drop.itemId] || '⭐'}
+                </div>
+              ))}
+
+              {alivePlayers.map((player: any) => (
+                <div
+                  key={player.id}
+                  className={`absolute flex items-center justify-center rounded-lg border-2 text-[10px] font-black text-slate-950 ${
+                    player.alive ? 'opacity-100' : 'opacity-35'
+                  }`}
+                  style={{
+                    width: `calc(${cellWidthPercent}% - 6px)`,
+                    height: `calc(${cellHeightPercent}% - 6px)`,
+                    left: `calc(${player.bomberX * cellWidthPercent}% + 3px)`,
+                    top: `calc(${player.bomberY * cellHeightPercent}% + 3px)`,
+                    backgroundColor: player.color || 'white',
+                    borderColor: player.id === me?.id ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                  }}
+                >
+                  {String(player.name || '?').slice(0, 1)}
+                </div>
+              ))}
             </div>
-          ))}
-
-          {bomberState.explosions.map((explosion: any) =>
-            explosion.cells.map((cell: any, index: number) => (
-              <div
-                key={`${explosion.id}-${cell.x}-${cell.y}-${index}`}
-                className="absolute rounded-lg bg-orange-400/80 shadow-[0_0_18px_rgba(251,146,60,0.7)]"
-                style={{
-                  width: `calc(${cellWidthPercent}% - 4px)`,
-                  height: `calc(${cellHeightPercent}% - 4px)`,
-                  left: `calc(${cell.x * cellWidthPercent}% + 2px)`,
-                  top: `calc(${cell.y * cellHeightPercent}% + 2px)`,
-                }}
-              />
-            ))
-          )}
-
-          {(bomberState.itemDrops || []).map((drop: any) => (
-            <div
-              key={drop.id}
-              className="absolute flex items-center justify-center rounded-md border border-white/25 bg-slate-800/80 text-[10px]"
-              style={{
-                width: `calc(${cellWidthPercent}% - 8px)`,
-                height: `calc(${cellHeightPercent}% - 8px)`,
-                left: `calc(${drop.x * cellWidthPercent}% + 4px)`,
-                top: `calc(${drop.y * cellHeightPercent}% + 4px)`,
-              }}
-              title={drop.itemId}
-            >
-              {itemLabelMap[drop.itemId] || '⭐'}
-            </div>
-          ))}
-
-          {alivePlayers.map((player: any) => (
-            <div
-              key={player.id}
-              className={`absolute flex items-center justify-center rounded-lg border-2 text-[10px] font-black text-slate-950 ${
-                player.alive ? 'opacity-100' : 'opacity-35'
-              }`}
-              style={{
-                width: `calc(${cellWidthPercent}% - 6px)`,
-                height: `calc(${cellHeightPercent}% - 6px)`,
-                left: `calc(${player.bomberX * cellWidthPercent}% + 3px)`,
-                top: `calc(${player.bomberY * cellHeightPercent}% + 3px)`,
-                backgroundColor: player.color || 'white',
-                borderColor: player.id === me?.id ? '#ffffff' : 'rgba(255,255,255,0.35)',
-              }}
-            >
-              {String(player.name || '?').slice(0, 1)}
-            </div>
-          ))}
           </div>
         </div>
       </div>

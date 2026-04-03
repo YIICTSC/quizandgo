@@ -980,6 +980,7 @@ function BomberMapDebugScreen({
                 const nextX = playerPos.x + dx;
                 const nextY = playerPos.y + dy;
                 if (!grid[nextY]?.[nextX] || grid[nextY][nextX] !== 'floor') return;
+                if (bombs.some((bomb) => bomb.x === nextX && bomb.y === nextY)) return;
                 if (occupied.has(`${nextX},${nextY}`)) return;
                 setPlayerPos({ x: nextX, y: nextY });
               }}
