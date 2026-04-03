@@ -239,29 +239,24 @@ export default function HostScreen({
     if (!isTeamAggregateResults) return [];
     return teamRankings.slice(0, 3);
   }, [isTeamAggregateResults, teamRankings]);
+  const bgmScene = useMemo(() => {
+    if (isSinglePlayer) return 'host';
+    if (isBomberGameType(resolvedGameType)) {
+      if (currentRoomState.state === 'results') return 'bomber_results';
+      if (currentRoomState.state === 'playing') {
+        return (timeRemaining ?? currentRoomState.timeRemaining ?? 0) <= 10 ? 'bomber_last10' : 'bomber_play';
+      }
+      return 'bomber_host';
+    }
+    if (currentRoomState.state === 'results') return 'results';
+    if (currentRoomState.state === 'playing') return 'play';
+    return 'host';
+  }, [currentRoomState.state, currentRoomState.timeRemaining, isSinglePlayer, resolvedGameType, timeRemaining]);
 
   useEffect(() => {
-    if (isSinglePlayer) {
-      startBGM('host');
-      return () => stopBGM();
-    }
-
-    const scene =
-      isBomberGameType(resolvedGameType)
-        ? currentRoomState.state === 'results'
-          ? 'bomber_results'
-          : currentRoomState.state === 'playing'
-            ? ((timeRemaining ?? currentRoomState.timeRemaining ?? 0) <= 10 ? 'bomber_last10' : 'bomber_play')
-            : 'bomber_host'
-        : currentRoomState.state === 'results'
-          ? 'results'
-          : currentRoomState.state === 'playing'
-            ? 'play'
-            : 'host';
-
-    startBGM(scene);
+    startBGM(bgmScene);
     return () => stopBGM();
-  }, [isSinglePlayer, currentRoomState.state, currentRoomState.timeRemaining, resolvedGameType, timeRemaining]);
+  }, [bgmScene]);
 
   useEffect(() => {
     if (isSinglePlayer || currentRoomState.state !== 'results' || (!supportsPodiumReveal && !isTeamAggregateResults)) {
