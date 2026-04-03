@@ -11,7 +11,7 @@ export default function AvatarPreview({
 }) {
   const config = normalizeAvatar(avatar);
   const center = 64;
-  const faceFill = '#fff7ed';
+  const faceFill = config.skinColor;
 
   return (
     <svg
@@ -22,6 +22,36 @@ export default function AvatarPreview({
       aria-label="avatar preview"
     >
       <circle cx="64" cy="64" r="56" fill={config.bodyColor} />
+      {config.speciesType === 'cat' ? (
+        <>
+          <path d="M34 42 L48 18 L58 44 Z" fill={config.bodyColor} />
+          <path d="M94 42 L80 18 L70 44 Z" fill={config.bodyColor} />
+          <path d="M40 39 L48 26 L53 40 Z" fill={config.skinColor} />
+          <path d="M88 39 L80 26 L75 40 Z" fill={config.skinColor} />
+        </>
+      ) : null}
+      {config.speciesType === 'bear' ? (
+        <>
+          <circle cx="36" cy="38" r="13" fill={config.bodyColor} />
+          <circle cx="92" cy="38" r="13" fill={config.bodyColor} />
+          <circle cx="36" cy="38" r="6" fill={config.skinColor} />
+          <circle cx="92" cy="38" r="6" fill={config.skinColor} />
+        </>
+      ) : null}
+      {config.speciesType === 'rabbit' ? (
+        <>
+          <ellipse cx="44" cy="26" rx="11" ry="24" fill={config.bodyColor} />
+          <ellipse cx="84" cy="26" rx="11" ry="24" fill={config.bodyColor} />
+          <ellipse cx="44" cy="28" rx="4.5" ry="15" fill={config.skinColor} />
+          <ellipse cx="84" cy="28" rx="4.5" ry="15" fill={config.skinColor} />
+        </>
+      ) : null}
+      {config.speciesType === 'dog' ? (
+        <>
+          <ellipse cx="38" cy="44" rx="10" ry="18" fill={config.accentColor} opacity="0.92" />
+          <ellipse cx="90" cy="44" rx="10" ry="18" fill={config.accentColor} opacity="0.92" />
+        </>
+      ) : null}
       <circle cx="64" cy="70" r="34" fill={faceFill} />
 
       {config.hairType === 'short' ? (
@@ -95,4 +125,3 @@ export default function AvatarPreview({
     </svg>
   );
 }
-

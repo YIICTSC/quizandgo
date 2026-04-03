@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isBGMEnabled, setBGMEnabled, startBGM, stopBGM } from '../lib/sound';
 import { getBomberDimensions } from '../lib/bomberDimensions';
-import AvatarPreview from './AvatarPreview';
 import {
-  AVATAR_ACCESSORIES,
-  AVATAR_ACCENT_COLORS,
-  AVATAR_BODY_COLORS,
-  AVATAR_EYES,
-  AVATAR_HAIRS,
-  AVATAR_MOUTHS,
   AVATAR_STORAGE_KEY,
   AvatarConfig,
   createRandomAvatar,
@@ -43,7 +36,7 @@ export default function Home({
   const [titleTapCount, setTitleTapCount] = useState(0);
   const [showDebugMenu, setShowDebugMenu] = useState(false);
   const [isBgmOn, setIsBgmOn] = useState(() => isBGMEnabled());
-  const [avatar, setAvatar] = useState<AvatarConfig>(() => {
+  const [avatar] = useState<AvatarConfig>(() => {
     try {
       const saved = window.localStorage.getItem(AVATAR_STORAGE_KEY);
       return normalizeAvatar(saved ? JSON.parse(saved) : null);
@@ -123,98 +116,8 @@ export default function Home({
                     </button>
                   </div>
                   <div className="space-y-3">
-                    <div className="rounded-xl border border-slate-600 bg-slate-700/50 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-bold text-white">あなたのアバター</div>
-                          <div className="text-[11px] text-slate-400">設定値だけ保存する軽量アバターです</div>
-                        </div>
-                        <button
-                          onClick={() => setAvatar(createRandomAvatar())}
-                          className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
-                        >
-                          ランダム
-                        </button>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-[104px_1fr]">
-                        <div className="flex items-center justify-center">
-                          <AvatarPreview avatar={avatar} size={92} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="text-xs text-slate-300">
-                            本体色
-                            <select
-                              value={avatar.bodyColor}
-                              onChange={(e) => setAvatar((current) => ({ ...current, bodyColor: e.target.value }))}
-                              className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white"
-                            >
-                              {AVATAR_BODY_COLORS.map((value) => (
-                                <option key={value} value={value}>{value}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="text-xs text-slate-300">
-                            差し色
-                            <select
-                              value={avatar.accentColor}
-                              onChange={(e) => setAvatar((current) => ({ ...current, accentColor: e.target.value }))}
-                              className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white"
-                            >
-                              {AVATAR_ACCENT_COLORS.map((value) => (
-                                <option key={value} value={value}>{value}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="text-xs text-slate-300">
-                            目
-                            <select
-                              value={avatar.eyeType}
-                              onChange={(e) => setAvatar((current) => ({ ...current, eyeType: e.target.value as AvatarConfig['eyeType'] }))}
-                              className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white"
-                            >
-                              {AVATAR_EYES.map((value) => (
-                                <option key={value} value={value}>{value}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="text-xs text-slate-300">
-                            口
-                            <select
-                              value={avatar.mouthType}
-                              onChange={(e) => setAvatar((current) => ({ ...current, mouthType: e.target.value as AvatarConfig['mouthType'] }))}
-                              className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white"
-                            >
-                              {AVATAR_MOUTHS.map((value) => (
-                                <option key={value} value={value}>{value}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="text-xs text-slate-300">
-                            髪
-                            <select
-                              value={avatar.hairType}
-                              onChange={(e) => setAvatar((current) => ({ ...current, hairType: e.target.value as AvatarConfig['hairType'] }))}
-                              className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white"
-                            >
-                              {AVATAR_HAIRS.map((value) => (
-                                <option key={value} value={value}>{value}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="text-xs text-slate-300">
-                            アクセサリ
-                            <select
-                              value={avatar.accessoryType}
-                              onChange={(e) => setAvatar((current) => ({ ...current, accessoryType: e.target.value as AvatarConfig['accessoryType'] }))}
-                              className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-sm text-white"
-                            >
-                              {AVATAR_ACCESSORIES.map((value) => (
-                                <option key={value} value={value}>{value}</option>
-                              ))}
-                            </select>
-                          </label>
-                        </div>
-                      </div>
+                    <div className="rounded-xl border border-slate-600 bg-slate-700/50 px-4 py-3 text-sm text-slate-300">
+                      アバターは参加後、ホストが開始するまでの待ち時間に作成できます。
                     </div>
                     <input 
                       type="text" 

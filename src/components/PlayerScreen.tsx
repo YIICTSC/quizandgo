@@ -10,6 +10,8 @@ import ItemRewardOverlay from './ItemRewardOverlay';
 import { GameItemId } from '../gameItems';
 import BomberGame from './BomberGame';
 import AvatarPreview from './AvatarPreview';
+import AvatarEditor from './AvatarEditor';
+import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -43,6 +45,14 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechTranscript, setSpeechTranscript] = useState('');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [editableAvatar, setEditableAvatar] = useState<AvatarConfig>(() => {
+    try {
+      const saved = window.localStorage.getItem(AVATAR_STORAGE_KEY);
+      return normalizeAvatar(saved ? JSON.parse(saved) : null);
+    } catch (e) {
+      return createRandomAvatar();
+    }
+  });
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const ignoreNextServerAnswerRef = useRef(false);
   const ignoreNextServerQuestionRef = useRef(false);
@@ -252,6 +262,25 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     return () => window.clearTimeout(timer);
   }, [answerResult, question, speakPrompt]);
 
+  useEffect(() => {
+    if (roomState?.state !== 'waiting') return;
+    const me = roomState?.players?.[socket.id];
+    if (!me?.avatar) return;
+    setEditableAvatar((current) => {
+      const next = normalizeAvatar(me.avatar);
+      return JSON.stringify(current) === JSON.stringify(next) ? current : next;
+    });
+  }, [roomState]);
+
+  const handleAvatarChange = useCallback((nextAvatar: AvatarConfig) => {
+    const normalized = normalizeAvatar(nextAvatar);
+    setEditableAvatar(normalized);
+    try {
+      window.localStorage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(normalized));
+    } catch (e) {}
+    socket.emit('updateAvatar', { roomId, avatar: normalized });
+  }, [roomId]);
+
   if (!roomState) {
     return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">読み込み中...</div>;
   }
@@ -282,12 +311,25 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
 
   if (roomState.state === 'waiting') {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-        <h1 className="text-4xl font-bold mb-8">参加完了！</h1>
-        <p className="text-2xl text-slate-400 mb-12">ホストの開始を待っています...</p>
-        <div className="bg-slate-800 px-12 py-6 rounded-2xl border border-slate-700 shadow-2xl flex items-center gap-4">
-          <AvatarPreview avatar={me?.avatar} size={72} />
-          <span className="text-3xl font-bold" style={{ color: me?.color || 'white' }}>{playerName}</span>
+      <div className="min-h-screen bg-slate-900 text-white p-4">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-4xl items-center justify-center">
+          <div className="w-full rounded-3xl border border-slate-700 bg-slate-800 p-5 shadow-2xl md:p-8">
+            <div className="mb-5 text-center">
+              <h1 className="text-4xl font-black">参加完了！</h1>
+              <p className="mt-3 text-lg text-slate-400">ホストの開始を待ちながら、アバターを作成できます。</p>
+            </div>
+            <div className="mb-5 flex items-center justify-center gap-4 rounded-2xl border border-slate-700 bg-slate-900/40 px-6 py-4">
+              <AvatarPreview avatar={me?.avatar || editableAvatar} size={72} />
+              <div>
+                <div className="text-sm text-slate-400">参加中の名前</div>
+                <div className="text-3xl font-bold" style={{ color: me?.color || 'white' }}>{playerName}</div>
+              </div>
+            </div>
+            <AvatarEditor avatar={editableAvatar} onChange={handleAvatarChange} compact />
+            <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">
+              パーツは軽量な設定値だけ保存します。ホスト画面の参加者一覧にもすぐ反映されます。
+            </div>
+          </div>
         </div>
       </div>
     );
