@@ -845,7 +845,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <AvatarPreview avatar={me?.avatar} size={38} />
                   <div>
                     <div className="text-lg font-bold md:text-xl">{playerName}</div>
-                    <div className="text-xs text-slate-400">クイズドッジ</div>
+                    <div className="text-xs text-slate-400">バトルドッジ</div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">

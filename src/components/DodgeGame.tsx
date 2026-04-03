@@ -89,6 +89,8 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
       Object.entries(players || {}).forEach(([id, player]: [string, any]) => {
         if (!next[id]) {
           next[id] = { x: player.x, y: player.y };
+        } else if (id !== me?.id && (!player.alive || !current[id])) {
+          next[id] = { x: player.x, y: player.y };
         }
       });
       Object.keys(next).forEach((id) => {
@@ -98,7 +100,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
       });
       return next;
     });
-  }, [players]);
+  }, [me?.id, players]);
 
   useEffect(() => {
     let frame = 0;
@@ -114,23 +116,35 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
 
         Object.entries(players || {}).forEach(([id, player]: [string, any]) => {
           const currentPos = current[id] || { x: player.x, y: player.y };
-          let targetX = player.x;
-          let targetY = player.y;
+          let nextX = currentPos.x;
+          let nextY = currentPos.y;
 
-          if (!readOnly && me?.id === id && player.alive && activeDirectionRef.current) {
-            const vector = getMoveVector(activeDirectionRef.current);
-            targetX = clamp(currentPos.x + vector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
-            targetY = clamp(currentPos.y + vector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+          if (!readOnly && me?.id === id && player.alive) {
+            if (activeDirectionRef.current) {
+              const vector = getMoveVector(activeDirectionRef.current);
+              nextX = clamp(currentPos.x + vector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
+              nextY = clamp(currentPos.y + vector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+            } else {
+              nextX = currentPos.x + (player.x - currentPos.x) * 0.55;
+              nextY = currentPos.y + (player.y - currentPos.y) * 0.55;
+            }
+          } else {
+            nextX = currentPos.x + (player.x - currentPos.x) * 0.38;
+            nextY = currentPos.y + (player.y - currentPos.y) * 0.38;
           }
 
-          const nextX = currentPos.x + (targetX - currentPos.x) * 0.45;
-          const nextY = currentPos.y + (targetY - currentPos.y) * 0.45;
-          if (Math.abs(nextX - currentPos.x) > 0.1 || Math.abs(nextY - currentPos.y) > 0.1) {
+          if (!player.alive) {
+            nextX = player.x;
+            nextY = player.y;
+          }
+
+          if (Math.abs(nextX - currentPos.x) > 0.05 || Math.abs(nextY - currentPos.y) > 0.05) {
             changed = true;
           }
+
           next[id] = {
-            x: Math.abs(targetX - nextX) < 0.2 ? targetX : nextX,
-            y: Math.abs(targetY - nextY) < 0.2 ? targetY : nextY,
+            x: Math.abs(player.x - nextX) < 0.12 ? player.x : nextX,
+            y: Math.abs(player.y - nextY) < 0.12 ? player.y : nextY,
           };
         });
 
@@ -235,6 +249,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
                   height: `${(ball.radius * 2 / height) * 100}%`,
                   left: `calc(${((ball.x - ball.radius) / width) * 100}% )`,
                   top: `calc(${((ball.y - ball.radius) / height) * 100}% )`,
+                  transition: 'left 80ms linear, top 80ms linear',
                 }}
               />
             ))}

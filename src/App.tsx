@@ -11,12 +11,13 @@ import PlayerScreen from './components/PlayerScreen';
 import SinglePlayScreen from './components/SinglePlayScreen';
 import SingleQuizScreen from './components/SingleQuizScreen';
 import SingleBomberScreen from './components/SingleBomberScreen';
+import SingleDodgeDebugScreen from './components/SingleDodgeDebugScreen';
 import { AvatarConfig } from './avatar';
 
 const getGameTitle = (gameType: string) => {
   if (gameType === 'golf') return 'ゴルフゲーム';
   if (gameType === 'quiz') return 'クイズモード';
-  if (gameType === 'dodge') return 'クイズドッジ';
+  if (gameType === 'dodge') return 'バトルドッジ';
   if (gameType === 'bomber') return 'クイズボンバー';
   if (gameType === 'team_bomber') return 'チームボンバー';
   if (gameType === 'color_bomber') return 'カラーボンバー';
@@ -116,6 +117,9 @@ export default function App() {
         />
       );
     }
+    if (selectedGameType === 'dodge' && singlePlayConfig.mode === 'debug_dodge') {
+      return <SingleDodgeDebugScreen onReturnToTitle={returnToTitle} />;
+    }
     return (
         <SinglePlayScreen
           questions={singlePlayConfig.questions}
@@ -165,6 +169,15 @@ export default function App() {
           timeLimit: 9999,
           gameTitle: `クイズボンバー ${playerCount}人マップデバッグ`,
           debugPlayerCount: playerCount,
+        });
+        setRole('single_play');
+      }}
+      onStartDebugDodgeMode={() => {
+        setSelectedGameType('dodge');
+        setSinglePlayConfig({
+          mode: 'debug_dodge',
+          timeLimit: 9999,
+          gameTitle: 'バトルドッジ デバッグ',
         });
         setRole('single_play');
       }}
