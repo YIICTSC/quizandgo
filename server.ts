@@ -1652,17 +1652,16 @@ async function startServer() {
       const now = Date.now();
       if (now - (player.lastDodgeThrowAt || 0) < DODGE_THROW_COOLDOWN_MS) return;
 
-      const facing = player.dodgeFacing || 'right';
-      const vector = getDodgeMoveVector(facing);
-      const vx = vector.x * DODGE_BALL_SPEED;
-      const vy = vector.y * DODGE_BALL_SPEED;
+      const towardEnemy = player.x < room.dodgeState.width / 2 ? 1 : -1;
+      const vx = towardEnemy * DODGE_BALL_SPEED;
+      const vy = 0;
       if (!vx && !vy) return;
 
       room.dodgeState.balls.push({
         id: `dodge-ball-${socket.id}-${now}-${Math.random().toString(36).slice(2, 8)}`,
         ownerId: socket.id,
-        x: player.x + vector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
-        y: player.y + vector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
+        x: player.x + towardEnemy * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
+        y: player.y,
         vx,
         vy,
         radius: DODGE_BALL_RADIUS,
