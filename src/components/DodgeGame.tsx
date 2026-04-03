@@ -2,9 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import AvatarPreview from './AvatarPreview';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
+type MoveVector = { x: number; y: number };
 
 const DODGE_MOVE_SPEED = 340;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const normalizeVector = (vector: MoveVector) => {
+  const length = Math.hypot(vector.x, vector.y);
+  if (!length) return { x: 0, y: 0 };
+  return { x: vector.x / length, y: vector.y / length };
+};
+
+const vectorToDirection = (vector: MoveVector | null): DodgeDirection | null => {
+  if (!vector) return null;
+  if (Math.abs(vector.x) < 0.08 && Math.abs(vector.y) < 0.08) return null;
+  return Math.abs(vector.x) > Math.abs(vector.y) ? (vector.x >= 0 ? 'right' : 'left') : (vector.y >= 0 ? 'down' : 'up');
+};
 
 const getMoveVector = (direction: DodgeDirection | null) => {
   switch (direction) {
@@ -26,20 +38,28 @@ type DodgeGameProps = {
   players: Record<string, any>;
   dodgeState: any;
   onSetMove?: (direction: DodgeDirection | null) => void;
+  onSetMoveVector?: (vector: MoveVector | null) => void;
   onThrow?: () => void;
   readOnly?: boolean;
 };
 
-const CONTROL_BUTTON =
-  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/45 text-lg font-black text-white shadow-lg backdrop-blur-sm active:scale-95 active:bg-slate-800/70 md:h-12 md:w-12 md:text-xl';
-
-export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow, readOnly = false }: DodgeGameProps) {
+export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMoveVector, onThrow, readOnly = false }: DodgeGameProps) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const activeDirectionRef = useRef<DodgeDirection | null>(null);
+  const activeVectorRef = useRef<MoveVector | null>(null);
   const onSetMoveRef = useRef(onSetMove);
+  const onSetMoveVectorRef = useRef(onSetMoveVector);
   const onThrowRef = useRef(onThrow);
   const [displayPositions, setDisplayPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [joystickState, setJoystickState] = useState<{ active: boolean; originX: number; originY: number; knobX: number; knobY: number }>({
+    active: false,
+    originX: 0,
+    originY: 0,
+    knobX: 0,
+    knobY: 0,
+  });
+  const joystickPointerIdRef = useRef<number | null>(null);
 
   const width = dodgeState?.width || 960;
   const height = dodgeState?.height || 540;
@@ -48,12 +68,26 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
 
   useEffect(() => {
     onSetMoveRef.current = onSetMove;
+    onSetMoveVectorRef.current = onSetMoveVector;
     onThrowRef.current = onThrow;
-  }, [onSetMove, onThrow]);
+  }, [onSetMove, onSetMoveVector, onThrow]);
 
-  const setMove = (direction: DodgeDirection | null) => {
+  const setMoveDirection = (direction: DodgeDirection | null) => {
     activeDirectionRef.current = direction;
     onSetMoveRef.current?.(direction);
+  };
+
+  const setMoveVector = (vector: MoveVector | null) => {
+    if (!vector) {
+      activeVectorRef.current = null;
+      onSetMoveVectorRef.current?.(null);
+      setMoveDirection(null);
+      return;
+    }
+    const normalized = normalizeVector(vector);
+    activeVectorRef.current = normalized;
+    onSetMoveVectorRef.current?.(normalized);
+    setMoveDirection(vectorToDirection(normalized));
   };
 
   useEffect(() => {
@@ -120,10 +154,10 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
           let nextY = currentPos.y;
 
           if (!readOnly && me?.id === id && player.alive) {
-            if (activeDirectionRef.current) {
-              const vector = getMoveVector(activeDirectionRef.current);
-              nextX = clamp(currentPos.x + vector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
-              nextY = clamp(currentPos.y + vector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+            const moveVector = activeVectorRef.current || getMoveVector(activeDirectionRef.current);
+            if (moveVector.x || moveVector.y) {
+              nextX = clamp(currentPos.x + moveVector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
+              nextY = clamp(currentPos.y + moveVector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
             } else {
               nextX = currentPos.x + (player.x - currentPos.x) * 0.72;
               nextY = currentPos.y + (player.y - currentPos.y) * 0.72;
@@ -164,16 +198,16 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
     const onKeyDown = (event: KeyboardEvent) => {
       if (['ArrowUp', 'w', 'W'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'up') setMove('up');
+        if (activeDirectionRef.current !== 'up') setMoveVector(getMoveVector('up'));
       } else if (['ArrowDown', 's', 'S'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'down') setMove('down');
+        if (activeDirectionRef.current !== 'down') setMoveVector(getMoveVector('down'));
       } else if (['ArrowLeft', 'a', 'A'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'left') setMove('left');
+        if (activeDirectionRef.current !== 'left') setMoveVector(getMoveVector('left'));
       } else if (['ArrowRight', 'd', 'D'].includes(event.key)) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'right') setMove('right');
+        if (activeDirectionRef.current !== 'right') setMoveVector(getMoveVector('right'));
       } else if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         onThrowRef.current?.();
@@ -187,11 +221,11 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
         (activeDirectionRef.current === 'left' && ['ArrowLeft', 'a', 'A'].includes(event.key)) ||
         (activeDirectionRef.current === 'right' && ['ArrowRight', 'd', 'D'].includes(event.key))
       ) {
-        setMove(null);
+        setMoveVector(null);
       }
     };
 
-    const stopAll = () => setMove(null);
+    const stopAll = () => setMoveVector(null);
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -200,7 +234,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', stopAll);
-      setMove(null);
+      setMoveVector(null);
     };
   }, [readOnly]);
 
@@ -208,22 +242,41 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
     return <div className="flex h-full items-center justify-center text-slate-400">コートを準備しています...</div>;
   }
 
-  const bindMoveButton = (direction: DodgeDirection) =>
-    readOnly || !onSetMove
-      ? {}
-      : {
-          onPointerDown: (event: any) => {
-            event.preventDefault();
-            setMove(direction);
-          },
-          onPointerUp: () => setMove(null),
-          onPointerCancel: () => setMove(null),
-          onPointerLeave: () => {
-            if (activeDirectionRef.current === direction) {
-              setMove(null);
-            }
-          },
-        };
+  const joystickRadius = 64;
+
+  const moveJoystick = (event: any) => {
+    if (joystickPointerIdRef.current !== event.pointerId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const dx = localX - joystickState.originX;
+    const dy = localY - joystickState.originY;
+    const distance = Math.hypot(dx, dy);
+    const ratio = distance > joystickRadius ? joystickRadius / distance : 1;
+    const limitedX = dx * ratio;
+    const limitedY = dy * ratio;
+    setJoystickState((current) => ({
+      ...current,
+      knobX: limitedX,
+      knobY: limitedY,
+    }));
+    setMoveVector({
+      x: limitedX / joystickRadius,
+      y: limitedY / joystickRadius,
+    });
+  };
+
+  const releaseJoystick = (event?: any) => {
+    if (event && joystickPointerIdRef.current !== event.pointerId) return;
+    joystickPointerIdRef.current = null;
+    setJoystickState((current) => ({
+      ...current,
+      active: false,
+      knobX: 0,
+      knobY: 0,
+    }));
+    setMoveVector(null);
+  };
 
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center">
@@ -296,16 +349,46 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
 
       {!readOnly ? (
         <div className="pointer-events-none absolute inset-0 z-20">
-          <div className="absolute bottom-3 left-3 grid grid-cols-3 gap-2 md:bottom-4 md:left-4">
-            <div />
-            <button className={CONTROL_BUTTON} {...bindMoveButton('up')}>↑</button>
-            <div />
-            <button className={CONTROL_BUTTON} {...bindMoveButton('left')}>←</button>
-            <div className="h-11 w-11 md:h-12 md:w-12" />
-            <button className={CONTROL_BUTTON} {...bindMoveButton('right')}>→</button>
-            <div />
-            <button className={CONTROL_BUTTON} {...bindMoveButton('down')}>↓</button>
-            <div />
+          <div
+            className="pointer-events-auto absolute bottom-2 left-2 h-36 w-36 touch-none rounded-full md:bottom-4 md:left-4 md:h-40 md:w-40"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              const rect = event.currentTarget.getBoundingClientRect();
+              joystickPointerIdRef.current = event.pointerId;
+              setJoystickState({
+                active: true,
+                originX: event.clientX - rect.left,
+                originY: event.clientY - rect.top,
+                knobX: 0,
+                knobY: 0,
+              });
+            }}
+            onPointerMove={moveJoystick}
+            onPointerUp={(event) => releaseJoystick(event)}
+            onPointerCancel={(event) => releaseJoystick(event)}
+          >
+            <div className="absolute inset-0 rounded-full border border-slate-400/25 bg-slate-900/25 backdrop-blur-sm" />
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tracking-[0.18em] text-slate-200/70">
+              TOUCH
+            </div>
+            {joystickState.active ? (
+              <div className="absolute inset-0">
+                <div
+                  className="absolute h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/30 bg-cyan-500/10"
+                  style={{
+                    left: joystickState.originX,
+                    top: joystickState.originY,
+                  }}
+                />
+                <div
+                  className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/70 bg-cyan-400/60 shadow-[0_0_18px_rgba(34,211,238,0.6)]"
+                  style={{
+                    left: joystickState.originX + joystickState.knobX,
+                    top: joystickState.originY + joystickState.knobY,
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
           <button
             className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-24 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-600/65 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm active:scale-95 active:bg-cyan-500/75 md:bottom-5 md:right-4"

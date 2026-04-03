@@ -4,6 +4,7 @@ import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar }
 import { playDefeatSound, startBGM, stopBGM } from '../lib/sound';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
+type MoveVector = { x: number; y: number };
 
 type DebugPlayer = {
   id: string;
@@ -61,6 +62,11 @@ const getMoveVector = (direction: DodgeDirection | null) => {
     default:
       return { x: 0, y: 0 };
   }
+};
+const vectorToFacing = (vector: MoveVector | null): DodgeDirection | null => {
+  if (!vector) return null;
+  if (Math.abs(vector.x) < 0.08 && Math.abs(vector.y) < 0.08) return null;
+  return Math.abs(vector.x) > Math.abs(vector.y) ? (vector.x >= 0 ? 'right' : 'left') : (vector.y >= 0 ? 'down' : 'up');
 };
 
 const spawnPoints = [
@@ -133,9 +139,11 @@ export default function SingleDodgeDebugScreen({
   const [players, setPlayers] = useState<DebugPlayer[]>(() => createInitialPlayers());
   const [balls, setBalls] = useState<DebugBall[]>([]);
   const [heldDirection, setHeldDirection] = useState<DodgeDirection | null>(null);
+  const [heldVector, setHeldVector] = useState<MoveVector | null>(null);
   const [lastThrowAt, setLastThrowAt] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const heldDirectionRef = useRef<DodgeDirection | null>(null);
+  const heldVectorRef = useRef<MoveVector | null>(null);
   const lastTickRef = useRef(performance.now());
   const defeatSoundCooldownRef = useRef(0);
   const playersRef = useRef<DebugPlayer[]>(players);
@@ -143,6 +151,9 @@ export default function SingleDodgeDebugScreen({
   useEffect(() => {
     heldDirectionRef.current = heldDirection;
   }, [heldDirection]);
+  useEffect(() => {
+    heldVectorRef.current = heldVector;
+  }, [heldVector]);
 
   useEffect(() => {
     playersRef.current = players;
@@ -165,7 +176,8 @@ export default function SingleDodgeDebugScreen({
       setPlayers((currentPlayers) => {
         const me = currentPlayers.find((player) => player.id === 'me');
         const meDirection = heldDirectionRef.current;
-        const meVector = getMoveVector(meDirection);
+        const meVector = heldVectorRef.current || getMoveVector(meDirection);
+        const nextFacing = vectorToFacing(heldVectorRef.current) || meDirection;
         const nextPlayers = currentPlayers.map((player) => {
           if (!player.alive) {
             if (player.respawnAt && now >= player.respawnAt) {
@@ -188,7 +200,7 @@ export default function SingleDodgeDebugScreen({
               ...player,
               x: nextX,
               y: nextY,
-              dodgeFacing: meDirection || player.dodgeFacing,
+              dodgeFacing: nextFacing || player.dodgeFacing,
             };
           }
 
@@ -324,7 +336,7 @@ export default function SingleDodgeDebugScreen({
   const throwBall = () => {
     const now = performance.now();
     if (!me || !me.alive || now - lastThrowAt < DODGE_THROW_COOLDOWN_MS) return;
-    const vector = getMoveVector(me.dodgeFacing);
+    const vector = heldVectorRef.current || getMoveVector(me.dodgeFacing);
     if (!vector.x && !vector.y) return;
     setLastThrowAt(now);
     setBalls((current) => [
@@ -346,29 +358,31 @@ export default function SingleDodgeDebugScreen({
     setPlayers(createInitialPlayers());
     setBalls([]);
     setHeldDirection(null);
+    setHeldVector(null);
     heldDirectionRef.current = null;
+    heldVectorRef.current = null;
     setLastThrowAt(0);
     setElapsedSeconds(0);
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-white">
-      <div className="border-b border-slate-800 bg-slate-900/85 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3">
+    <div className="flex min-h-[100dvh] flex-col bg-slate-950 text-white">
+      <div className="border-b border-slate-800 bg-slate-900/90 px-3 py-2.5 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2">
           <div>
             <div className="text-xs font-bold tracking-[0.25em] text-cyan-300">DEBUG DODGE</div>
-            <h1 className="text-2xl font-black text-white">バトルドッジ 挙動確認</h1>
+            <h1 className="text-lg font-black text-white sm:text-2xl">バトルドッジ 挙動確認</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={resetArena}
-              className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700"
+              className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 sm:px-4 sm:py-2 sm:text-sm"
             >
               リセット
             </button>
             <button
               onClick={onReturnToTitle}
-              className="rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-cyan-500/25"
+              className="rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-bold text-cyan-100 hover:bg-cyan-500/25 sm:px-4 sm:py-2 sm:text-sm"
             >
               タイトルへ戻る
             </button>
@@ -376,19 +390,20 @@ export default function SingleDodgeDebugScreen({
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 lg:flex-row">
-        <div className="min-h-[420px] flex-1">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
+        <div className="min-h-[50dvh] flex-1 sm:min-h-[420px]">
           <DodgeGame
             me={me}
             players={playerMap}
             dodgeState={{ width: DODGE_WIDTH, height: DODGE_HEIGHT, playerRadius: DODGE_PLAYER_RADIUS, balls }}
             onSetMove={setHeldDirection}
+            onSetMoveVector={setHeldVector}
             onThrow={throwBall}
           />
         </div>
 
-        <div className="w-full rounded-3xl border border-slate-800 bg-slate-900/80 p-4 lg:max-w-sm">
-          <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+        <div className="w-full rounded-3xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
+          <div className="mb-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 sm:mb-4 sm:p-4">
             <div className="text-xs font-bold tracking-[0.22em] text-amber-200">CHECK POINT</div>
             <div className="mt-2 text-sm text-slate-100">
               移動、向き、投球、被弾、復活の挙動をローカルで確認できます。
@@ -401,10 +416,11 @@ export default function SingleDodgeDebugScreen({
             </div>
           </div>
 
-          <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
+          <div className="mb-3 rounded-2xl border border-slate-700 bg-slate-800/70 p-3 sm:mb-4 sm:p-4">
             <div className="text-sm font-bold text-white">操作</div>
             <div className="mt-2 space-y-1 text-sm text-slate-300">
-              <div>・十字キー / WASD で移動</div>
+              <div>・タッチでジョイスティックが表示され、360°移動できます</div>
+              <div>・十字キー / WASD でも移動できます</div>
               <div>・右下の `THROW` か Space / Enter で投球</div>
               <div>・最後に動いた向きへボールが飛びます</div>
             </div>
