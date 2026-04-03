@@ -2,6 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import DodgeGame from './DodgeGame';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
 import { playDefeatSound, startBGM, stopBGM } from '../lib/sound';
+import {
+  DODGE_BALL_LIFETIME_MS,
+  DODGE_BALL_RADIUS,
+  DODGE_BALL_SPEED,
+  DODGE_HEIGHT,
+  DODGE_MOVE_SPEED,
+  DODGE_PLAYER_RADIUS,
+  DODGE_RESPAWN_MS,
+  DODGE_THROW_COOLDOWN_MS,
+  DODGE_THROW_SPAWN_OFFSET,
+  DODGE_WIDTH,
+} from '../lib/dodgeConfig';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
 type MoveVector = { x: number; y: number };
@@ -35,15 +47,6 @@ type DebugBall = {
   expiresAt: number;
 };
 
-const DODGE_WIDTH = 960;
-const DODGE_HEIGHT = 540;
-const DODGE_PLAYER_RADIUS = 22;
-const DODGE_BALL_RADIUS = 11;
-const DODGE_MOVE_SPEED = 340;
-const DODGE_BALL_SPEED = 560;
-const DODGE_BALL_LIFETIME_MS = 1700;
-const DODGE_THROW_COOLDOWN_MS = 360;
-const DODGE_RESPAWN_MS = 2200;
 const BOT_COUNT = 3;
 const BOT_COLORS = ['#f97316', '#22c55e', '#a855f7', '#f43f5e', '#06b6d4'];
 
@@ -358,8 +361,8 @@ export default function SingleDodgeDebugScreen({
       {
         id: `me-${now}`,
         ownerId: 'me',
-        x: me.x + vector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 4),
-        y: me.y + vector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 4),
+        x: me.x + vector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
+        y: me.y + vector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
         vx: vector.x * DODGE_BALL_SPEED,
         vy: vector.y * DODGE_BALL_SPEED,
         radius: DODGE_BALL_RADIUS,

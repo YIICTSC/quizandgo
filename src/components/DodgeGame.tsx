@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import AvatarPreview from './AvatarPreview';
+import { DODGE_MOVE_SPEED } from '../lib/dodgeConfig';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
 type MoveVector = { x: number; y: number };
 
-const DODGE_MOVE_SPEED = 340;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const normalizeVector = (vector: MoveVector) => {
   const length = Math.hypot(vector.x, vector.y);
