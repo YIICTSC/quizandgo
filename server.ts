@@ -7,6 +7,18 @@ import { addItemToInventory, GameItemId, getRandomItemChoices } from './src/game
 import { findMatchingOptionIndex, shuffleOptionsWithFirstCorrect } from './src/lib/answerMatching.ts';
 import { BOMBER_BASE_HEIGHT, BOMBER_BASE_WIDTH, getBomberDimensions } from './src/lib/bomberDimensions.ts';
 import { AvatarConfig, normalizeAvatar } from './src/avatar.ts';
+import {
+  DODGE_BALL_LIFETIME_MS,
+  DODGE_BALL_RADIUS,
+  DODGE_BALL_SPEED,
+  DODGE_HEIGHT,
+  DODGE_MOVE_SPEED,
+  DODGE_PLAYER_RADIUS,
+  DODGE_RESPAWN_MS,
+  DODGE_THROW_COOLDOWN_MS,
+  DODGE_THROW_SPAWN_OFFSET,
+  DODGE_WIDTH,
+} from './src/lib/dodgeConfig.ts';
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -181,15 +193,6 @@ const BOMBER_MAX_FIRE_LEVEL = 4;
 const BOMBER_MAX_SPEED_LEVEL = 3;
 const BOMBER_ITEM_POOL: BomberItemId[] = ['fire_up', 'kick_bomb', 'shield', 'remote_bomb', 'pierce_fire', 'speed_up'];
 const BOMBER_GAME_TYPES = new Set(['bomber', 'team_bomber', 'color_bomber']);
-const DODGE_WIDTH = 960;
-const DODGE_HEIGHT = 540;
-const DODGE_PLAYER_RADIUS = 22;
-const DODGE_BALL_RADIUS = 11;
-const DODGE_MOVE_SPEED = 300;
-const DODGE_BALL_SPEED = 560;
-const DODGE_THROW_COOLDOWN_MS = 360;
-const DODGE_BALL_LIFETIME_MS = 1700;
-const DODGE_RESPAWN_MS = 2200;
 
 const randomBomberItemId = (): BomberItemId => BOMBER_ITEM_POOL[Math.floor(Math.random() * BOMBER_ITEM_POOL.length)];
 const isBomberGameType = (gameType?: string) => BOMBER_GAME_TYPES.has(gameType || '');
@@ -1733,8 +1736,8 @@ async function startServer() {
       room.dodgeState.balls.push({
         id: `dodge-ball-${socket.id}-${now}-${Math.random().toString(36).slice(2, 8)}`,
         ownerId: socket.id,
-        x: player.x + throwVector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
-        y: player.y + throwVector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
+        x: player.x + throwVector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
+        y: player.y + throwVector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
         vx,
         vy,
         radius: DODGE_BALL_RADIUS,
