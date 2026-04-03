@@ -169,6 +169,8 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
             >
               {bomberState.grid.flatMap((row: string[], y: number) =>
                 row.map((cell: string, x: number) => {
+                  const ownerId = bomberState.cellOwners?.[y]?.[x];
+                  const ownerColor = ownerId ? players?.[ownerId]?.color : null;
                   const className =
                     cell === 'solid'
                       ? 'bg-slate-500'
@@ -179,6 +181,13 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                     <div
                       key={`cell-${x}-${y}`}
                       className={`border border-slate-800/50 ${className}`}
+                      style={
+                        cell === 'floor' && ownerColor
+                          ? {
+                              background: `linear-gradient(135deg, ${ownerColor}66, ${ownerColor}22)`,
+                            }
+                          : undefined
+                      }
                     />
                   );
                 })

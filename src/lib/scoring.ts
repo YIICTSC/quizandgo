@@ -6,6 +6,7 @@ export type ScorePlayerLike = {
   blocksDestroyed?: number;
   deaths?: number;
   timeAliveMs?: number;
+  territoryCells?: number;
 };
 
 export const calculateGolfScore = (player: ScorePlayerLike) => {
@@ -31,11 +32,20 @@ export const calculateBomberScore = (player: ScorePlayerLike) => {
   return (kills * 500) + (blocksDestroyed * 40) + (correctAnswers * 100) + Math.floor(timeAliveMs / 1000) * 2 - (deaths * 120);
 };
 
+export const calculateColorBomberScore = (player: ScorePlayerLike) => {
+  const baseScore = calculateBomberScore(player);
+  const territoryCells = player.territoryCells || 0;
+  return baseScore + (territoryCells * 30);
+};
+
 export const calculateGameScore = (gameType: string | undefined, player: ScorePlayerLike) => {
   if (gameType === 'quiz') {
     return calculateQuizScore(player);
   }
-  if (gameType === 'bomber') {
+  if (gameType === 'color_bomber') {
+    return calculateColorBomberScore(player);
+  }
+  if (gameType === 'bomber' || gameType === 'team_bomber') {
     return calculateBomberScore(player);
   }
   return calculateGolfScore(player);

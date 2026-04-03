@@ -28,6 +28,9 @@ declare global {
   }
 }
 
+const isBomberGameType = (gameType?: string) =>
+  gameType === 'bomber' || gameType === 'team_bomber' || gameType === 'color_bomber';
+
 export default function PlayerScreen({ roomId, playerName }: { roomId: string, playerName: string }) {
   const [roomState, setRoomState] = useState<any>(null);
   const [question, setQuestion] = useState<any>(null);
@@ -45,7 +48,10 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const previousExplosionCountRef = useRef(0);
   const previousAliveRef = useRef<boolean | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
-  const isBomberMode = roomState?.gameType === 'bomber';
+  const isBomberMode = isBomberGameType(roomState?.gameType);
+  const isTeamBomberMode = roomState?.gameType === 'team_bomber';
+  const isColorBomberMode = roomState?.gameType === 'color_bomber';
+  const hasBomberTeams = isTeamBomberMode || (isColorBomberMode && roomState?.teamMode);
   const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
 
   const getOptionStateClass = (index: number) => {
@@ -426,17 +432,24 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-6 w-6 rounded-full" style={{ backgroundColor: me?.color || 'white' }} />
-                  <div>
-                    <div className="text-lg font-bold md:text-xl">{playerName}</div>
-                    <div className="text-xs text-slate-400">クイズボンバー</div>
-                  </div>
+                    <div>
+                      <div className="text-lg font-bold md:text-xl">{playerName}</div>
+                      <div className="text-xs text-slate-400">
+                        {isTeamBomberMode ? 'チームボンバー' : isColorBomberMode ? 'カラーボンバー' : 'クイズボンバー'}
+                      </div>
+                      {hasBomberTeams && myTeamName ? (
+                        <div className="mt-1 text-[11px] font-bold text-cyan-200">{myTeamName}</div>
+                      ) : null}
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">爆弾: <span className="font-bold text-rose-300">{me?.bombsAvailable || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{me?.kills || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">破壊: <span className="font-bold text-amber-300">{me?.blocksDestroyed || 0}</span></div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">スコア: <span className="font-bold text-cyan-300">{calculateGameScore('bomber', me || {})}</span></div>
+                  {isColorBomberMode ? <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">色: <span className="font-bold text-fuchsia-300">{me?.territoryCells || 0}</span></div> : null}
+                  {isTeamBomberMode ? <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">誤爆: <span className="font-bold text-rose-300">{roomState?.bomberFriendlyFire ? 'ON' : 'OFF'}</span></div> : null}
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">スコア: <span className="font-bold text-cyan-300">{calculateGameScore(roomState?.gameType, me || {})}</span></div>
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -448,6 +461,18 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   <span className="text-[10px] text-slate-400">所持アイテムなし</span>
                 )}
               </div>
+              {hasBomberTeams ? (
+                <div className="mt-2 rounded-xl border border-cyan-500/20 bg-slate-900/30 px-3 py-2 text-xs text-cyan-100">
+                  <div className="mb-1 font-bold text-cyan-200">チームメイト</div>
+                  <div className="flex flex-wrap gap-2">
+                    {teammates.map((player: any) => (
+                      <span key={player.id} className="rounded-full bg-cyan-500/15 px-2.5 py-1 font-bold">
+                        {player.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
               <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">

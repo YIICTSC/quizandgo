@@ -32,6 +32,9 @@ const getReadableUnitName = (unit: SubjectUnit) => {
   return getSubjectUnitDisplayName(unit.unit);
 };
 
+const isBomberGameType = (gameType?: string) =>
+  gameType === 'bomber' || gameType === 'team_bomber' || gameType === 'color_bomber';
+
 export default function HostScreen({
   roomId,
   onReturnToTitle,
@@ -53,6 +56,7 @@ export default function HostScreen({
   const [shotsPerQuestion, setShotsPerQuestion] = useState<number>(3);
   const [teamMode, setTeamMode] = useState(false);
   const [teamCount, setTeamCount] = useState<number>(2);
+  const [bomberFriendlyFire, setBomberFriendlyFire] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
 
@@ -168,6 +172,7 @@ export default function HostScreen({
   
   // ランキング順にソート（スコアが高い順）
   const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
+  const effectiveTeamMode = resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' ? teamMode : teamMode);
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     const scoreDiff = calculateGameScore(resolvedGameType, b) - calculateGameScore(resolvedGameType, a);
     if (scoreDiff !== 0) {
@@ -178,7 +183,7 @@ export default function HostScreen({
     }
     return a.totalStrokes - b.totalStrokes;
   });
-  const supportsPodiumReveal = resolvedGameType === 'golf' || resolvedGameType === 'bomber';
+  const supportsPodiumReveal = resolvedGameType === 'golf' || isBomberGameType(resolvedGameType);
   const podiumPlayers = useMemo(() => {
     if (!supportsPodiumReveal) return [];
     return sortedPlayers.slice(0, 3);
@@ -193,12 +198,12 @@ export default function HostScreen({
   }, [currentRoomState.teamCount, currentRoomState.teamNames, sortedPlayers, teamCount]);
   const requiresMorePlayersForTeams =
     !isSinglePlayer &&
-    resolvedGameType === 'golf' &&
-    teamMode &&
+    (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') &&
+    effectiveTeamMode &&
     players.length < teamCount;
-  const isGolfTeamResults = !isSinglePlayer && resolvedGameType === 'golf' && currentRoomState.teamMode;
+  const isTeamAggregateResults = !isSinglePlayer && (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && currentRoomState.teamMode;
   const teamRankings = useMemo(() => {
-    if (!isGolfTeamResults) return [];
+    if (!isTeamAggregateResults) return [];
     return teamGroups
       .filter(({ members }) => members.length > 0)
       .map(({ teamId, teamName, members }) => {
@@ -207,16 +212,21 @@ export default function HostScreen({
             acc.holesCompleted += player.holesCompleted || 0;
             acc.totalStrokes += player.totalStrokes || 0;
             acc.correctAnswers += player.correctAnswers || 0;
+            acc.kills += player.kills || 0;
+            acc.blocksDestroyed += player.blocksDestroyed || 0;
+            acc.deaths += player.deaths || 0;
+            acc.timeAliveMs += player.timeAliveMs || 0;
+            acc.territoryCells += player.territoryCells || 0;
             return acc;
           },
-          { holesCompleted: 0, totalStrokes: 0, correctAnswers: 0 }
+          { holesCompleted: 0, totalStrokes: 0, correctAnswers: 0, kills: 0, blocksDestroyed: 0, deaths: 0, timeAliveMs: 0, territoryCells: 0 }
         );
         return {
           teamId,
           teamName,
           members,
           teamStats,
-          teamScore: calculateGameScore('golf', teamStats),
+          teamScore: calculateGameScore(resolvedGameType, teamStats),
         };
       })
       .sort((a, b) => {
@@ -224,11 +234,11 @@ export default function HostScreen({
         if (scoreDiff !== 0) return scoreDiff;
         return a.teamStats.totalStrokes - b.teamStats.totalStrokes;
       });
-  }, [isGolfTeamResults, teamGroups]);
+  }, [isTeamAggregateResults, resolvedGameType, teamGroups]);
   const podiumTeams = useMemo(() => {
-    if (!isGolfTeamResults) return [];
+    if (!isTeamAggregateResults) return [];
     return teamRankings.slice(0, 3);
-  }, [isGolfTeamResults, teamRankings]);
+  }, [isTeamAggregateResults, teamRankings]);
 
   useEffect(() => {
     if (isSinglePlayer) {
@@ -237,7 +247,7 @@ export default function HostScreen({
     }
 
     const scene =
-      resolvedGameType === 'bomber'
+      isBomberGameType(resolvedGameType)
         ? currentRoomState.state === 'results'
           ? 'bomber_results'
           : currentRoomState.state === 'playing'
@@ -254,12 +264,12 @@ export default function HostScreen({
   }, [isSinglePlayer, currentRoomState.state, currentRoomState.timeRemaining, resolvedGameType, timeRemaining]);
 
   useEffect(() => {
-    if (isSinglePlayer || currentRoomState.state !== 'results' || (!supportsPodiumReveal && !isGolfTeamResults)) {
+    if (isSinglePlayer || currentRoomState.state !== 'results' || (!supportsPodiumReveal && !isTeamAggregateResults)) {
       setResultsRevealStep(0);
       return;
     }
 
-    const count = Math.min(3, isGolfTeamResults ? podiumTeams.length : podiumPlayers.length);
+    const count = Math.min(3, isTeamAggregateResults ? podiumTeams.length : podiumPlayers.length);
     if (count === 0) {
       setResultsRevealStep(0);
       return;
@@ -275,7 +285,7 @@ export default function HostScreen({
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [isSinglePlayer, currentRoomState.state, podiumPlayers.length, podiumTeams.length, isGolfTeamResults, supportsPodiumReveal]);
+  }, [isSinglePlayer, currentRoomState.state, podiumPlayers.length, podiumTeams.length, isTeamAggregateResults, supportsPodiumReveal]);
 
   const startGame = () => {
     const timeLimit = (parseInt(inputMinutes) || 5) * 60;
@@ -299,7 +309,16 @@ export default function HostScreen({
       return;
     }
 
-    socket.emit('startGame', { roomId, mode: selectedMode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount });
+    socket.emit('startGame', {
+      roomId,
+      mode: selectedMode,
+      timeLimit,
+      questions,
+      shotsPerQuestion,
+      teamMode: effectiveTeamMode,
+      teamCount,
+      bomberFriendlyFire,
+    });
   };
 
   const retrySameQuestions = () => {
@@ -524,24 +543,26 @@ export default function HostScreen({
                       />
                       <span className="text-[11px] font-bold text-slate-300">分</span>
                     </div>
-                    {resolvedGameType === 'golf' && (
+                    {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && (
                       <>
-                        <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
-                          <span className="text-[11px] font-bold text-slate-300">1問ごとの打数</span>
-                          <select
-                            value={shotsPerQuestion}
-                            onChange={(e) => setShotsPerQuestion(Number(e.target.value))}
-                            className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-green-400 focus:outline-none"
-                          >
-                            {[1, 2, 3, 4, 5].map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="text-[11px] font-bold text-slate-300">打</span>
-                        </div>
-                        {!isSinglePlayer && (
+                        {resolvedGameType === 'golf' && (
+                          <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                            <span className="text-[11px] font-bold text-slate-300">1問ごとの打数</span>
+                            <select
+                              value={shotsPerQuestion}
+                              onChange={(e) => setShotsPerQuestion(Number(e.target.value))}
+                              className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-green-400 focus:outline-none"
+                            >
+                              {[1, 2, 3, 4, 5].map((value) => (
+                                <option key={value} value={value}>
+                                  {value}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-[11px] font-bold text-slate-300">打</span>
+                          </div>
+                        )}
+                        {!isSinglePlayer && resolvedGameType === 'golf' && (
                           <>
                             <button
                               onClick={() => setTeamMode((current) => !current)}
@@ -569,6 +590,79 @@ export default function HostScreen({
                                 </select>
                                 <span className="text-[11px] font-bold text-slate-300">チーム</span>
                               </div>
+                            )}
+                          </>
+                        )}
+                        {!isSinglePlayer && resolvedGameType === 'team_bomber' && (
+                          <>
+                            <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
+                              <span className="text-[11px] font-bold text-cyan-200">チームボンバー</span>
+                              <span className="text-[11px] text-cyan-100">開始時に自動でチーム分けします</span>
+                              <select
+                                value={teamCount}
+                                onChange={(e) => setTeamCount(Number(e.target.value))}
+                                className="rounded-lg border-2 border-cyan-500/40 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-cyan-300 focus:outline-none"
+                              >
+                                {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="text-[11px] font-bold text-cyan-200">チーム</span>
+                            </div>
+                            <button
+                              onClick={() => setBomberFriendlyFire((current) => !current)}
+                              className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                                bomberFriendlyFire
+                                  ? 'border border-rose-300 bg-rose-500 text-white'
+                                  : 'border border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                              }`}
+                            >
+                              チーム誤爆 {bomberFriendlyFire ? 'ON' : 'OFF'}
+                            </button>
+                          </>
+                        )}
+                        {!isSinglePlayer && resolvedGameType === 'color_bomber' && (
+                          <>
+                            <button
+                              onClick={() => setTeamMode((current) => !current)}
+                              className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                                teamMode
+                                  ? 'border border-cyan-300 bg-cyan-500 text-slate-950'
+                                  : 'border border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                              }`}
+                            >
+                              {teamMode ? 'チーム戦' : '個人戦'}
+                            </button>
+                            {teamMode && (
+                              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                                <span className="text-[11px] font-bold text-slate-300">チーム数</span>
+                                <select
+                                  value={teamCount}
+                                  onChange={(e) => setTeamCount(Number(e.target.value))}
+                                  className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-cyan-400 focus:outline-none"
+                                >
+                                  {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </select>
+                                <span className="text-[11px] font-bold text-slate-300">チーム</span>
+                              </div>
+                            )}
+                            {teamMode && (
+                              <button
+                                onClick={() => setBomberFriendlyFire((current) => !current)}
+                                className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                                  bomberFriendlyFire
+                                    ? 'border border-rose-300 bg-rose-500 text-white'
+                                    : 'border border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                                }`}
+                              >
+                                チーム誤爆 {bomberFriendlyFire ? 'ON' : 'OFF'}
+                              </button>
                             )}
                           </>
                         )}
@@ -627,9 +721,13 @@ export default function HostScreen({
             {!isSinglePlayer && currentRoomState.state === 'playing' && (
               <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 flex flex-col items-center justify-center min-h-[400px]">
                 <h2 className="text-3xl font-bold mb-8 text-center text-green-400">{resolvedGameType === 'quiz' ? 'クイズ進行中' : 'ゲーム進行中'}</h2>
-                {resolvedGameType === 'bomber' && (
+                {isBomberGameType(resolvedGameType) && (
                   <p className="mb-6 max-w-xl text-center text-slate-300">
-                    正解で爆弾を補充し、移動と爆風で相手を倒します。途中参加もこのPINから可能です。
+                    {resolvedGameType === 'color_bomber'
+                      ? '正解で爆弾を補充し、爆風で床を自分の色に染めながらスコアを伸ばします。途中参加もこのPINから可能です。'
+                      : resolvedGameType === 'team_bomber'
+                        ? '正解で爆弾を補充し、味方と連携して相手チームを倒します。途中参加もこのPINから可能です。'
+                        : '正解で爆弾を補充し、移動と爆風で相手を倒します。途中参加もこのPINから可能です。'}
                   </p>
                 )}
                 
@@ -651,15 +749,15 @@ export default function HostScreen({
             {!isSinglePlayer && currentRoomState.state === 'results' && (
               <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 text-center">
                 <h2 className="text-4xl font-bold mb-4 text-yellow-400">ゲーム終了</h2>
-                {supportsPodiumReveal && (isGolfTeamResults ? podiumTeams.length > 0 : podiumPlayers.length > 0) ? (
+                {supportsPodiumReveal && (isTeamAggregateResults ? podiumTeams.length > 0 : podiumPlayers.length > 0) ? (
                   <div className="mb-8">
-                    <p className="text-xl text-slate-300 mb-4">{isGolfTeamResults ? '最終チームランキング発表' : '最終ランキング発表'}</p>
+                    <p className="text-xl text-slate-300 mb-4">{isTeamAggregateResults ? '最終チームランキング発表' : '最終ランキング発表'}</p>
                     <div className="mx-auto mb-4 flex max-w-3xl items-end justify-center gap-3 md:gap-5">
-                      {(isGolfTeamResults ? podiumTeams : podiumPlayers)
+                      {(isTeamAggregateResults ? podiumTeams : podiumPlayers)
                         .slice()
                         .reverse()
                         .map((entry: any, revealIndexFromBottom: number) => {
-                          const rank = getRevealRankLabel(revealIndexFromBottom, isGolfTeamResults ? podiumTeams.length : podiumPlayers.length);
+                          const rank = getRevealRankLabel(revealIndexFromBottom, isTeamAggregateResults ? podiumTeams.length : podiumPlayers.length);
                           const revealed = resultsRevealStep > revealIndexFromBottom;
                           const accent =
                             rank === 1 ? 'border-yellow-400 bg-yellow-500/15 text-yellow-100' :
@@ -672,7 +770,7 @@ export default function HostScreen({
 
                           return (
                             <div
-                              key={isGolfTeamResults ? `team-${entry.teamId}` : entry.id}
+                              key={isTeamAggregateResults ? `team-${entry.teamId}` : entry.id}
                               className={`flex w-28 flex-col justify-between rounded-2xl border px-3 py-4 text-center transition-all duration-700 md:w-40 ${heightClass} ${
                                 revealed
                                   ? `${accent} opacity-100 translate-y-0 scale-100 shadow-[0_0_30px_rgba(250,204,21,0.15)]`
@@ -681,7 +779,7 @@ export default function HostScreen({
                             >
                               <div>
                                 <div className="text-3xl font-black md:text-4xl">{rank}位</div>
-                                {!isGolfTeamResults && (
+                                {!isTeamAggregateResults && (
                                   <div className="mt-2 flex justify-center">
                                     <div
                                       className="h-4 w-4 rounded-full border border-white/30"
@@ -691,8 +789,8 @@ export default function HostScreen({
                                 )}
                               </div>
                               <div className="space-y-1">
-                                <div className="text-lg font-bold leading-tight md:text-2xl">{isGolfTeamResults ? entry.teamName : entry.name}</div>
-                                {isGolfTeamResults ? (
+                                <div className="text-lg font-bold leading-tight md:text-2xl">{isTeamAggregateResults ? entry.teamName : entry.name}</div>
+                                {isTeamAggregateResults ? (
                                   <div className="space-y-1">
                                     <div className="text-[10px] leading-snug opacity-80 md:text-xs">
                                       {entry.members.map((member: any) => member.name).join(' / ')}
@@ -718,11 +816,15 @@ export default function HostScreen({
                                 <div className="pt-2">
                                   <div className="text-[10px] opacity-70 md:text-xs">最終スコア</div>
                                   <div className="text-2xl font-black md:text-3xl">
-                                    {isGolfTeamResults ? entry.teamScore : calculateGameScore(resolvedGameType, entry)}
+                                    {isTeamAggregateResults ? entry.teamScore : calculateGameScore(resolvedGameType, entry)}
                                   </div>
-                                  {isGolfTeamResults ? (
+                                  {isTeamAggregateResults ? (
                                     <div className="pt-1 text-[10px] opacity-80 md:text-xs">
-                                      合計打数 {entry.teamStats.totalStrokes}
+                                      {resolvedGameType === 'team_bomber'
+                                        ? `合計撃破 ${entry.teamStats.kills} / 合計破壊 ${entry.teamStats.blocksDestroyed}`
+                                        : resolvedGameType === 'color_bomber'
+                                          ? `合計色面積 ${entry.teamStats.territoryCells} / 合計正答 ${entry.teamStats.correctAnswers}`
+                                          : `合計打数 ${entry.teamStats.totalStrokes}`}
                                     </div>
                                   ) : null}
                                 </div>
@@ -774,7 +876,7 @@ export default function HostScreen({
                     ? '現在の順位'
                     : currentRoomState.state === 'teamReveal'
                       ? 'チーム一覧'
-                      : isGolfTeamResults
+                      : isTeamAggregateResults
                         ? '最終チーム順位'
                         : '参加者一覧'}
                 </span>
@@ -787,7 +889,7 @@ export default function HostScreen({
                     {renderTeamBoard(true)}
                   </div>
                 )}
-                {currentRoomState.state === 'results' && isGolfTeamResults && teamRankings.map((team: any, index: number) => (
+                {currentRoomState.state === 'results' && isTeamAggregateResults && teamRankings.map((team: any, index: number) => (
                   <div key={`result-team-${team.teamId}`} className="rounded-xl bg-slate-700 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -800,18 +902,52 @@ export default function HostScreen({
                         </div>
                       </div>
                       <div className="flex space-x-4 text-right">
-                        <div>
-                          <div className="text-xs text-slate-400">合計ホール</div>
-                          <div className="font-mono text-base font-bold text-green-400 md:text-lg">{team.teamStats.holesCompleted}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400">合計打数</div>
-                          <div className="font-mono text-base font-bold md:text-lg">{team.teamStats.totalStrokes}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400">合計正答</div>
-                          <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
-                        </div>
+                        {resolvedGameType === 'team_bomber' ? (
+                          <>
+                            <div>
+                              <div className="text-xs text-slate-400">合計撃破</div>
+                              <div className="font-mono text-base font-bold text-rose-300 md:text-lg">{team.teamStats.kills}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計破壊</div>
+                              <div className="font-mono text-base font-bold text-amber-300 md:text-lg">{team.teamStats.blocksDestroyed}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計正答</div>
+                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                            </div>
+                          </>
+                        ) : resolvedGameType === 'color_bomber' ? (
+                          <>
+                            <div>
+                              <div className="text-xs text-slate-400">合計色面積</div>
+                              <div className="font-mono text-base font-bold text-fuchsia-300 md:text-lg">{team.teamStats.territoryCells}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計撃破</div>
+                              <div className="font-mono text-base font-bold text-rose-300 md:text-lg">{team.teamStats.kills}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計正答</div>
+                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <div className="text-xs text-slate-400">合計ホール</div>
+                              <div className="font-mono text-base font-bold text-green-400 md:text-lg">{team.teamStats.holesCompleted}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計打数</div>
+                              <div className="font-mono text-base font-bold md:text-lg">{team.teamStats.totalStrokes}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計正答</div>
+                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                            </div>
+                          </>
+                        )}
                         <div>
                           <div className="text-xs text-slate-400">チームスコア</div>
                           <div className="font-mono text-base font-bold text-yellow-300 md:text-lg">{team.teamScore}</div>
@@ -820,7 +956,7 @@ export default function HostScreen({
                     </div>
                   </div>
                 ))}
-                {currentRoomState.state !== 'teamReveal' && !(currentRoomState.state === 'results' && isGolfTeamResults) && sortedPlayers.map((p: any, index: number) => (
+                {currentRoomState.state !== 'teamReveal' && !(currentRoomState.state === 'results' && isTeamAggregateResults) && sortedPlayers.map((p: any, index: number) => (
                   <div
                     key={p.id}
                     className={`relative overflow-hidden rounded-xl bg-slate-700 p-3 transition-all duration-700 ${
@@ -850,13 +986,13 @@ export default function HostScreen({
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="truncate font-bold text-base md:text-lg">{p.name}</span>
-                            {resolvedGameType === 'golf' && p.teamId ? (
+                            {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' && currentRoomState.teamMode)) && p.teamId ? (
                               <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
                                 {getTeamName(p.teamId)}
                               </span>
                             ) : null}
                           </div>
-                          {currentRoomState.state === 'results' && resolvedGameType === 'golf' && p.teamId ? (
+                          {currentRoomState.state === 'results' && (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || (resolvedGameType === 'color_bomber' && currentRoomState.teamMode)) && p.teamId ? (
                             <div className="mt-1 truncate text-[11px] text-slate-400">
                               {getTeamMemberNames(p.teamId).join(' / ')}
                             </div>
@@ -870,15 +1006,15 @@ export default function HostScreen({
                               <div className="text-xs text-slate-400">正答数</div>
                               <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{p.correctAnswers || 0}</div>
                             </div>
-                          ) : resolvedGameType === 'bomber' ? (
+                          ) : isBomberGameType(resolvedGameType) ? (
                             <>
                               <div>
                                 <div className="text-xs text-slate-400">撃破</div>
                                 <div className="font-mono text-base font-bold text-rose-300 md:text-lg">{p.kills || 0}</div>
                               </div>
                               <div>
-                                <div className="text-xs text-slate-400">破壊</div>
-                                <div className="font-mono text-base font-bold text-amber-300 md:text-lg">{p.blocksDestroyed || 0}</div>
+                                <div className="text-xs text-slate-400">{resolvedGameType === 'color_bomber' ? '色面積' : '破壊'}</div>
+                                <div className="font-mono text-base font-bold text-amber-300 md:text-lg">{resolvedGameType === 'color_bomber' ? (p.territoryCells || 0) : (p.blocksDestroyed || 0)}</div>
                               </div>
                             </>
                           ) : (
@@ -894,12 +1030,12 @@ export default function HostScreen({
                             </>
                           )}
                           <div>
-                            <div className="text-xs text-slate-400">{resolvedGameType === 'golf' ? '正答' : resolvedGameType === 'bomber' ? '生存' : 'スコア'}</div>
-                            <div className={`font-mono text-base font-bold md:text-lg ${resolvedGameType === 'quiz' ? 'text-yellow-300' : resolvedGameType === 'bomber' ? 'text-emerald-300' : 'text-cyan-300'}`}>
+                            <div className="text-xs text-slate-400">{resolvedGameType === 'golf' ? '正答' : isBomberGameType(resolvedGameType) ? (resolvedGameType === 'color_bomber' ? '正答' : '生存') : 'スコア'}</div>
+                            <div className={`font-mono text-base font-bold md:text-lg ${resolvedGameType === 'quiz' ? 'text-yellow-300' : isBomberGameType(resolvedGameType) ? 'text-emerald-300' : 'text-cyan-300'}`}>
                               {resolvedGameType === 'quiz'
                                 ? calculateGameScore(resolvedGameType, p)
-                                : resolvedGameType === 'bomber'
-                                  ? `${Math.floor((p.timeAliveMs || 0) / 1000)}秒`
+                                : isBomberGameType(resolvedGameType)
+                                  ? (resolvedGameType === 'color_bomber' ? (p.correctAnswers || 0) : `${Math.floor((p.timeAliveMs || 0) / 1000)}秒`)
                                   : (p.correctAnswers || 0)}
                             </div>
                           </div>

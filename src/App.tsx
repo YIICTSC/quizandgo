@@ -12,6 +12,15 @@ import SinglePlayScreen from './components/SinglePlayScreen';
 import SingleQuizScreen from './components/SingleQuizScreen';
 import SingleBomberScreen from './components/SingleBomberScreen';
 
+const getGameTitle = (gameType: string) => {
+  if (gameType === 'golf') return 'ゴルフゲーム';
+  if (gameType === 'quiz') return 'クイズモード';
+  if (gameType === 'bomber') return 'クイズボンバー';
+  if (gameType === 'team_bomber') return 'チームボンバー';
+  if (gameType === 'color_bomber') return 'カラーボンバー';
+  return gameType;
+};
+
 export default function App() {
   const [role, setRole] = useState<'none' | 'host' | 'player' | 'single_setup' | 'single_play'>('none');
   const [roomId, setRoomId] = useState<string>('');
@@ -52,10 +61,10 @@ export default function App() {
 
   if (role === 'host') {
     return (
-      <HostScreen
+        <HostScreen
         roomId={roomId}
         onReturnToTitle={returnToTitle}
-        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType === 'bomber' ? 'クイズボンバー' : selectedGameType}
+        gameTitle={getGameTitle(selectedGameType)}
         gameType={selectedGameType}
       />
     );
@@ -71,7 +80,7 @@ export default function App() {
         roomId="single-player"
         onReturnToTitle={returnToTitle}
         mode="single"
-        gameTitle={selectedGameType === 'golf' ? 'ゴルフゲーム' : selectedGameType === 'quiz' ? 'クイズモード' : selectedGameType === 'bomber' ? 'クイズボンバー' : selectedGameType}
+        gameTitle={getGameTitle(selectedGameType)}
         gameType={selectedGameType}
         onStartSinglePlayer={(payload) => {
           setSinglePlayConfig(payload);

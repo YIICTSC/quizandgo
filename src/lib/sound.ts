@@ -1,6 +1,6 @@
 let audioCtx: AudioContext | null = null;
 
-type BgmScene = 'title' | 'host' | 'play' | 'results' | 'bomber_host' | 'bomber_play' | 'bomber_results';
+type BgmScene = 'title' | 'host' | 'play' | 'results' | 'bomber_host' | 'bomber_play' | 'bomber_last10' | 'bomber_results';
 
 const withBase = (path: string) => {
   const normalizedBase = import.meta.env.BASE_URL || '/';
@@ -28,6 +28,7 @@ const BGM_SOURCES: Record<BgmScene, string[]> = {
   results: [withBase('/bgm/results/results_win.mp3')],
   bomber_host: [withBase('/bgm/bomber/bomber_lobby.mp3')],
   bomber_play: [withBase('/bgm/bomber/bomber_battle.mp3')],
+  bomber_last10: [withBase('/bgm/bomber/bomber_last10.mp3')],
   bomber_results: [withBase('/bgm/bomber/bomber_results.mp3')],
 };
 
