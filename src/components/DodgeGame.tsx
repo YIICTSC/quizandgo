@@ -3,7 +3,7 @@ import AvatarPreview from './AvatarPreview';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
 
-const DODGE_MOVE_SPEED = 300;
+const DODGE_MOVE_SPEED = 340;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const getMoveVector = (direction: DodgeDirection | null) => {
@@ -125,12 +125,12 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
               nextX = clamp(currentPos.x + vector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
               nextY = clamp(currentPos.y + vector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
             } else {
-              nextX = currentPos.x + (player.x - currentPos.x) * 0.55;
-              nextY = currentPos.y + (player.y - currentPos.y) * 0.55;
+              nextX = currentPos.x + (player.x - currentPos.x) * 0.72;
+              nextY = currentPos.y + (player.y - currentPos.y) * 0.72;
             }
           } else {
-            nextX = currentPos.x + (player.x - currentPos.x) * 0.38;
-            nextY = currentPos.y + (player.y - currentPos.y) * 0.38;
+            nextX = currentPos.x + (player.x - currentPos.x) * 0.52;
+            nextY = currentPos.y + (player.y - currentPos.y) * 0.52;
           }
 
           if (!player.alive) {
@@ -143,8 +143,8 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
           }
 
           next[id] = {
-            x: Math.abs(player.x - nextX) < 0.12 ? player.x : nextX,
-            y: Math.abs(player.y - nextY) < 0.12 ? player.y : nextY,
+            x: Math.abs(player.x - nextX) < 0.08 ? player.x : nextX,
+            y: Math.abs(player.y - nextY) < 0.08 ? player.y : nextY,
           };
         });
 
@@ -249,7 +249,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
                   height: `${(ball.radius * 2 / height) * 100}%`,
                   left: `calc(${((ball.x - ball.radius) / width) * 100}% )`,
                   top: `calc(${((ball.y - ball.radius) / height) * 100}% )`,
-                  transition: 'left 80ms linear, top 80ms linear',
+                  transition: 'left 48ms linear, top 48ms linear',
                 }}
               />
             ))}

@@ -21,7 +21,6 @@ type DebugPlayer = {
   dodgeFacing: DodgeDirection;
   respawnAt?: number | null;
   nextTurnAt?: number;
-  nextThrowAt?: number;
 };
 
 type DebugBall = {
@@ -39,7 +38,7 @@ const DODGE_WIDTH = 960;
 const DODGE_HEIGHT = 540;
 const DODGE_PLAYER_RADIUS = 22;
 const DODGE_BALL_RADIUS = 11;
-const DODGE_MOVE_SPEED = 300;
+const DODGE_MOVE_SPEED = 340;
 const DODGE_BALL_SPEED = 560;
 const DODGE_BALL_LIFETIME_MS = 1700;
 const DODGE_THROW_COOLDOWN_MS = 360;
@@ -91,7 +90,6 @@ const createBot = (index: number): DebugPlayer => {
     dodgeFacing: directions[index % directions.length],
     respawnAt: null,
     nextTurnAt: performance.now() + 600 + index * 240,
-    nextThrowAt: performance.now() + 1400 + index * 360,
   };
 };
 
@@ -202,8 +200,8 @@ export default function SingleDodgeDebugScreen({
           }
 
           const vector = getMoveVector(direction);
-          let nextX = clamp(player.x + vector.x * DODGE_MOVE_SPEED * 0.74 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
-          let nextY = clamp(player.y + vector.y * DODGE_MOVE_SPEED * 0.74 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
+          let nextX = clamp(player.x + vector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
+          let nextY = clamp(player.y + vector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
           const bounced = nextX === DODGE_PLAYER_RADIUS || nextX === DODGE_WIDTH - DODGE_PLAYER_RADIUS || nextY === DODGE_PLAYER_RADIUS || nextY === DODGE_HEIGHT - DODGE_PLAYER_RADIUS;
           if (bounced) {
             const opposite: Record<DodgeDirection, DodgeDirection> = {
@@ -214,8 +212,8 @@ export default function SingleDodgeDebugScreen({
             };
             direction = opposite[direction];
             const bounceVector = getMoveVector(direction);
-            nextX = clamp(player.x + bounceVector.x * DODGE_MOVE_SPEED * 0.74 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
-            nextY = clamp(player.y + bounceVector.y * DODGE_MOVE_SPEED * 0.74 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
+            nextX = clamp(player.x + bounceVector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
+            nextY = clamp(player.y + bounceVector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
           }
 
           return {
@@ -229,25 +227,6 @@ export default function SingleDodgeDebugScreen({
 
         setBalls((currentBalls) => {
           const spawnedBalls = [...currentBalls];
-          nextPlayers.forEach((player) => {
-            if (player.id === 'me' || !player.alive) return;
-            if (!player.nextThrowAt || now < player.nextThrowAt) return;
-            const vector = getMoveVector(player.dodgeFacing);
-            spawnedBalls.push({
-              id: `${player.id}-${now}`,
-              ownerId: player.id,
-              x: player.x + vector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 4),
-              y: player.y + vector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 4),
-              vx: vector.x * DODGE_BALL_SPEED,
-              vy: vector.y * DODGE_BALL_SPEED,
-              radius: DODGE_BALL_RADIUS,
-              expiresAt: now + DODGE_BALL_LIFETIME_MS,
-            });
-            nextPlayers = nextPlayers.map((candidate) =>
-              candidate.id === player.id ? { ...candidate, nextThrowAt: now + 1200 + Math.random() * 1200 } : candidate
-            );
-          });
-
           const survivors: DebugBall[] = [];
           const defeatedIds = new Set<string>();
           for (const ball of spawnedBalls) {
