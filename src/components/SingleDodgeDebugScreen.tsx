@@ -140,21 +140,32 @@ export default function SingleDodgeDebugScreen({
   const [balls, setBalls] = useState<DebugBall[]>([]);
   const [heldDirection, setHeldDirection] = useState<DodgeDirection | null>(null);
   const [heldVector, setHeldVector] = useState<MoveVector | null>(null);
+  const [lastAimVector, setLastAimVector] = useState<MoveVector>({ x: 1, y: 0 });
   const [lastThrowAt, setLastThrowAt] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const heldDirectionRef = useRef<DodgeDirection | null>(null);
   const heldVectorRef = useRef<MoveVector | null>(null);
+  const lastAimVectorRef = useRef<MoveVector>({ x: 1, y: 0 });
   const lastTickRef = useRef(performance.now());
   const defeatSoundCooldownRef = useRef(0);
   const playersRef = useRef<DebugPlayer[]>(players);
 
   const handleSetHeldDirection = (direction: DodgeDirection | null) => {
     heldDirectionRef.current = direction;
+    if (direction) {
+      const next = getMoveVector(direction);
+      lastAimVectorRef.current = next;
+      setLastAimVector(next);
+    }
     setHeldDirection(direction);
   };
 
   const handleSetHeldVector = (vector: MoveVector | null) => {
     heldVectorRef.current = vector;
+    if (vector && (Math.abs(vector.x) >= 0.08 || Math.abs(vector.y) >= 0.08)) {
+      lastAimVectorRef.current = vector;
+      setLastAimVector(vector);
+    }
     setHeldVector(vector);
   };
 
@@ -339,7 +350,7 @@ export default function SingleDodgeDebugScreen({
   const throwBall = () => {
     const now = performance.now();
     if (!me || !me.alive || now - lastThrowAt < DODGE_THROW_COOLDOWN_MS) return;
-    const vector = heldVectorRef.current || getMoveVector(me.dodgeFacing);
+    const vector = heldVectorRef.current || lastAimVectorRef.current || getMoveVector(me.dodgeFacing);
     if (!vector.x && !vector.y) return;
     setLastThrowAt(now);
     setBalls((current) => [
@@ -413,6 +424,7 @@ export default function SingleDodgeDebugScreen({
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
               <div className="rounded-xl bg-slate-800/80 px-3 py-2">移動方向: {me?.dodgeFacing ?? '-'}</div>
+              <div className="rounded-xl bg-slate-800/80 px-3 py-2">投球ベクトル: x {lastAimVector.x.toFixed(2)} / y {lastAimVector.y.toFixed(2)}</div>
               <div className="rounded-xl bg-slate-800/80 px-3 py-2">飛行中ボール: {balls.length}</div>
               <div className="rounded-xl bg-slate-800/80 px-3 py-2">撃破: {me?.kills ?? 0}</div>
               <div className="rounded-xl bg-slate-800/80 px-3 py-2">被弾: {me?.deaths ?? 0}</div>

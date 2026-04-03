@@ -68,6 +68,7 @@ interface Player {
   dodgeFacing: 'up' | 'down' | 'left' | 'right';
   dodgeMoveDirection: 'up' | 'down' | 'left' | 'right' | null;
   dodgeMoveVector: { x: number; y: number } | null;
+  dodgeAimVector: { x: number; y: number } | null;
   dodgeInvulnerableUntil: number | null;
   lastDodgeThrowAt?: number;
 }
@@ -506,6 +507,7 @@ const assignDodgeSpawnPositions = (players: Player[]) => {
     player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
     player.dodgeMoveDirection = null;
     player.dodgeMoveVector = null;
+    player.dodgeAimVector = null;
     player.dodgeInvulnerableUntil = Date.now() + 800;
   });
 };
@@ -535,6 +537,7 @@ const respawnDodgePlayer = (room: Room, player: Player) => {
   player.respawnAt = null;
   player.dodgeMoveDirection = null;
   player.dodgeMoveVector = null;
+  player.dodgeAimVector = null;
   player.dodgeInvulnerableUntil = Date.now() + 1200;
   player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
 };
@@ -546,6 +549,7 @@ const defeatDodgePlayer = (room: Room, player: Player, owner: Player | null, bal
   player.deaths += 1;
   player.dodgeMoveDirection = null;
   player.dodgeMoveVector = null;
+  player.dodgeAimVector = null;
   player.dodgeInvulnerableUntil = null;
   if (owner && owner.id !== player.id) {
     owner.kills += 1;
@@ -630,6 +634,7 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.dodgeFacing = 'right';
   player.dodgeMoveDirection = null;
   player.dodgeMoveVector = null;
+  player.dodgeAimVector = null;
   player.dodgeInvulnerableUntil = null;
   player.lastDodgeThrowAt = 0;
 };
@@ -1256,6 +1261,7 @@ async function startServer() {
           dodgeFacing: 'right',
           dodgeMoveDirection: null,
           dodgeMoveVector: null,
+          dodgeAimVector: null,
           dodgeInvulnerableUntil: null,
           lastDodgeThrowAt: 0,
         };
@@ -1300,6 +1306,7 @@ async function startServer() {
               dodgeBallStock: 0,
               dodgeMoveDirection: null,
               dodgeMoveVector: null,
+              dodgeAimVector: null,
               dodgeInvulnerableUntil: Date.now() + 1200,
             });
           }
@@ -1660,6 +1667,7 @@ async function startServer() {
       player.dodgeMoveVector = null;
       if (direction) {
         player.dodgeFacing = direction;
+        player.dodgeAimVector = getDodgeMoveVector(direction);
       }
       io.to(roomId).emit('roomStateUpdate', room);
     });
@@ -1689,6 +1697,10 @@ async function startServer() {
           x: clamped.x / length,
           y: clamped.y / length,
         };
+        player.dodgeAimVector = {
+          x: player.dodgeMoveVector.x,
+          y: player.dodgeMoveVector.y,
+        };
         player.dodgeMoveDirection = null;
         player.dodgeFacing = Math.abs(player.dodgeMoveVector.x) > Math.abs(player.dodgeMoveVector.y)
           ? (player.dodgeMoveVector.x >= 0 ? 'right' : 'left')
@@ -1707,7 +1719,9 @@ async function startServer() {
 
       const moveVector = player.dodgeMoveVector
         ? getNormalizedDodgeMoveVector(player.dodgeMoveVector)
-        : getDodgeMoveVector(player.dodgeFacing || player.dodgeMoveDirection);
+        : player.dodgeAimVector
+          ? getNormalizedDodgeMoveVector(player.dodgeAimVector)
+          : getDodgeMoveVector(player.dodgeFacing || player.dodgeMoveDirection);
       const fallbackTowardEnemy = player.x < room.dodgeState.width / 2 ? 1 : -1;
       const throwVector = Math.abs(moveVector.x) < 0.01 && Math.abs(moveVector.y) < 0.01
         ? { x: fallbackTowardEnemy, y: 0 }
