@@ -13,6 +13,7 @@ export type ScorePlayerLike = {
   deaths?: number;
   timeAliveMs?: number;
   territoryCells?: number;
+  dodgeBallStock?: number;
 };
 
 export const calculateGolfScore = (player: ScorePlayerLike) => {
@@ -50,9 +51,22 @@ export const calculateColorBomberScore = (player: ScorePlayerLike) => {
   return baseScore + (territoryCells * 30);
 };
 
+export const calculateDodgeScore = (player: ScorePlayerLike) => {
+  const kills = player.kills || 0;
+  const correctAnswers = player.correctAnswers || 0;
+  const deaths = player.deaths || 0;
+  const timeAliveMs = player.timeAliveMs || 0;
+  const dodgeBallStock = player.dodgeBallStock || 0;
+
+  return (kills * 320) + (correctAnswers * 100) + Math.floor(timeAliveMs / 1000) * 3 + (dodgeBallStock * 30) - (deaths * 110);
+};
+
 export const calculateGameScore = (gameType: string | undefined, player: ScorePlayerLike) => {
   if (gameType === 'quiz') {
     return calculateQuizScore(player);
+  }
+  if (gameType === 'dodge') {
+    return calculateDodgeScore(player);
   }
   if (gameType === 'color_bomber') {
     return calculateColorBomberScore(player);

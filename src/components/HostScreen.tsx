@@ -5,6 +5,7 @@ import { calculateGameScore } from '../lib/scoring';
 import { getAllUnits, SubjectUnit } from '../subjects';
 import { getSubjectUnitDisplayName } from '../subjects/unit-display-name-map';
 import AvatarPreview from './AvatarPreview';
+import DodgeGame from './DodgeGame';
 
 const SUBJECT_LABELS: Record<string, string> = {
   math: '算数・数学',
@@ -68,6 +69,7 @@ const getReadableUnitName = (unit: SubjectUnit) => {
 
 const isBomberGameType = (gameType?: string) =>
   gameType === 'bomber' || gameType === 'team_bomber' || gameType === 'color_bomber';
+const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
 
 const isBattleQuizVariant = (variant?: string) =>
   variant === 'team_battle' || variant === 'boss' || variant === 'battle_royale';
@@ -240,7 +242,7 @@ export default function HostScreen({
     }
     return a.totalStrokes - b.totalStrokes;
   });
-  const supportsPodiumReveal = resolvedGameType === 'golf' || isBomberGameType(resolvedGameType);
+  const supportsPodiumReveal = resolvedGameType === 'golf' || isBomberGameType(resolvedGameType) || isDodgeGameType(resolvedGameType);
   const handleCopyInviteUrl = async () => {
     if (!inviteUrl) return;
     try {
@@ -914,6 +916,11 @@ export default function HostScreen({
                         : '正解で爆弾を補充し、移動と爆風で相手を倒します。途中参加もこのPINから可能です。'}
                   </p>
                 )}
+                {isDodgeGameType(resolvedGameType) && (
+                  <p className="mb-6 max-w-xl text-center text-slate-300">
+                    正解でボールを補充し、相手へ当てて撃破を重ねます。被弾しても復活するので、最後までテンポよく遊べます。
+                  </p>
+                )}
                 
                 <div className="text-center mb-8">
                   <p className="text-xl text-slate-400 mb-2">残り時間</p>
@@ -933,6 +940,24 @@ export default function HostScreen({
                       const activeQuestion = (currentRoomState.quizBattlePairs || []).find((pair: any) => pair.question)?.question;
                       if (!activeQuestion) {
                         return <div className="text-sm text-slate-300">再マッチ準備中です。</div>;
+                      }
+                      if (currentRoomState.quizBattlePhase === 'question') {
+                        return (
+                          <>
+                            <div className="text-xl font-bold text-white">{activeQuestion.text}</div>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              {(activeQuestion.options || []).map((opt: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className="rounded-xl border border-slate-700 bg-slate-800/70 px-3 py-2 text-sm text-slate-100"
+                                >
+                                  <div className="font-bold">{opt}</div>
+                                  <div className="mt-1 text-xs text-slate-400">タイムアップ後に全体集計を表示します</div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        );
                       }
                       return (
                         <>
@@ -954,6 +979,16 @@ export default function HostScreen({
                         </>
                       );
                     })()}
+                  </div>
+                ) : null}
+
+                {isDodgeGameType(resolvedGameType) ? (
+                  <div className="mb-8 h-[340px] w-full max-w-5xl rounded-2xl border border-slate-700 bg-slate-900/50 p-3">
+                    <DodgeGame
+                      players={currentRoomState.players}
+                      dodgeState={currentRoomState.dodgeState}
+                      readOnly
+                    />
                   </div>
                 ) : null}
 
@@ -1131,10 +1166,13 @@ export default function HostScreen({
                     <div className="space-y-2">
                       {(currentRoomState.quizBattlePairs || []).map((pair: any) => (
                         <div key={pair.id} className="rounded-lg bg-slate-900/50 px-3 py-2 text-xs text-slate-100">
-                          {pair.playerIds.length === 2 ? (
+                          {pair.playerIds.length >= 2 ? (
                             <>
                               <div className="font-bold">
-                                {currentRoomState.players?.[pair.playerIds[0]]?.name || '?'} VS {currentRoomState.players?.[pair.playerIds[1]]?.name || '?'}
+                                {pair.playerIds.length === 3
+                                  ? `${currentRoomState.players?.[pair.primaryPlayerId]?.name || '?'} VS ${pair.playerIds.filter((id: string) => id !== pair.primaryPlayerId).map((id: string) => currentRoomState.players?.[id]?.name || '?').join(' / ')}`
+                                  : `${currentRoomState.players?.[pair.playerIds[0]]?.name || '?'} VS ${currentRoomState.players?.[pair.playerIds[1]]?.name || '?'}`
+                                }
                               </div>
                               {(currentRoomState.quizBattlePhase === 'reveal' || currentRoomState.quizBattlePhase === 'result') && pair.resultLabel ? (
                                 <div className="mt-1 text-[11px] text-fuchsia-200">{pair.resultLabel}</div>
@@ -1295,8 +1333,10 @@ export default function HostScreen({
                                     {(() => {
                                       const pair = (currentRoomState.quizBattlePairs || []).find((entry: any) => entry.id === p.currentBattlePairId);
                                       if (!pair || pair.playerIds.length < 2) return '待機';
-                                      const opponentId = pair.playerIds.find((id: string) => id !== p.id);
-                                      return opponentId ? (currentRoomState.players?.[opponentId]?.name || '-') : '待機';
+                                      const opponentIds = pair.playerIds.filter((id: string) => id !== p.id);
+                                      return opponentIds.length > 0
+                                        ? opponentIds.map((id: string) => currentRoomState.players?.[id]?.name || '-').join(' / ')
+                                        : '待機';
                                     })()}
                                   </div>
                                 </div>
@@ -1313,6 +1353,17 @@ export default function HostScreen({
                                 <div className="font-mono text-base font-bold text-amber-300 md:text-lg">{resolvedGameType === 'color_bomber' ? (p.territoryCells || 0) : (p.blocksDestroyed || 0)}</div>
                               </div>
                             </>
+                          ) : isDodgeGameType(resolvedGameType) ? (
+                            <>
+                              <div>
+                                <div className="text-xs text-slate-400">撃破</div>
+                                <div className="font-mono text-base font-bold text-rose-300 md:text-lg">{p.kills || 0}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-slate-400">被弾</div>
+                                <div className="font-mono text-base font-bold text-blue-300 md:text-lg">{p.deaths || 0}</div>
+                              </div>
+                            </>
                           ) : (
                             <>
                               <div>
@@ -1326,12 +1377,14 @@ export default function HostScreen({
                             </>
                           )}
                           <div>
-                            <div className="text-xs text-slate-400">{resolvedGameType === 'golf' ? '正答' : isBomberGameType(resolvedGameType) ? (resolvedGameType === 'color_bomber' ? '正答' : '生存') : 'スコア'}</div>
+                            <div className="text-xs text-slate-400">{resolvedGameType === 'golf' ? '正答' : isBomberGameType(resolvedGameType) ? (resolvedGameType === 'color_bomber' ? '正答' : '生存') : isDodgeGameType(resolvedGameType) ? '正答' : 'スコア'}</div>
                             <div className={`font-mono text-base font-bold md:text-lg ${resolvedGameType === 'quiz' ? 'text-yellow-300' : isBomberGameType(resolvedGameType) ? 'text-emerald-300' : 'text-cyan-300'}`}>
                               {resolvedGameType === 'quiz'
                                 ? calculateGameScore(resolvedGameType, p)
                                 : isBomberGameType(resolvedGameType)
                                   ? (resolvedGameType === 'color_bomber' ? (p.correctAnswers || 0) : `${Math.floor((p.timeAliveMs || 0) / 1000)}秒`)
+                                  : isDodgeGameType(resolvedGameType)
+                                    ? (p.correctAnswers || 0)
                                   : (p.correctAnswers || 0)}
                             </div>
                           </div>

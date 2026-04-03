@@ -9,6 +9,7 @@ import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
 import { GameItemId } from '../gameItems';
 import BomberGame from './BomberGame';
+import DodgeGame from './DodgeGame';
 import AvatarPreview from './AvatarPreview';
 import AvatarEditor from './AvatarEditor';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
@@ -41,6 +42,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [correctAnswerIndex, setCorrectAnswerIndex] = useState<number | null>(null);
   const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null);
+  const [battleAnswerSubmitted, setBattleAnswerSubmitted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechTranscript, setSpeechTranscript] = useState('');
@@ -59,6 +61,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const previousExplosionCountRef = useRef(0);
   const previousAliveRef = useRef<boolean | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
+  const isDodgeMode = roomState?.gameType === 'dodge';
   const isBomberMode = isBomberGameType(roomState?.gameType);
   const quizVariant = roomState?.quizVariant || 'classic';
   const quizVariantLabel =
@@ -124,7 +127,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   }, []);
 
   const submitAnswer = useCallback((payload: { answerIndex?: number; isSpeechCorrect?: boolean }) => {
-    if (isBomberMode) {
+    if (isBomberMode || isDodgeMode) {
       socket.emit('submitAnswer', { roomId, ...payload }, (response?: any) => {
         if (!response?.ok) return;
         ignoreNextServerAnswerRef.current = true;
@@ -137,7 +140,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     }
 
     socket.emit('submitAnswer', { roomId, ...payload });
-  }, [applyLocalAnswerResult, isBomberMode, roomId]);
+  }, [applyLocalAnswerResult, isBomberMode, isDodgeMode, roomId]);
 
   const startSpeechRecognition = useCallback(() => {
     if (!question?.speechPrompt || answerResult !== null || isListening) return;
@@ -194,6 +197,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       setCorrectAnswerIndex(null);
       setCorrectAnswerText(null);
       setSpeechTranscript('');
+      setBattleAnswerSubmitted(false);
     };
     const onTimeUpdate = (time: number) => {
       setTimeRemaining(time);
@@ -210,7 +214,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       if (correct) {
         playCorrectSound();
         setTimeout(() => {
-          if (!isQuizMode && !isBomberMode) {
+          if (!isQuizMode && !isBomberMode && !isDodgeMode) {
             setQuestion(null);
           }
         }, 700);
@@ -237,7 +241,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       socket.off('answerResult', onAnswerResult);
       socket.off('timeUpdate', onTimeUpdate);
     };
-  }, [isBomberMode, isQuizMode, roomId, stopRecognition]);
+  }, [isBomberMode, isDodgeMode, isQuizMode, roomId, stopRecognition]);
 
   useEffect(() => {
     stopBGM();
@@ -269,6 +273,12 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
 
     return () => window.clearTimeout(timer);
   }, [answerResult, question, speakPrompt]);
+
+  useEffect(() => {
+    if (roomState?.quizBattlePhase !== 'question') {
+      setBattleAnswerSubmitted(false);
+    }
+  }, [roomState?.quizBattlePhase]);
 
   useEffect(() => {
     if (roomState?.state !== 'waiting') return;
@@ -306,9 +316,10 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   });
   const myRank = Math.max(0, sortedPlayers.findIndex((player: any) => player.id === socket.id)) + 1;
   const myBattlePair = (roomState.quizBattlePairs || []).find((pair: any) => pair.id === me?.currentBattlePairId) || null;
-  const myBattleOpponentId = myBattlePair?.playerIds?.find((id: string) => id !== socket.id) || null;
-  const myBattleOpponent = myBattleOpponentId ? roomState.players?.[myBattleOpponentId] : null;
+  const myBattleOpponentIds = (myBattlePair?.playerIds || []).filter((id: string) => id !== socket.id);
+  const myBattleOpponents = myBattleOpponentIds.map((id: string) => roomState.players?.[id]).filter(Boolean);
   const myBattleQuestion = myBattlePair?.question || question;
+  const myBattleAnswered = Boolean(myBattlePair?.answers?.[socket.id]);
   const myTeamId = me?.teamId ?? null;
   const teammates = sortedPlayers.filter((player: any) => player.teamId === myTeamId);
   const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
@@ -392,12 +403,12 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
           </div>
           <div className="grid grid-cols-2 gap-8 mt-8">
             <div>
-              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : isBomberMode ? '撃破' : 'クリアホール'}</div>
-              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : isBomberMode ? (me?.kills || 0) : me?.holesCompleted}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : isBomberMode || isDodgeMode ? '撃破' : 'クリアホール'}</div>
+              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : isBomberMode || isDodgeMode ? (me?.kills || 0) : me?.holesCompleted}</div>
             </div>
             <div>
-              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : isBomberMode ? '破壊' : '打数'}</div>
-              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : isBomberMode ? (me?.blocksDestroyed || 0) : me?.totalStrokes}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : isBomberMode ? '破壊' : isDodgeMode ? '被弾' : '打数'}</div>
+              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : isBomberMode ? (me?.blocksDestroyed || 0) : isDodgeMode ? (me?.deaths || 0) : me?.totalStrokes}</div>
             </div>
             <div>
               <div className="text-sm text-slate-400">{isBomberMode ? '正答数' : '正答数'}</div>
@@ -429,33 +440,6 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">スコア: <span className="font-bold text-yellow-300">{calculateGameScore('quiz', me || {})}</span></div>
               </div>
             </div>
-            {quizVariant === 'battle_royale' ? (
-              <div className="mb-5 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="rounded-xl bg-slate-900/50 px-4 py-3">
-                    <div className="text-xs text-slate-400">あなたのライフ</div>
-                    <div className="text-3xl font-black text-cyan-200">{me?.quizLives ?? 0}</div>
-                  </div>
-                  <div className="flex-1 text-center">
-                    <div className="text-xs font-bold tracking-[0.25em] text-fuchsia-200">MATCH UP</div>
-                    <div className="mt-2 text-2xl font-black text-white">
-                      {myBattleOpponent ? `${playerName} VS ${myBattleOpponent.name}` : `${playerName} は待機中`}
-                    </div>
-                    <div className="mt-1 text-sm text-slate-300">
-                      {roomState?.quizBattlePhase === 'matchup'
-                        ? '次の相手が決まりました'
-                        : myBattleOpponent
-                          ? '先に正解した方が勝ち'
-                          : 'このラウンドはお休みです'}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-slate-900/50 px-4 py-3 text-right">
-                    <div className="text-xs text-slate-400">相手のライフ</div>
-                    <div className="text-3xl font-black text-rose-200">{myBattleOpponent?.quizLives ?? '-'}</div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
             {quizVariant === 'boss' ? (
               <div className="mb-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 p-3">
                 <div className="mb-2 flex items-center justify-between text-sm font-bold text-rose-100">
@@ -471,14 +455,115 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
               </div>
             ) : null}
             {quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'matchup' ? (
-              <div className="rounded-2xl border border-fuchsia-400/30 bg-slate-900/60 p-8 text-center">
-                <div className="mb-2 text-sm font-bold tracking-[0.3em] text-fuchsia-200">NEXT MATCH</div>
-                <div className="text-5xl font-black text-white">{myBattleOpponent ? 'VS' : 'WAIT'}</div>
-                <div className="mt-4 text-xl text-slate-200">
-                  {myBattleOpponent ? `${playerName}  VS  ${myBattleOpponent.name}` : '対戦相手のいないラウンドです'}
+              <div className="rounded-[2rem] border border-fuchsia-400/35 bg-[radial-gradient(circle_at_top,#701a75,#0f172a_62%)] p-6 text-center shadow-[0_0_50px_rgba(168,85,247,0.2)] md:p-8">
+                <div className="mb-3 text-sm font-black tracking-[0.35em] text-fuchsia-200">NEXT MATCH</div>
+                <div className={`grid items-center gap-4 ${myBattleOpponents.length >= 2 ? 'md:grid-cols-[1fr_auto_1fr_auto_1fr]' : 'md:grid-cols-[1fr_auto_1fr]'}`}>
+                  <div className="rounded-[1.5rem] border border-cyan-300/25 bg-slate-950/55 p-4">
+                    <div className="mb-3 flex justify-center">
+                      <AvatarPreview avatar={me?.avatar} size={88} />
+                    </div>
+                    <div className="text-3xl font-black text-white">{playerName}</div>
+                    <div className="mt-2 text-sm font-bold text-cyan-200">LIFE {me?.quizLives ?? 0}</div>
+                  </div>
+                  <div className="text-5xl font-black tracking-[0.18em] text-fuchsia-200 md:text-6xl">VS</div>
+                  <div className="rounded-[1.5rem] border border-rose-300/25 bg-slate-950/55 p-4">
+                    <div className="mb-3 flex justify-center">
+                      <AvatarPreview avatar={myBattleOpponents[0]?.avatar} size={88} />
+                    </div>
+                    <div className="text-3xl font-black text-white">{myBattleOpponents[0]?.name || 'WAIT'}</div>
+                    <div className="mt-2 text-sm font-bold text-rose-200">LIFE {myBattleOpponents[0]?.quizLives ?? '-'}</div>
+                  </div>
+                  {myBattleOpponents.length >= 2 ? (
+                    <>
+                      <div className="text-5xl font-black tracking-[0.18em] text-amber-200 md:text-6xl">VS</div>
+                      <div className="rounded-[1.5rem] border border-amber-300/25 bg-slate-950/55 p-4">
+                        <div className="mb-3 flex justify-center">
+                          <AvatarPreview avatar={myBattleOpponents[1]?.avatar} size={88} />
+                        </div>
+                        <div className="text-3xl font-black text-white">{myBattleOpponents[1]?.name || 'WAIT'}</div>
+                        <div className="mt-2 text-sm font-bold text-amber-200">LIFE {myBattleOpponents[1]?.quizLives ?? '-'}</div>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
-                <div className="mt-3 text-sm text-slate-400">格闘ゲーム風マッチング演出中...</div>
+                <div className="mt-5 text-sm font-bold tracking-[0.2em] text-fuchsia-100/75">
+                  {myBattleOpponents.length > 0 ? 'READY FOR THE QUIZ FIGHT' : 'WAITING FOR NEXT ROUND'}
+                </div>
               </div>
+            ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'question' ? (
+              question ? (
+                <div className="rounded-[2rem] border border-fuchsia-400/25 bg-slate-900/70 p-5 md:p-7">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-black tracking-[0.3em] text-fuchsia-200">QUESTION BATTLE</div>
+                      <div className="mt-1 text-sm text-slate-300">
+                        {myBattleOpponents.length > 0
+                          ? `${playerName} VS ${myBattleOpponents.map((player: any) => player.name).join(' / ')}`
+                          : '待機中'}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="rounded-xl border border-cyan-300/25 bg-cyan-500/10 px-3 py-2 text-sm font-bold text-cyan-100">
+                        LIFE {me?.quizLives ?? 0}
+                      </div>
+                      <div className="rounded-xl border border-yellow-300/25 bg-yellow-500/10 px-3 py-2 text-sm font-bold text-yellow-100">
+                        残り {timeRemaining ?? roomState?.timeRemaining ?? 0}秒
+                      </div>
+                    </div>
+                  </div>
+                  <h2 className="mb-5 text-center text-3xl font-black leading-snug md:text-5xl">{question.text}</h2>
+                  {question.visual && <ProblemVisual visual={question.visual} />}
+                  {(question.audioPrompt || question.speechPrompt) && (
+                    <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
+                      {question.audioPrompt && (
+                        <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-500">
+                          音声を再生
+                        </button>
+                      )}
+                      {question.speechPrompt && (
+                        <div className="flex flex-col items-center gap-2">
+                          <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening || battleAnswerSubmitted || myBattleAnswered} className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                            {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                          </button>
+                          {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {question.speechPrompt?.freeResponse ? (
+                    <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center text-base text-emerald-100">
+                      この問題は音声回答タイプです。上のボタンから話して答えてください。
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 md:gap-5">
+                      {question.options.map((opt: string, i: number) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setSelectedAnswerIndex(i);
+                            setBattleAnswerSubmitted(true);
+                            socket.emit('submitAnswer', { roomId, answerIndex: i });
+                          }}
+                          disabled={answerResult !== null || battleAnswerSubmitted || myBattleAnswered}
+                          className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-7 md:text-3xl ${answerResult !== null || battleAnswerSubmitted || myBattleAnswered ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                          style={{ backgroundColor: optionColors[i % 4] }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {battleAnswerSubmitted || myBattleAnswered ? (
+                    <div className="mt-5 rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/10 px-4 py-3 text-center text-base font-bold text-fuchsia-100">
+                      回答を送信しました。全員の回答がそろうか、タイムアップになるまで待機します。
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-[2rem] border border-fuchsia-400/25 bg-slate-900/70 p-8 text-center text-slate-300">
+                  問題を準備しています...
+                </div>
+              )
             ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'reveal' ? (
               <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
                 <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{myBattleQuestion?.text}</h2>
@@ -502,13 +587,45 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 <div className="mt-5 text-center text-sm text-slate-300">全体の選択割合を集計中</div>
               </div>
             ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'result' ? (
-              <div className="rounded-2xl border border-fuchsia-400/30 bg-slate-900/60 p-8 text-center">
-                <div className="mb-2 text-sm font-bold tracking-[0.3em] text-fuchsia-200">ROUND RESULT</div>
-                <div className="text-4xl font-black text-white">{myBattlePair?.resultLabel || '勝敗判定中'}</div>
-                <div className="mt-4 text-lg text-slate-300">
-                  {myBattlePair?.winnerId === socket.id ? 'このラウンドに勝利しました' : myBattlePair?.loserIds?.includes(socket.id) ? 'このラウンドに敗北しました' : 'このラウンドは待機でした'}
+              <div className="rounded-[2rem] border border-fuchsia-400/35 bg-[radial-gradient(circle_at_top,#4c1d95,#0f172a_62%)] p-6 text-center shadow-[0_0_50px_rgba(168,85,247,0.2)] md:p-8">
+                <div className="mb-2 text-sm font-black tracking-[0.35em] text-fuchsia-200">ROUND RESULT</div>
+                <div className="mb-5 text-4xl font-black text-white">{myBattlePair?.resultLabel || '勝敗判定中'}</div>
+                <div className={`grid items-center gap-4 ${myBattleOpponents.length >= 2 ? 'md:grid-cols-[1fr_auto_1fr_auto_1fr]' : 'md:grid-cols-[1fr_auto_1fr]'}`}>
+                  <div className={`rounded-[1.5rem] border p-4 ${myBattlePair?.winnerId === socket.id ? 'border-emerald-300 bg-emerald-500/12' : myBattlePair?.loserIds?.includes(socket.id) ? 'border-rose-300 bg-rose-500/12' : 'border-slate-700 bg-slate-950/50'}`}>
+                    <div className="mb-3 flex justify-center">
+                      <AvatarPreview avatar={me?.avatar} size={82} />
+                    </div>
+                    <div className="text-2xl font-black text-white">{playerName}</div>
+                    <div className={`mt-2 text-sm font-black ${myBattlePair?.winnerId === socket.id ? 'text-emerald-200' : myBattlePair?.loserIds?.includes(socket.id) ? 'text-rose-200' : 'text-slate-300'}`}>
+                      {myBattlePair?.winnerId === socket.id ? 'WINNER' : myBattlePair?.loserIds?.includes(socket.id) ? 'LOSE' : 'WAIT'}
+                    </div>
+                  </div>
+                  <div className="text-4xl font-black tracking-[0.18em] text-fuchsia-200 md:text-5xl">VS</div>
+                  <div className={`rounded-[1.5rem] border p-4 ${myBattlePair?.winnerId === myBattleOpponents[0]?.id ? 'border-emerald-300 bg-emerald-500/12' : myBattlePair?.loserIds?.includes(myBattleOpponents[0]?.id) ? 'border-rose-300 bg-rose-500/12' : 'border-slate-700 bg-slate-950/50'}`}>
+                    <div className="mb-3 flex justify-center">
+                      <AvatarPreview avatar={myBattleOpponents[0]?.avatar} size={82} />
+                    </div>
+                    <div className="text-2xl font-black text-white">{myBattleOpponents[0]?.name || 'WAIT'}</div>
+                    <div className={`mt-2 text-sm font-black ${myBattlePair?.winnerId === myBattleOpponents[0]?.id ? 'text-emerald-200' : myBattlePair?.loserIds?.includes(myBattleOpponents[0]?.id) ? 'text-rose-200' : 'text-slate-300'}`}>
+                      {myBattlePair?.winnerId === myBattleOpponents[0]?.id ? 'WINNER' : myBattlePair?.loserIds?.includes(myBattleOpponents[0]?.id) ? 'LOSE' : 'WAIT'}
+                    </div>
+                  </div>
+                  {myBattleOpponents.length >= 2 ? (
+                    <>
+                      <div className="text-4xl font-black tracking-[0.18em] text-amber-200 md:text-5xl">VS</div>
+                      <div className={`rounded-[1.5rem] border p-4 ${myBattlePair?.winnerId === myBattleOpponents[1]?.id ? 'border-emerald-300 bg-emerald-500/12' : myBattlePair?.loserIds?.includes(myBattleOpponents[1]?.id) ? 'border-rose-300 bg-rose-500/12' : 'border-slate-700 bg-slate-950/50'}`}>
+                        <div className="mb-3 flex justify-center">
+                          <AvatarPreview avatar={myBattleOpponents[1]?.avatar} size={82} />
+                        </div>
+                        <div className="text-2xl font-black text-white">{myBattleOpponents[1]?.name || 'WAIT'}</div>
+                        <div className={`mt-2 text-sm font-black ${myBattlePair?.winnerId === myBattleOpponents[1]?.id ? 'text-emerald-200' : myBattlePair?.loserIds?.includes(myBattleOpponents[1]?.id) ? 'text-rose-200' : 'text-slate-300'}`}>
+                          {myBattlePair?.winnerId === myBattleOpponents[1]?.id ? 'WINNER' : myBattlePair?.loserIds?.includes(myBattleOpponents[1]?.id) ? 'LOSE' : 'WAIT'}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
-                <div className="mt-3 text-sm text-slate-400">次の再マッチへ進みます...</div>
+                <div className="mt-5 text-sm font-bold tracking-[0.2em] text-fuchsia-100/75">NEXT MATCH IS COMING...</div>
               </div>
             ) : question ? (
               <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
@@ -538,22 +655,30 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
-                    {question.options.map((opt: string, i: number) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          setSelectedAnswerIndex(i);
-                          socket.emit('submitAnswer', { roomId, answerIndex: i });
-                        }}
-                        disabled={answerResult !== null}
-                        className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
-                        style={{ backgroundColor: optionColors[i % 4] }}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        {question.options.map((opt: string, i: number) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setSelectedAnswerIndex(i);
+                              if (quizVariant === 'battle_royale') {
+                                setBattleAnswerSubmitted(true);
+                              }
+                              socket.emit('submitAnswer', { roomId, answerIndex: i });
+                            }}
+                            disabled={answerResult !== null || (quizVariant === 'battle_royale' && (battleAnswerSubmitted || myBattleAnswered))}
+                            className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                            style={{ backgroundColor: optionColors[i % 4] }}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {quizVariant === 'battle_royale' && (battleAnswerSubmitted || myBattleAnswered) ? (
+                      <div className="mt-4 rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/10 px-4 py-3 text-center text-sm font-bold text-fuchsia-100">
+                        回答を送信しました。ほかの参加者の回答を待っています。
+                      </div>
+                    ) : null}
                 {!answerResult && correctAnswerText ? (
                   <div className="mt-5 rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-3 text-center text-base font-bold text-emerald-100 md:text-lg">
                     正解は <span className="text-emerald-300">{correctAnswerText}</span> です
@@ -690,6 +815,112 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                     {answerResult === true ? (
                       <div className="rounded-2xl border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-center text-sm font-bold text-cyan-100">
                         正解。爆弾を1個補充しました。
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-slate-400">問題を準備しています...</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (isDodgeMode) {
+      return (
+        <div className="h-screen overflow-hidden bg-slate-900 text-white">
+          <div className="mx-auto flex h-full max-w-7xl flex-col gap-2 p-2 md:p-3">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800 p-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <AvatarPreview avatar={me?.avatar} size={38} />
+                  <div>
+                    <div className="text-lg font-bold md:text-xl">{playerName}</div>
+                    <div className="text-xs text-slate-400">クイズドッジ</div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">ボール: <span className="font-bold text-cyan-300">{me?.dodgeBallStock || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{me?.kills || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">被弾: <span className="font-bold text-rose-300">{me?.deaths || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">正答: <span className="font-bold text-amber-300">{me?.correctAnswers || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">スコア: <span className="font-bold text-yellow-300">{calculateGameScore(roomState?.gameType, me || {})}</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,40vh)] lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-1">
+              <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">
+                <DodgeGame
+                  me={me}
+                  players={roomState.players}
+                  dodgeState={roomState.dodgeState}
+                  onSetMove={(direction) => socket.emit('setDodgeMove', { roomId, direction })}
+                  onThrow={() => socket.emit('throwDodgeBall', { roomId })}
+                />
+              </div>
+              <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">
+                {!me?.alive ? (
+                  <div className="mb-3 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-3 text-center">
+                    <div className="text-xl font-black text-rose-300">OUT!</div>
+                    <div className="mt-1 text-xs text-rose-100">少し待つとコートへ戻ります。</div>
+                  </div>
+                ) : null}
+                {question ? (
+                  <div className="flex h-full min-h-0 flex-col gap-3">
+                    <div className="rounded-2xl bg-slate-900/50 p-3">
+                      <div className="mb-2 text-[11px] font-bold text-slate-400">正解するとボールを1個補充</div>
+                      <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text}</h2>
+                    </div>
+                    {question.visual ? <ProblemVisual visual={question.visual} /> : null}
+                    {(question.audioPrompt || question.speechPrompt) && (
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {question.audioPrompt && (
+                          <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-3 py-2 text-sm font-bold text-white hover:bg-sky-500">
+                            音声を再生
+                          </button>
+                        )}
+                        {question.speechPrompt && (
+                          <div className="flex flex-col items-center gap-2">
+                            <button onClick={startSpeechRecognition} disabled={!speechSupported || isListening} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600">
+                              {isListening ? '聞き取り中...' : (question.speechPrompt.buttonLabel || '話して答える')}
+                            </button>
+                            {speechTranscript ? <div className="text-sm text-emerald-200">認識結果: {speechTranscript}</div> : null}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {question.speechPrompt?.freeResponse ? (
+                      <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center text-base text-emerald-100">
+                        この問題は音声回答タイプです。上のボタンから話して答えてください。
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {question.options.map((opt: string, i: number) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setSelectedAnswerIndex(i);
+                              submitAnswer({ answerIndex: i });
+                            }}
+                            disabled={answerResult !== null}
+                            className={`rounded-2xl p-3 text-base font-bold shadow-lg transition-transform md:text-lg ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                            style={{ backgroundColor: optionColors[i % 4] }}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {answerResult === false && correctAnswerText ? (
+                      <div className="rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center text-sm font-bold text-emerald-100">
+                        正解は <span className="text-emerald-300">{correctAnswerText}</span> です
+                      </div>
+                    ) : null}
+                    {answerResult === true ? (
+                      <div className="rounded-2xl border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-center text-sm font-bold text-cyan-100">
+                        正解。ボールを1個補充しました。
                       </div>
                     ) : null}
                   </div>

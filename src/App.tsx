@@ -16,6 +16,7 @@ import { AvatarConfig } from './avatar';
 const getGameTitle = (gameType: string) => {
   if (gameType === 'golf') return 'ゴルフゲーム';
   if (gameType === 'quiz') return 'クイズモード';
+  if (gameType === 'dodge') return 'クイズドッジ';
   if (gameType === 'bomber') return 'クイズボンバー';
   if (gameType === 'team_bomber') return 'チームボンバー';
   if (gameType === 'color_bomber') return 'カラーボンバー';
