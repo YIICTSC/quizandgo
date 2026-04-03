@@ -18,6 +18,34 @@ const SUBJECT_LABELS: Record<string, string> = {
   map: '地図',
 };
 
+const QUIZ_VARIANTS = [
+  {
+    id: 'classic',
+    title: 'クラシック',
+    description: '通常のクイズモードです。正答ごとに100点ずつ加算されます。',
+  },
+  {
+    id: 'combo',
+    title: 'コンボクイズ',
+    description: '連続正解でコンボが伸び、後半ほど高得点になります。不正解でコンボはリセットです。',
+  },
+  {
+    id: 'speed',
+    title: '早押しポイント',
+    description: '早く答えるほど高得点です。最速回答タイムも記録されます。',
+  },
+  {
+    id: 'team_battle',
+    title: 'チームクイズバトル',
+    description: 'ランダムチームに分かれて、チーム合計スコアで競います。',
+  },
+  {
+    id: 'boss',
+    title: 'ボスクイズ',
+    description: '全員でボスHPを削る協力戦です。正解すると大きなダメージを与えます。',
+  },
+] as const;
+
 const getGradeLabel = (grade: string) => {
   const n = parseInt(grade.replace('g', ''), 10);
   if (n >= 1 && n <= 6) return `小${n}`;
@@ -53,6 +81,7 @@ export default function HostScreen({
 }) {
   const [roomState, setRoomState] = useState<any>(null);
   const [selectedMode, setSelectedMode] = useState<string>('mix');
+  const [quizVariant, setQuizVariant] = useState<string>('classic');
   const [inputMinutes, setInputMinutes] = useState<string>('5'); // Default 5 minutes
   const [shotsPerQuestion, setShotsPerQuestion] = useState<number>(3);
   const [teamMode, setTeamMode] = useState(false);
@@ -178,6 +207,7 @@ export default function HostScreen({
   const selectedQuestionCount = units
     .filter((u) => selectedUnits.includes(u.unit))
     .reduce((total, unit) => total + unit.questions.length, 0);
+  const selectedQuizVariant = QUIZ_VARIANTS.find((variant) => variant.id === quizVariant) || QUIZ_VARIANTS[0];
   
   // ランキング順にソート（スコアが高い順）
   const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
@@ -217,10 +247,13 @@ export default function HostScreen({
   }, [currentRoomState.teamCount, currentRoomState.teamNames, sortedPlayers, teamCount]);
   const requiresMorePlayersForTeams =
     !isSinglePlayer &&
-    (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') &&
+    (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'quiz') &&
     effectiveTeamMode &&
     players.length < teamCount;
-  const isTeamAggregateResults = !isSinglePlayer && (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && currentRoomState.teamMode;
+  const isTeamAggregateResults = !isSinglePlayer && (
+    ((resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && currentRoomState.teamMode)
+    || (resolvedGameType === 'quiz' && currentRoomState.quizVariant === 'team_battle' && currentRoomState.teamMode)
+  );
   const teamRankings = useMemo(() => {
     if (!isTeamAggregateResults) return [];
     return teamGroups
@@ -236,9 +269,11 @@ export default function HostScreen({
             acc.deaths += player.deaths || 0;
             acc.timeAliveMs += player.timeAliveMs || 0;
             acc.territoryCells += player.territoryCells || 0;
+            acc.quizPoints += player.quizPoints || 0;
+            acc.maxQuizCombo = Math.max(acc.maxQuizCombo, player.maxQuizCombo || 0);
             return acc;
           },
-          { holesCompleted: 0, totalStrokes: 0, correctAnswers: 0, kills: 0, blocksDestroyed: 0, deaths: 0, timeAliveMs: 0, territoryCells: 0 }
+          { holesCompleted: 0, totalStrokes: 0, correctAnswers: 0, kills: 0, blocksDestroyed: 0, deaths: 0, timeAliveMs: 0, territoryCells: 0, quizPoints: 0, maxQuizCombo: 0 }
         );
         return {
           teamId,
@@ -332,6 +367,7 @@ export default function HostScreen({
       teamMode: effectiveTeamMode,
       teamCount,
       bomberFriendlyFire,
+      quizVariant,
     });
   };
 
@@ -473,6 +509,50 @@ export default function HostScreen({
                     </div>
                   </div>
                 </div>
+
+                {resolvedGameType === 'quiz' && (
+                  <div className="mb-2 shrink-0 rounded-xl border border-amber-400/30 bg-amber-500/10 p-2.5">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-bold text-amber-100">クイズモードの遊び方</h3>
+                      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                        {selectedQuizVariant.title}
+                      </span>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                      {QUIZ_VARIANTS.map((variant) => (
+                        <button
+                          key={variant.id}
+                          onClick={() => setQuizVariant(variant.id)}
+                          className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                            quizVariant === variant.id
+                              ? 'border-amber-300 bg-amber-500/25 text-white'
+                              : 'border-slate-600 bg-slate-800/60 text-slate-200 hover:bg-slate-700'
+                          }`}
+                        >
+                          <div className="text-sm font-bold">{variant.title}</div>
+                          <div className="mt-1 text-[11px] leading-relaxed text-slate-300">{variant.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                    {quizVariant === 'team_battle' && !isSinglePlayer ? (
+                      <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/50 px-3 py-2">
+                        <span className="text-[11px] font-bold text-slate-300">チーム数</span>
+                        <select
+                          value={teamCount}
+                          onChange={(e) => setTeamCount(Number(e.target.value))}
+                          className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-amber-300 focus:outline-none"
+                        >
+                          {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[11px] font-bold text-slate-300">チーム</span>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
 
                 {selectedMode === 'custom' && (
                   <div className="mb-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-2.5 flex flex-col">
@@ -876,6 +956,8 @@ export default function HostScreen({
                                         ? `合計撃破 ${entry.teamStats.kills} / 合計破壊 ${entry.teamStats.blocksDestroyed}`
                                         : resolvedGameType === 'color_bomber'
                                           ? `合計色面積 ${entry.teamStats.territoryCells} / 合計正答 ${entry.teamStats.correctAnswers}`
+                                          : resolvedGameType === 'quiz'
+                                            ? `合計スコア ${entry.teamStats.quizPoints || entry.teamScore} / 合計正答 ${entry.teamStats.correctAnswers}`
                                           : `合計打数 ${entry.teamStats.totalStrokes}`}
                                     </div>
                                   ) : null}
@@ -982,6 +1064,21 @@ export default function HostScreen({
                             <div>
                               <div className="text-xs text-slate-400">合計正答</div>
                               <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                            </div>
+                          </>
+                        ) : resolvedGameType === 'quiz' ? (
+                          <>
+                            <div>
+                              <div className="text-xs text-slate-400">合計スコア</div>
+                              <div className="font-mono text-base font-bold text-yellow-300 md:text-lg">{team.teamStats.quizPoints || team.teamScore}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">合計正答</div>
+                              <div className="font-mono text-base font-bold text-cyan-300 md:text-lg">{team.teamStats.correctAnswers}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">最大コンボ</div>
+                              <div className="font-mono text-base font-bold text-emerald-300 md:text-lg">{team.teamStats.maxQuizCombo || 0}</div>
                             </div>
                           </>
                         ) : (

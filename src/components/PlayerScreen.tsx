@@ -60,6 +60,13 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
   const previousAliveRef = useRef<boolean | null>(null);
   const isQuizMode = roomState?.gameType === 'quiz';
   const isBomberMode = isBomberGameType(roomState?.gameType);
+  const quizVariant = roomState?.quizVariant || 'classic';
+  const quizVariantLabel =
+    quizVariant === 'combo' ? 'コンボクイズ' :
+    quizVariant === 'speed' ? '早押しポイント' :
+    quizVariant === 'team_battle' ? 'チームクイズバトル' :
+    quizVariant === 'boss' ? 'ボスクイズ' :
+    'クラシック';
   const isTeamBomberMode = roomState?.gameType === 'team_bomber';
   const isColorBomberMode = roomState?.gameType === 'color_bomber';
   const hasBomberTeams = isTeamBomberMode || (isColorBomberMode && roomState?.teamMode);
@@ -409,7 +416,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-xl font-bold">{playerName}</div>
-                <div className="text-sm text-slate-400">クイズモード</div>
+                <div className="text-sm text-slate-400">クイズモード / {quizVariantLabel}</div>
               </div>
               <div className="flex gap-2">
                 <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
@@ -417,6 +424,20 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                 <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-mono">スコア: <span className="font-bold text-yellow-300">{calculateGameScore('quiz', me || {})}</span></div>
               </div>
             </div>
+            {quizVariant === 'boss' ? (
+              <div className="mb-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 p-3">
+                <div className="mb-2 flex items-center justify-between text-sm font-bold text-rose-100">
+                  <span>ボスHP</span>
+                  <span>{roomState?.bossHp || 0} / {roomState?.bossMaxHp || 0}</span>
+                </div>
+                <div className="h-4 overflow-hidden rounded-full bg-slate-900/60">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-rose-500 to-orange-400 transition-all duration-300"
+                    style={{ width: `${roomState?.bossMaxHp ? ((roomState?.bossHp || 0) / roomState.bossMaxHp) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
             {question ? (
               <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
                 <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>

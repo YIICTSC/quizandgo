@@ -2,6 +2,10 @@ export type ScorePlayerLike = {
   holesCompleted?: number;
   totalStrokes?: number;
   correctAnswers?: number;
+  quizPoints?: number;
+  quizCombo?: number;
+  maxQuizCombo?: number;
+  fastestAnswerMs?: number | null;
   kills?: number;
   blocksDestroyed?: number;
   deaths?: number;
@@ -18,6 +22,9 @@ export const calculateGolfScore = (player: ScorePlayerLike) => {
 };
 
 export const calculateQuizScore = (player: ScorePlayerLike) => {
+  if (typeof player.quizPoints === 'number') {
+    return player.quizPoints;
+  }
   const correctAnswers = player.correctAnswers || 0;
   return correctAnswers * 100;
 };

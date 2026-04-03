@@ -132,6 +132,44 @@ export default function AvatarPreview({
           <path d="M41 54 C47 44 55 42 62 51 C69 42 78 43 87 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
         </>
       ) : null}
+      {config.hairType === 'centerpart' ? (
+        <>
+          <path d="M32 54 C36 20 92 20 96 54 C88 49 82 48 74 50 C70 39 66 36 64 36 C62 36 58 39 54 50 C46 48 40 49 32 54 Z" fill={config.accentColor} />
+          <path d="M64 36 L64 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" opacity="0.92" />
+        </>
+      ) : null}
+      {config.hairType === 'upbang' ? (
+        <>
+          <path d="M34 58 C40 23 88 22 95 56 C86 45 75 39 64 40 C53 39 42 44 34 58 Z" fill={config.accentColor} />
+          <path d="M44 50 L55 36 L60 50" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
+          <path d="M68 50 L76 34 L83 49" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
+        </>
+      ) : null}
+      {config.hairType === 'mash' ? (
+        <>
+          <path d="M29 55 C34 22 94 22 99 55 C92 52 85 53 79 55 C73 46 55 46 49 55 C42 53 35 52 29 55 Z" fill={config.accentColor} />
+          <path d="M40 56 C49 47 58 45 64 54 C69 45 79 46 88 56" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
+        </>
+      ) : null}
+      {config.hairType === 'slick' ? (
+        <>
+          <path d="M35 57 C38 27 88 22 96 48 C87 44 79 42 70 42 C58 42 47 46 35 57 Z" fill={config.accentColor} />
+          <path d="M44 45 C56 34 71 33 87 39" stroke={config.skinColor} strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.75" />
+        </>
+      ) : null}
+      {config.hairType === 'wolf' ? (
+        <>
+          <path d="M31 54 C36 20 92 20 97 54 L89 74 L80 66 L72 76 L64 66 L56 76 L47 66 L39 74 Z" fill={config.accentColor} />
+          <path d="M41 54 C49 46 57 44 63 53 C69 44 78 45 87 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.86" />
+        </>
+      ) : null}
+      {config.hairType === 'twoblock' ? (
+        <>
+          <path d="M39 56 C43 24 91 23 94 54 C84 47 76 45 68 46 C60 46 51 49 39 56 Z" fill={config.accentColor} />
+          <path d="M33 56 C34 45 36 39 39 35" stroke={config.skinColor} strokeWidth="4" strokeLinecap="round" opacity="0.7" />
+          <path d="M95 55 C94 45 92 39 89 35" stroke={config.skinColor} strokeWidth="4" strokeLinecap="round" opacity="0.7" />
+        </>
+      ) : null}
 
       {config.eyeType === 'dot' ? (
         <>
