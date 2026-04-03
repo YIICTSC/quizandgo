@@ -11,6 +11,7 @@ import PlayerScreen from './components/PlayerScreen';
 import SinglePlayScreen from './components/SinglePlayScreen';
 import SingleQuizScreen from './components/SingleQuizScreen';
 import SingleBomberScreen from './components/SingleBomberScreen';
+import { AvatarConfig } from './avatar';
 
 const getGameTitle = (gameType: string) => {
   if (gameType === 'golf') return 'ゴルフゲーム';
@@ -130,10 +131,10 @@ export default function App() {
 
   return (
     <Home 
-      onJoin={(id, name) => {
+      onJoin={(id, name, avatar: AvatarConfig) => {
         setPlayerName(name);
         setRole('player');
-        socket.emit('joinRoom', { roomId: id, name });
+        socket.emit('joinRoom', { roomId: id, name, avatar });
       }}
       onCreate={(gameType) => {
         setSelectedGameType(gameType);

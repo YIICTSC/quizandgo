@@ -4,6 +4,7 @@ import { startBGM, stopBGM } from '../lib/sound';
 import { calculateGameScore } from '../lib/scoring';
 import { getAllUnits, SubjectUnit } from '../subjects';
 import { getSubjectUnitDisplayName } from '../subjects/unit-display-name-map';
+import AvatarPreview from './AvatarPreview';
 
 const SUBJECT_LABELS: Record<string, string> = {
   math: '算数・数学',
@@ -59,6 +60,7 @@ export default function HostScreen({
   const [bomberFriendlyFire, setBomberFriendlyFire] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
+  const [showPinOverlay, setShowPinOverlay] = useState(false);
 
   const isSinglePlayer = mode === 'single';
   const allUnits = useMemo(() => getAllUnits(), []);
@@ -359,7 +361,7 @@ export default function HostScreen({
           <div className="space-y-2">
             {members.length > 0 ? members.map((player: any) => (
               <div key={player.id} className="flex items-center gap-3 rounded-xl bg-slate-800/80 px-3 py-2">
-                <div className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: player.color || 'white' }} />
+                <AvatarPreview avatar={player.avatar} size={34} className="shrink-0" />
                 <span className="truncate font-bold text-white">{player.name}</span>
               </div>
             )) : (
@@ -385,10 +387,13 @@ export default function HostScreen({
         <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold md:text-3xl">{isSinglePlayer ? 'Quiz & Go! シングル設定' : 'Quiz & Go! ホスト画面'}</h1>
           {!isSinglePlayer && (
-            <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 md:px-6 md:py-3">
+            <button
+              onClick={() => setShowPinOverlay(true)}
+              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-left transition-colors hover:bg-slate-700 md:px-6 md:py-3"
+            >
               <span className="mr-3 text-sm text-slate-400 md:text-lg">ゲームPIN:</span>
               <span className="text-2xl font-mono font-bold tracking-widest text-green-400 md:text-4xl">{roomId}</span>
-            </div>
+            </button>
           )}
         </div>
 
@@ -736,8 +741,20 @@ export default function HostScreen({
                 </div>
 
                 <p className="text-center text-slate-400 text-lg">
-                  このPINで途中参加できます: <span className="font-bold text-white">{roomId}</span>
+                  このPINで途中参加できます:{' '}
+                  <button
+                    onClick={() => setShowPinOverlay(true)}
+                    className="font-bold text-white underline decoration-dotted underline-offset-4 hover:text-green-300"
+                  >
+                    {roomId}
+                  </button>
                 </p>
+                <button
+                  onClick={() => socket.emit('endGameEarly', { roomId })}
+                  className="mt-8 rounded-xl border border-rose-300/40 bg-rose-500/15 px-6 py-3 text-base font-bold text-rose-100 transition-colors hover:bg-rose-500/25"
+                >
+                  早期終了して結果発表へ
+                </button>
               </div>
             )}
 
@@ -776,10 +793,7 @@ export default function HostScreen({
                                 <div className="text-3xl font-black md:text-4xl">{rank}位</div>
                                 {!isTeamAggregateResults && (
                                   <div className="mt-2 flex justify-center">
-                                    <div
-                                      className="h-4 w-4 rounded-full border border-white/30"
-                                      style={{ backgroundColor: entry.color || 'white' }}
-                                    />
+                                    <AvatarPreview avatar={entry.avatar} size={42} />
                                   </div>
                                 )}
                               </div>
@@ -977,7 +991,7 @@ export default function HostScreen({
                         {currentRoomState.state === 'playing' && (
                           <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
                         )}
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color || 'white' }}></div>
+                        <AvatarPreview avatar={p.avatar} size={36} className="shrink-0" />
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="truncate font-bold text-base md:text-lg">{p.name}</span>
@@ -1057,6 +1071,22 @@ export default function HostScreen({
           )}
         </div>
       </div>
+
+      {!isSinglePlayer && showPinOverlay ? (
+        <button
+          onClick={() => setShowPinOverlay(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/92 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-5xl rounded-[2rem] border border-green-400/30 bg-slate-900 p-8 text-center shadow-[0_0_60px_rgba(34,197,94,0.18)] md:p-12">
+            <div className="text-lg font-bold tracking-[0.35em] text-slate-400 md:text-2xl">GAME PIN</div>
+            <div className="mt-6 font-mono text-[4.5rem] font-black tracking-[0.18em] text-green-400 md:text-[9rem]">
+              {roomId}
+            </div>
+            <div className="mt-6 text-base text-slate-300 md:text-2xl">参加者にこのPINを見せてください</div>
+            <div className="mt-4 text-sm text-slate-500 md:text-base">画面をクリックすると閉じます</div>
+          </div>
+        </button>
+      ) : null}
     </div>
   );
 }

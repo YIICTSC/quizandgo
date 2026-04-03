@@ -9,6 +9,7 @@ import ItemSlots from './ItemSlots';
 import ItemRewardOverlay from './ItemRewardOverlay';
 import { GameItemId } from '../gameItems';
 import BomberGame from './BomberGame';
+import AvatarPreview from './AvatarPreview';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -284,7 +285,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
         <h1 className="text-4xl font-bold mb-8">参加完了！</h1>
         <p className="text-2xl text-slate-400 mb-12">ホストの開始を待っています...</p>
-        <div className="bg-slate-800 px-12 py-6 rounded-2xl border border-slate-700 shadow-2xl">
+        <div className="bg-slate-800 px-12 py-6 rounded-2xl border border-slate-700 shadow-2xl flex items-center gap-4">
+          <AvatarPreview avatar={me?.avatar} size={72} />
           <span className="text-3xl font-bold" style={{ color: me?.color || 'white' }}>{playerName}</span>
         </div>
       </div>
@@ -309,7 +311,7 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
             <div className="grid gap-3 md:grid-cols-2">
               {teammates.map((player: any) => (
                 <div key={player.id} className="flex items-center gap-3 rounded-xl bg-slate-800 px-4 py-3">
-                  <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: player.color || 'white' }} />
+                  <AvatarPreview avatar={player.avatar} size={36} />
                   <span className="font-bold">{player.name}</span>
                 </div>
               ))}
@@ -327,6 +329,9 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
         <p className="text-2xl text-slate-300 mb-12">最終結果はホスト画面で確認してください。</p>
         <div className="bg-slate-800 px-12 py-8 rounded-2xl border border-slate-700 shadow-2xl text-center">
           <div className="text-xl text-slate-400 mb-2">あなたの成績</div>
+          <div className="mb-4 flex justify-center">
+            <AvatarPreview avatar={me?.avatar} size={88} />
+          </div>
           <div className="text-4xl font-bold mb-4" style={{ color: me?.color || 'white' }}>{playerName}</div>
           <div className="mx-auto mb-6 inline-flex rounded-full border border-yellow-400/40 bg-yellow-500/15 px-6 py-3 text-xl font-black text-yellow-200">
             {myRank}位
@@ -432,16 +437,16 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
             <div className="rounded-2xl border border-slate-700 bg-slate-800 p-2.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-6 w-6 rounded-full" style={{ backgroundColor: me?.color || 'white' }} />
-                    <div>
-                      <div className="text-lg font-bold md:text-xl">{playerName}</div>
-                      <div className="text-xs text-slate-400">
-                        {isTeamBomberMode ? 'チームボンバー' : isColorBomberMode ? 'カラーボンバー' : 'クイズボンバー'}
-                      </div>
-                      {hasBomberTeams && myTeamName ? (
-                        <div className="mt-1 text-[11px] font-bold text-cyan-200">{myTeamName}</div>
-                      ) : null}
+                  <AvatarPreview avatar={me?.avatar} size={38} />
+                  <div>
+                    <div className="text-lg font-bold md:text-xl">{playerName}</div>
+                    <div className="text-xs text-slate-400">
+                      {isTeamBomberMode ? 'チームボンバー' : isColorBomberMode ? 'カラーボンバー' : 'クイズボンバー'}
                     </div>
+                    {hasBomberTeams && myTeamName ? (
+                      <div className="mt-1 text-[11px] font-bold text-cyan-200">{myTeamName}</div>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
