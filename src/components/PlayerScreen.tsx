@@ -299,6 +299,14 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     socket.emit('updateAvatar', { roomId, avatar: normalized });
   }, [roomId]);
 
+  const handleDodgeMove = useCallback((direction: 'up' | 'down' | 'left' | 'right' | null) => {
+    socket.emit('setDodgeMove', { roomId, direction });
+  }, [roomId]);
+
+  const handleDodgeThrow = useCallback(() => {
+    socket.emit('throwDodgeBall', { roomId });
+  }, [roomId]);
+
   if (!roomState) {
     return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">読み込み中...</div>;
   }
@@ -856,8 +864,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
                   me={me}
                   players={roomState.players}
                   dodgeState={roomState.dodgeState}
-                  onSetMove={(direction) => socket.emit('setDodgeMove', { roomId, direction })}
-                  onThrow={() => socket.emit('throwDodgeBall', { roomId })}
+                  onSetMove={handleDodgeMove}
+                  onThrow={handleDodgeThrow}
                 />
               </div>
               <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">

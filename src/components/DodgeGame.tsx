@@ -37,6 +37,8 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const activeDirectionRef = useRef<DodgeDirection | null>(null);
+  const onSetMoveRef = useRef(onSetMove);
+  const onThrowRef = useRef(onThrow);
   const [displayPositions, setDisplayPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const width = dodgeState?.width || 960;
@@ -44,9 +46,14 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
   const playerRadius = dodgeState?.playerRadius || 22;
   const aspect = width / height;
 
+  useEffect(() => {
+    onSetMoveRef.current = onSetMove;
+    onThrowRef.current = onThrow;
+  }, [onSetMove, onThrow]);
+
   const setMove = (direction: DodgeDirection | null) => {
     activeDirectionRef.current = direction;
-    onSetMove?.(direction);
+    onSetMoveRef.current?.(direction);
   };
 
   useEffect(() => {
@@ -138,7 +145,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
   }, [me?.id, playerRadius, players, readOnly, width, height]);
 
   useEffect(() => {
-    if (readOnly || !onSetMove || !onThrow) return;
+    if (readOnly || !onSetMoveRef.current || !onThrowRef.current) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (['ArrowUp', 'w', 'W'].includes(event.key)) {
@@ -155,7 +162,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
         if (activeDirectionRef.current !== 'right') setMove('right');
       } else if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
-        onThrow();
+        onThrowRef.current?.();
       }
     };
 
@@ -181,7 +188,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
       window.removeEventListener('blur', stopAll);
       setMove(null);
     };
-  }, [onSetMove, onThrow, readOnly]);
+  }, [readOnly]);
 
   if (!dodgeState) {
     return <div className="flex h-full items-center justify-center text-slate-400">コートを準備しています...</div>;
