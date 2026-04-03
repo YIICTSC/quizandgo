@@ -30,6 +30,7 @@ interface Player {
   quizLives: number;
   battleRoyaleWins: number;
   currentBattlePairId?: string | null;
+  currentBattlePairIds?: string[];
   canShoot: boolean;
   x: number;
   y: number;
@@ -63,6 +64,11 @@ interface Player {
   lastBroadcastX?: number;
   lastBroadcastY?: number;
   lastBroadcastAt?: number;
+  dodgeBallStock: number;
+  dodgeFacing: 'up' | 'down' | 'left' | 'right';
+  dodgeMoveDirection: 'up' | 'down' | 'left' | 'right' | null;
+  dodgeInvulnerableUntil: number | null;
+  lastDodgeThrowAt?: number;
 }
 
 type BomberCell = 'solid' | 'breakable' | 'floor';
@@ -105,6 +111,24 @@ interface BomberState {
   cellOwners: (string | null)[][];
 }
 
+interface DodgeBall {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  expiresAt: number;
+}
+
+interface DodgeState {
+  width: number;
+  height: number;
+  playerRadius: number;
+  balls: DodgeBall[];
+}
+
 interface Room {
   id: string;
   hostId: string;
@@ -121,6 +145,7 @@ interface Room {
   teamNames?: Record<number, string>;
   bomberFriendlyFire?: boolean;
   bomberState?: BomberState | null;
+  dodgeState?: DodgeState | null;
   quizVariant?: 'classic' | 'combo' | 'speed' | 'team_battle' | 'boss' | 'battle_royale';
   bossHp?: number;
   bossMaxHp?: number;
@@ -131,12 +156,13 @@ interface Room {
   quizBattlePairs?: {
     id: string;
     playerIds: string[];
+    primaryPlayerId?: string | null;
     winnerId: string | null;
     loserIds: string[];
     resolved: boolean;
     question?: any;
     answerCounts?: number[];
-    answers?: Record<string, number | null>;
+    answers?: Record<string, { answerIndex: number | null; answeredAt: number; correct: boolean }>;
     resultLabel?: string;
   }[];
 }
@@ -153,11 +179,21 @@ const BOMBER_MAX_FIRE_LEVEL = 4;
 const BOMBER_MAX_SPEED_LEVEL = 3;
 const BOMBER_ITEM_POOL: BomberItemId[] = ['fire_up', 'kick_bomb', 'shield', 'remote_bomb', 'pierce_fire', 'speed_up'];
 const BOMBER_GAME_TYPES = new Set(['bomber', 'team_bomber', 'color_bomber']);
+const DODGE_WIDTH = 960;
+const DODGE_HEIGHT = 540;
+const DODGE_PLAYER_RADIUS = 22;
+const DODGE_BALL_RADIUS = 11;
+const DODGE_MOVE_SPEED = 300;
+const DODGE_BALL_SPEED = 560;
+const DODGE_THROW_COOLDOWN_MS = 360;
+const DODGE_BALL_LIFETIME_MS = 1700;
+const DODGE_RESPAWN_MS = 2200;
 
 const randomBomberItemId = (): BomberItemId => BOMBER_ITEM_POOL[Math.floor(Math.random() * BOMBER_ITEM_POOL.length)];
 const isBomberGameType = (gameType?: string) => BOMBER_GAME_TYPES.has(gameType || '');
 const isTeamBomberGameType = (gameType?: string) => gameType === 'team_bomber';
 const isColorBomberGameType = (gameType?: string) => gameType === 'color_bomber';
+const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
 const roomUsesTeams = (room: Room) =>
   room.gameType === 'golf' ||
   room.gameType === 'team_bomber' ||
@@ -437,6 +473,97 @@ const buildExplosionCells = (room: Room, originX: number, originY: number, range
   return cells;
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const getDodgeSpawnPoints = (playerCount: number) => {
+  const cols = Math.max(2, Math.ceil(Math.sqrt(playerCount * (16 / 9))));
+  const rows = Math.max(2, Math.ceil(playerCount / cols));
+  const marginX = 90;
+  const marginY = 70;
+  const usableWidth = DODGE_WIDTH - marginX * 2;
+  const usableHeight = DODGE_HEIGHT - marginY * 2;
+  const points: { x: number; y: number }[] = [];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      points.push({
+        x: marginX + (usableWidth * (col + 0.5)) / cols,
+        y: marginY + (usableHeight * (row + 0.5)) / rows,
+      });
+    }
+  }
+
+  return points;
+};
+
+const assignDodgeSpawnPositions = (players: Player[]) => {
+  const points = getDodgeSpawnPoints(players.length || 1).sort(() => Math.random() - 0.5);
+  players.forEach((player, index) => {
+    const point = points[index] || { x: DODGE_WIDTH / 2, y: DODGE_HEIGHT / 2 };
+    player.x = point.x;
+    player.y = point.y;
+    player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
+    player.dodgeMoveDirection = null;
+    player.dodgeInvulnerableUntil = Date.now() + 800;
+  });
+};
+
+const createDodgeState = (players: Player[]): DodgeState => {
+  assignDodgeSpawnPositions(players);
+  return {
+    width: DODGE_WIDTH,
+    height: DODGE_HEIGHT,
+    playerRadius: DODGE_PLAYER_RADIUS,
+    balls: [],
+  };
+};
+
+const respawnDodgePlayer = (room: Room, player: Player) => {
+  if (!room.dodgeState) return;
+  const others = Object.values(room.players).filter((candidate) => candidate.id !== player.id);
+  const points = getDodgeSpawnPoints(Math.max(others.length + 1, 1));
+  const occupied = others.map((candidate) => ({ x: candidate.x, y: candidate.y }));
+  const point = points.find((candidate) =>
+    occupied.every((used) => Math.hypot(candidate.x - used.x, candidate.y - used.y) > DODGE_PLAYER_RADIUS * 4)
+  ) || points[Math.floor(Math.random() * points.length)] || { x: DODGE_WIDTH / 2, y: DODGE_HEIGHT / 2 };
+
+  player.x = point.x;
+  player.y = point.y;
+  player.alive = true;
+  player.respawnAt = null;
+  player.dodgeMoveDirection = null;
+  player.dodgeInvulnerableUntil = Date.now() + 1200;
+  player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
+};
+
+const defeatDodgePlayer = (room: Room, player: Player, owner: Player | null, ballId: string, now: number) => {
+  if (!room.dodgeState || !player.alive) return;
+  player.alive = false;
+  player.respawnAt = now + DODGE_RESPAWN_MS;
+  player.deaths += 1;
+  player.dodgeMoveDirection = null;
+  player.dodgeInvulnerableUntil = null;
+  if (owner && owner.id !== player.id) {
+    owner.kills += 1;
+  }
+  room.dodgeState.balls = room.dodgeState.balls.filter((ball) => ball.id !== ballId);
+};
+
+const getDodgeMoveVector = (direction: Player['dodgeMoveDirection']) => {
+  switch (direction) {
+    case 'up':
+      return { x: 0, y: -1 };
+    case 'down':
+      return { x: 0, y: 1 };
+    case 'left':
+      return { x: -1, y: 0 };
+    case 'right':
+      return { x: 1, y: 0 };
+    default:
+      return { x: 0, y: 0 };
+  }
+};
+
 const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) => {
   player.holesCompleted = 0;
   player.totalStrokes = 0;
@@ -450,6 +577,7 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.quizLives = 0;
   player.battleRoyaleWins = 0;
   player.currentBattlePairId = null;
+  player.currentBattlePairIds = [];
   player.canShoot = false;
   player.x = 100;
   player.y = 100;
@@ -484,6 +612,11 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.lastBroadcastX = 100;
   player.lastBroadcastY = 100;
   player.lastBroadcastAt = 0;
+  player.dodgeBallStock = 0;
+  player.dodgeFacing = 'right';
+  player.dodgeMoveDirection = null;
+  player.dodgeInvulnerableUntil = null;
+  player.lastDodgeThrowAt = 0;
 };
 
 const emitPersonalQuestion = (io: Server, player: Player) => {
@@ -505,6 +638,14 @@ const pairBattleRoyalePlayers = (players: Player[]) => {
     return Math.random() - 0.5;
   });
   const pairs: Player[][] = [];
+  if (shuffled.length % 2 === 1 && shuffled.length >= 3) {
+    const strongest = shuffled.pop();
+    const weakest = shuffled.shift();
+    const secondWeakest = shuffled.shift();
+    if (strongest && weakest && secondWeakest) {
+      pairs.push([strongest, weakest, secondWeakest]);
+    }
+  }
   for (let index = 0; index < shuffled.length; index += 2) {
     pairs.push(shuffled.slice(index, index + 2));
   }
@@ -521,6 +662,54 @@ const buildBattleRoyaleQuestionPayload = (question: any) => question
       speechPrompt: question.speechPrompt,
     }
   : null;
+
+const resolveBattleRoyalePair = (room: Room, pair: NonNullable<Room['quizBattlePairs']>[number], reason: 'answered' | 'timeout') => {
+  if (pair.resolved) return;
+
+  const answerMap = pair.answers || {};
+  const players = pair.playerIds
+    .map((playerId) => ({
+      player: room.players[playerId],
+      answer: answerMap[playerId],
+    }))
+    .filter((entry) => entry.player);
+
+  const correctEntries = players
+    .filter((entry) => entry.answer?.correct)
+    .sort((a, b) => (a.answer!.answeredAt - b.answer!.answeredAt));
+
+  pair.resolved = true;
+
+  if (correctEntries.length > 0) {
+    const winner = correctEntries[0].player;
+    pair.winnerId = winner.id;
+    pair.loserIds = pair.playerIds.filter((playerId) => playerId !== winner.id);
+    winner.correctAnswers += 1;
+    winner.quizPoints += 180;
+    winner.battleRoyaleWins += 1;
+    pair.loserIds.forEach((loserId) => {
+      const loser = room.players[loserId];
+      if (!loser) return;
+      loser.quizLives -= 1;
+      loser.currentQuestion = undefined;
+    });
+    winner.currentQuestion = undefined;
+    pair.resultLabel = pair.playerIds.length >= 3
+      ? `${winner.name} が3人勝負を制した`
+      : `${winner.name} の勝利`;
+    return;
+  }
+
+  pair.winnerId = null;
+  pair.loserIds = [...pair.playerIds];
+  pair.playerIds.forEach((playerId) => {
+    const player = room.players[playerId];
+    if (!player) return;
+    player.quizLives -= 1;
+    player.currentQuestion = undefined;
+  });
+  pair.resultLabel = reason === 'timeout' ? '時間切れで全員敗北' : '全員不正解で敗北';
+};
 
 const assignRandomTeams = (room: Room, requestedTeamCount?: number) => {
   const players = Object.values(room.players);
@@ -562,6 +751,7 @@ const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questi
   room.questions = questions;
   room.shotsPerQuestion = room.shotsPerQuestion || 3;
   room.bomberState = null;
+  room.dodgeState = null;
   room.quizBattlePairs = [];
   room.quizBattleRound = 0;
   room.quizBattlePhase = undefined;
@@ -581,6 +771,9 @@ const prepareRoomForGame = (room: Room, mode: string, timeLimit?: number, questi
 
   if (isBomberGameType(room.gameType)) {
     room.bomberState = createBomberState(Object.values(room.players));
+  }
+  if (isDodgeGameType(room.gameType)) {
+    room.dodgeState = createDodgeState(Object.values(room.players));
   }
 };
 
@@ -626,15 +819,17 @@ const finalizeBattleRoyaleRoundIfNeeded = (io: Server, roomId: string) => {
   Object.values(room.players).forEach((player) => {
     player.currentQuestion = undefined;
     player.currentBattlePairId = null;
+    player.currentBattlePairIds = [];
   });
 
   const groups = pairBattleRoyalePlayers(Object.values(room.players));
   groups.forEach((group, index) => {
     const pairId = `battle-${nextRound}-${index}`;
-    const question = group.length === 2 ? getQuestionForRoom(room) : null;
+    const question = group.length >= 2 ? getQuestionForRoom(room) : null;
     room.quizBattlePairs?.push({
       id: pairId,
       playerIds: group.map((player) => player.id),
+      primaryPlayerId: group.length >= 3 ? group[0].id : null,
       winnerId: group.length === 1 ? group[0].id : null,
       loserIds: [],
       resolved: group.length === 1,
@@ -645,6 +840,7 @@ const finalizeBattleRoyaleRoundIfNeeded = (io: Server, roomId: string) => {
     });
     group.forEach((player) => {
       player.currentBattlePairId = pairId;
+      player.currentBattlePairIds = [pairId];
       player.currentQuestion = question || undefined;
     });
     if (group.length === 1) {
@@ -680,17 +876,8 @@ const finalizeBattleRoyaleRoundIfNeeded = (io: Server, roomId: string) => {
       if (timerRoom.timeRemaining <= 0) {
         clearInterval(battleTimer);
         (timerRoom.quizBattlePairs || []).forEach((pair) => {
-          if (pair.resolved || pair.playerIds.length !== 2) return;
-          pair.resolved = true;
-          pair.winnerId = null;
-          pair.loserIds = [...pair.playerIds];
-          pair.resultLabel = '時間切れで両者敗北';
-          pair.playerIds.forEach((playerId) => {
-            const player = timerRoom.players[playerId];
-            if (!player) return;
-            player.quizLives -= 1;
-            player.currentQuestion = undefined;
-          });
+          if (pair.resolved || pair.playerIds.length < 2) return;
+          resolveBattleRoyalePair(timerRoom, pair, 'timeout');
         });
         io.to(roomId).emit('roomStateUpdate', timerRoom);
         beginBattleRoyaleRevealPhase(io, roomId);
@@ -705,6 +892,7 @@ const resetRoomToWaiting = (room: Room) => {
   room.questions = undefined;
   room.teamNames = {};
   room.bomberState = null;
+  room.dodgeState = null;
   room.bossHp = undefined;
   room.bossMaxHp = undefined;
   Object.values(room.players).forEach((player) => resetPlayerState(player));
@@ -820,6 +1008,58 @@ const startBomberLoop = (io: Server, roomId: string) => {
   }, 100);
 };
 
+const startDodgeLoop = (io: Server, roomId: string) => {
+  const interval = setInterval(() => {
+    const room = rooms[roomId];
+    if (!room || room.state !== 'playing' || !isDodgeGameType(room.gameType) || !room.dodgeState) {
+      clearInterval(interval);
+      return;
+    }
+
+    const now = Date.now();
+    const dt = 0.1;
+    const { width, height, playerRadius } = room.dodgeState;
+
+    Object.values(room.players).forEach((player) => {
+      if (player.alive) {
+        player.timeAliveMs += 100;
+        const move = getDodgeMoveVector(player.dodgeMoveDirection);
+        player.x = clamp(player.x + move.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
+        player.y = clamp(player.y + move.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+      } else if (player.respawnAt && now >= player.respawnAt) {
+        respawnDodgePlayer(room, player);
+      }
+    });
+
+    room.dodgeState.balls = room.dodgeState.balls.filter((ball) => {
+      if (ball.expiresAt <= now) return false;
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+      if (
+        ball.x < -ball.radius ||
+        ball.x > width + ball.radius ||
+        ball.y < -ball.radius ||
+        ball.y > height + ball.radius
+      ) {
+        return false;
+      }
+
+      for (const player of Object.values(room.players)) {
+        if (!player.alive || player.id === ball.ownerId) continue;
+        if ((player.dodgeInvulnerableUntil || 0) > now) continue;
+        if (Math.hypot(player.x - ball.x, player.y - ball.y) <= playerRadius + ball.radius) {
+          defeatDodgePlayer(room, player, room.players[ball.ownerId] || null, ball.id, now);
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    io.to(roomId).emit('roomStateUpdate', room);
+  }, 100);
+};
+
 // 四則演算の問題を生成する関数
 const generateMathQuestion = (type: string) => {
   if (type === 'mix') {
@@ -929,6 +1169,7 @@ async function startServer() {
         teamNames: {},
         bomberFriendlyFire: false,
         bomberState: null,
+        dodgeState: null,
       };
       socket.join(roomId);
       socket.emit('roomCreated', roomId);
@@ -961,6 +1202,7 @@ async function startServer() {
           quizLives: 0,
           battleRoyaleWins: 0,
           currentBattlePairId: null,
+          currentBattlePairIds: [],
           canShoot: false,
           x: 100,
           y: 100,
@@ -993,6 +1235,11 @@ async function startServer() {
           lastBroadcastX: 100,
           lastBroadcastY: 100,
           lastBroadcastAt: 0,
+          dodgeBallStock: 0,
+          dodgeFacing: 'right',
+          dodgeMoveDirection: null,
+          dodgeInvulnerableUntil: null,
+          lastDodgeThrowAt: 0,
         };
         
         // If joining mid-game, generate an initial question for them
@@ -1025,6 +1272,16 @@ async function startServer() {
               moveSpeedLevel: 0,
               territoryCells: 0,
               lastBomberMoveAt: 0,
+            });
+          } else if (isDodgeGameType(room.gameType) && room.dodgeState) {
+            const tempPlayers = Object.values(room.players);
+            assignDodgeSpawnPositions(tempPlayers);
+            Object.assign(room.players[socket.id], {
+              alive: true,
+              respawnAt: null,
+              dodgeBallStock: 0,
+              dodgeMoveDirection: null,
+              dodgeInvulnerableUntil: Date.now() + 1200,
             });
           }
           room.players[socket.id].currentQuestion = getQuestionForRoom(room);
@@ -1084,6 +1341,8 @@ async function startServer() {
         startRoomTimer(io, roomId);
         if (isBomberGameType(room.gameType)) {
           startBomberLoop(io, roomId);
+        } else if (isDodgeGameType(room.gameType)) {
+          startDodgeLoop(io, roomId);
         }
       }
     });
@@ -1106,6 +1365,8 @@ async function startServer() {
       startRoomTimer(io, roomId);
       if (isBomberGameType(room.gameType)) {
         startBomberLoop(io, roomId);
+      } else if (isDodgeGameType(room.gameType)) {
+        startDodgeLoop(io, roomId);
       }
     });
 
@@ -1163,67 +1424,34 @@ async function startServer() {
             callback?.({ ok: false });
             return;
           }
+          pair.answers = pair.answers || {};
+          if (pair.answers[player.id]) {
+            callback?.({ ok: true, locked: true });
+            return;
+          }
           if (typeof answerIndex === 'number') {
             pair.answerCounts = pair.answerCounts || currentQuestion.options.map(() => 0);
-            pair.answers = pair.answers || {};
             pair.answerCounts[answerIndex] = (pair.answerCounts[answerIndex] || 0) + 1;
-            pair.answers[player.id] = answerIndex;
-          }
-          const opponentId = pair.playerIds.find((id) => id !== player.id) || null;
-          const opponent = opponentId ? room.players[opponentId] : null;
-          if (isCorrect) {
-            player.correctAnswers += 1;
-            player.quizPoints += 180;
-            player.battleRoyaleWins += 1;
-            pair.resolved = true;
-            pair.winnerId = player.id;
-            pair.loserIds = opponent ? [opponent.id] : [];
-            pair.resultLabel = opponent ? `${player.name} の勝利` : `${player.name} の不戦勝`;
-            player.currentQuestion = undefined;
-            if (opponent) {
-              opponent.quizLives -= 1;
-              opponent.currentQuestion = undefined;
-              io.to(opponent.id).emit('answerResult', {
-                correct: false,
-                correctIndex: currentQuestion.correctIndex,
-                correctText: currentQuestion.correctText,
-              });
-            }
-            socket.emit('answerResult', {
-              correct: true,
-              correctIndex: currentQuestion.correctIndex,
-              correctText: currentQuestion.correctText,
-            });
+            pair.answers[player.id] = {
+              answerIndex,
+              answeredAt: Date.now(),
+              correct: isCorrect,
+            };
           } else {
-            pair.resolved = true;
-            pair.winnerId = opponent?.id || null;
-            pair.loserIds = [player.id];
-            pair.resultLabel = opponent ? `${opponent.name} の勝利` : `${player.name} の敗北`;
-            player.quizLives -= 1;
-            player.currentQuestion = undefined;
-            socket.emit('answerResult', {
-              correct: false,
-              correctIndex: currentQuestion.correctIndex,
-              correctText: currentQuestion.correctText,
-            });
-            if (opponent) {
-              opponent.quizPoints += 120;
-              opponent.battleRoyaleWins += 1;
-              opponent.currentQuestion = undefined;
-              io.to(opponent.id).emit('answerResult', {
-                correct: true,
-                correctIndex: currentQuestion.correctIndex,
-                correctText: currentQuestion.correctText,
-              });
-            }
+            pair.answers[player.id] = {
+              answerIndex: null,
+              answeredAt: Date.now(),
+              correct: isCorrect,
+            };
+          }
+
+          const answeredCount = Object.keys(pair.answers).length;
+          if (answeredCount >= pair.playerIds.length) {
+            resolveBattleRoyalePair(room, pair, 'answered');
           }
           callback?.({
             ok: true,
-            correct: isCorrect,
-            correctIndex: currentQuestion.correctIndex,
-            correctText: currentQuestion.correctText,
-            nextQuestion: null,
-            nextDelayMs: 1200,
+            locked: true,
           });
           io.to(roomId).emit('roomStateUpdate', room);
           beginBattleRoyaleRevealPhase(io, roomId);
@@ -1264,6 +1492,11 @@ async function startServer() {
             player.currentQuestion = getQuestionForRoom(room);
             nextQuestion = player.currentQuestion;
             nextDelayMs = 700;
+          } else if (isDodgeGameType(room.gameType)) {
+            player.dodgeBallStock = (player.dodgeBallStock || 0) + 1;
+            player.currentQuestion = getQuestionForRoom(room);
+            nextQuestion = player.currentQuestion;
+            nextDelayMs = 700;
           } else {
             player.canShoot = true;
             player.currentQuestion = null;
@@ -1278,7 +1511,7 @@ async function startServer() {
             correctIndex: currentQuestion.correctIndex,
             correctText: currentQuestion.correctText,
           });
-          if ((room.gameType === 'quiz' && room.state !== 'results') || isBomberGameType(room.gameType)) {
+          if ((room.gameType === 'quiz' && room.state !== 'results') || isBomberGameType(room.gameType) || isDodgeGameType(room.gameType)) {
             setTimeout(() => {
               emitPersonalQuestion(io, player);
             }, nextDelayMs || 700);
@@ -1397,6 +1630,47 @@ async function startServer() {
         x,
         y
       });
+    });
+
+    socket.on('setDodgeMove', ({ roomId, direction }: { roomId: string; direction: 'up' | 'down' | 'left' | 'right' | null }) => {
+      const room = rooms[roomId];
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing' || !isDodgeGameType(room.gameType) || !room.dodgeState) return;
+
+      player.dodgeMoveDirection = direction;
+      if (direction) {
+        player.dodgeFacing = direction;
+      }
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
+    socket.on('throwDodgeBall', ({ roomId }: { roomId: string }) => {
+      const room = rooms[roomId];
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing' || !isDodgeGameType(room.gameType) || !room.dodgeState || !player.alive) return;
+      if ((player.dodgeBallStock || 0) <= 0) return;
+      const now = Date.now();
+      if (now - (player.lastDodgeThrowAt || 0) < DODGE_THROW_COOLDOWN_MS) return;
+
+      const facing = player.dodgeFacing || 'right';
+      const vector = getDodgeMoveVector(facing);
+      const vx = vector.x * DODGE_BALL_SPEED;
+      const vy = vector.y * DODGE_BALL_SPEED;
+      if (!vx && !vy) return;
+
+      room.dodgeState.balls.push({
+        id: `dodge-ball-${socket.id}-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        ownerId: socket.id,
+        x: player.x + vector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
+        y: player.y + vector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
+        vx,
+        vy,
+        radius: DODGE_BALL_RADIUS,
+        expiresAt: now + DODGE_BALL_LIFETIME_MS,
+      });
+      player.dodgeBallStock -= 1;
+      player.lastDodgeThrowAt = now;
+      io.to(roomId).emit('roomStateUpdate', room);
     });
 
     socket.on('moveBomber', ({ roomId, direction }: { roomId: string; direction: 'up' | 'down' | 'left' | 'right' }) => {
