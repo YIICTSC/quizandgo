@@ -67,6 +67,7 @@ interface Player {
   dodgeBallStock: number;
   dodgeFacing: 'up' | 'down' | 'left' | 'right';
   dodgeMoveDirection: 'up' | 'down' | 'left' | 'right' | null;
+  dodgeMoveVector: { x: number; y: number } | null;
   dodgeInvulnerableUntil: number | null;
   lastDodgeThrowAt?: number;
 }
@@ -504,6 +505,7 @@ const assignDodgeSpawnPositions = (players: Player[]) => {
     player.y = point.y;
     player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
     player.dodgeMoveDirection = null;
+    player.dodgeMoveVector = null;
     player.dodgeInvulnerableUntil = Date.now() + 800;
   });
 };
@@ -532,6 +534,7 @@ const respawnDodgePlayer = (room: Room, player: Player) => {
   player.alive = true;
   player.respawnAt = null;
   player.dodgeMoveDirection = null;
+  player.dodgeMoveVector = null;
   player.dodgeInvulnerableUntil = Date.now() + 1200;
   player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
 };
@@ -542,6 +545,7 @@ const defeatDodgePlayer = (room: Room, player: Player, owner: Player | null, bal
   player.respawnAt = now + DODGE_RESPAWN_MS;
   player.deaths += 1;
   player.dodgeMoveDirection = null;
+  player.dodgeMoveVector = null;
   player.dodgeInvulnerableUntil = null;
   if (owner && owner.id !== player.id) {
     owner.kills += 1;
@@ -562,6 +566,16 @@ const getDodgeMoveVector = (direction: Player['dodgeMoveDirection']) => {
     default:
       return { x: 0, y: 0 };
   }
+};
+
+const getNormalizedDodgeMoveVector = (vector: Player['dodgeMoveVector']): { x: number; y: number } => {
+  if (!vector) return { x: 0, y: 0 };
+  const length = Math.hypot(vector.x, vector.y);
+  if (!length) return { x: 0, y: 0 };
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  };
 };
 
 const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) => {
@@ -615,6 +629,7 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.dodgeBallStock = 0;
   player.dodgeFacing = 'right';
   player.dodgeMoveDirection = null;
+  player.dodgeMoveVector = null;
   player.dodgeInvulnerableUntil = null;
   player.lastDodgeThrowAt = 0;
 };
@@ -1023,7 +1038,9 @@ const startDodgeLoop = (io: Server, roomId: string) => {
     Object.values(room.players).forEach((player) => {
       if (player.alive) {
         player.timeAliveMs += 100;
-        const move = getDodgeMoveVector(player.dodgeMoveDirection);
+        const move = player.dodgeMoveVector
+          ? getNormalizedDodgeMoveVector(player.dodgeMoveVector)
+          : getDodgeMoveVector(player.dodgeMoveDirection);
         player.x = clamp(player.x + move.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
         player.y = clamp(player.y + move.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
       } else if (player.respawnAt && now >= player.respawnAt) {
@@ -1238,6 +1255,7 @@ async function startServer() {
           dodgeBallStock: 0,
           dodgeFacing: 'right',
           dodgeMoveDirection: null,
+          dodgeMoveVector: null,
           dodgeInvulnerableUntil: null,
           lastDodgeThrowAt: 0,
         };
@@ -1281,6 +1299,7 @@ async function startServer() {
               respawnAt: null,
               dodgeBallStock: 0,
               dodgeMoveDirection: null,
+              dodgeMoveVector: null,
               dodgeInvulnerableUntil: Date.now() + 1200,
             });
           }
@@ -1638,8 +1657,42 @@ async function startServer() {
       if (!room || !player || room.state !== 'playing' || !isDodgeGameType(room.gameType) || !room.dodgeState) return;
 
       player.dodgeMoveDirection = direction;
+      player.dodgeMoveVector = null;
       if (direction) {
         player.dodgeFacing = direction;
+      }
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
+    socket.on('setDodgeMoveVector', ({ roomId, vector }: { roomId: string; vector: { x: number; y: number } | null }) => {
+      const room = rooms[roomId];
+      const player = room?.players[socket.id];
+      if (!room || !player || room.state !== 'playing' || !isDodgeGameType(room.gameType) || !room.dodgeState) return;
+
+      if (!vector) {
+        player.dodgeMoveVector = null;
+        player.dodgeMoveDirection = null;
+        io.to(roomId).emit('roomStateUpdate', room);
+        return;
+      }
+
+      const clamped = {
+        x: clamp(vector.x, -1, 1),
+        y: clamp(vector.y, -1, 1),
+      };
+      const length = Math.hypot(clamped.x, clamped.y);
+      if (length < 0.08) {
+        player.dodgeMoveVector = null;
+        player.dodgeMoveDirection = null;
+      } else {
+        player.dodgeMoveVector = {
+          x: clamped.x / length,
+          y: clamped.y / length,
+        };
+        player.dodgeMoveDirection = null;
+        player.dodgeFacing = Math.abs(player.dodgeMoveVector.x) > Math.abs(player.dodgeMoveVector.y)
+          ? (player.dodgeMoveVector.x >= 0 ? 'right' : 'left')
+          : (player.dodgeMoveVector.y >= 0 ? 'down' : 'up');
       }
       io.to(roomId).emit('roomStateUpdate', room);
     });
@@ -1652,16 +1705,22 @@ async function startServer() {
       const now = Date.now();
       if (now - (player.lastDodgeThrowAt || 0) < DODGE_THROW_COOLDOWN_MS) return;
 
-      const towardEnemy = player.x < room.dodgeState.width / 2 ? 1 : -1;
-      const vx = towardEnemy * DODGE_BALL_SPEED;
-      const vy = 0;
+      const moveVector = player.dodgeMoveVector
+        ? getNormalizedDodgeMoveVector(player.dodgeMoveVector)
+        : getDodgeMoveVector(player.dodgeFacing || player.dodgeMoveDirection);
+      const fallbackTowardEnemy = player.x < room.dodgeState.width / 2 ? 1 : -1;
+      const throwVector = Math.abs(moveVector.x) < 0.01 && Math.abs(moveVector.y) < 0.01
+        ? { x: fallbackTowardEnemy, y: 0 }
+        : moveVector;
+      const vx = throwVector.x * DODGE_BALL_SPEED;
+      const vy = throwVector.y * DODGE_BALL_SPEED;
       if (!vx && !vy) return;
 
       room.dodgeState.balls.push({
         id: `dodge-ball-${socket.id}-${now}-${Math.random().toString(36).slice(2, 8)}`,
         ownerId: socket.id,
-        x: player.x + towardEnemy * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
-        y: player.y,
+        x: player.x + throwVector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
+        y: player.y + throwVector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + 2),
         vx,
         vy,
         radius: DODGE_BALL_RADIUS,
