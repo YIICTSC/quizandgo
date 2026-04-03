@@ -3,6 +3,24 @@ import AvatarPreview from './AvatarPreview';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
 
+const DODGE_MOVE_SPEED = 300;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const getMoveVector = (direction: DodgeDirection | null) => {
+  switch (direction) {
+    case 'up':
+      return { x: 0, y: -1 };
+    case 'down':
+      return { x: 0, y: 1 };
+    case 'left':
+      return { x: -1, y: 0 };
+    case 'right':
+      return { x: 1, y: 0 };
+    default:
+      return { x: 0, y: 0 };
+  }
+};
+
 type DodgeGameProps = {
   me?: any;
   players: Record<string, any>;
@@ -19,6 +37,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const activeDirectionRef = useRef<DodgeDirection | null>(null);
+  const [displayPositions, setDisplayPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const width = dodgeState?.width || 960;
   const height = dodgeState?.height || 540;
@@ -55,6 +74,68 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
       window.removeEventListener('resize', updateViewport);
     };
   }, [aspect]);
+
+  useEffect(() => {
+    const ids = new Set(Object.keys(players || {}));
+    setDisplayPositions((current) => {
+      const next = { ...current };
+      Object.entries(players || {}).forEach(([id, player]: [string, any]) => {
+        if (!next[id]) {
+          next[id] = { x: player.x, y: player.y };
+        }
+      });
+      Object.keys(next).forEach((id) => {
+        if (!ids.has(id)) {
+          delete next[id];
+        }
+      });
+      return next;
+    });
+  }, [players]);
+
+  useEffect(() => {
+    let frame = 0;
+    let last = performance.now();
+
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+
+      setDisplayPositions((current) => {
+        let changed = false;
+        const next: Record<string, { x: number; y: number }> = {};
+
+        Object.entries(players || {}).forEach(([id, player]: [string, any]) => {
+          const currentPos = current[id] || { x: player.x, y: player.y };
+          let targetX = player.x;
+          let targetY = player.y;
+
+          if (!readOnly && me?.id === id && player.alive && activeDirectionRef.current) {
+            const vector = getMoveVector(activeDirectionRef.current);
+            targetX = clamp(currentPos.x + vector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
+            targetY = clamp(currentPos.y + vector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+          }
+
+          const nextX = currentPos.x + (targetX - currentPos.x) * 0.45;
+          const nextY = currentPos.y + (targetY - currentPos.y) * 0.45;
+          if (Math.abs(nextX - currentPos.x) > 0.1 || Math.abs(nextY - currentPos.y) > 0.1) {
+            changed = true;
+          }
+          next[id] = {
+            x: Math.abs(targetX - nextX) < 0.2 ? targetX : nextX,
+            y: Math.abs(targetY - nextY) < 0.2 ? targetY : nextY,
+          };
+        });
+
+        return changed ? next : current;
+      });
+
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [me?.id, playerRadius, players, readOnly, width, height]);
 
   useEffect(() => {
     if (readOnly || !onSetMove || !onThrow) return;
@@ -152,6 +233,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
             ))}
 
             {Object.values(players || {}).map((player: any) => {
+              const displayPos = displayPositions[player.id] || { x: player.x, y: player.y };
               const sizePercent = ((playerRadius * 2) / width) * 100;
               const heightPercent = ((playerRadius * 2 + 24) / height) * 100;
               return (
@@ -161,9 +243,9 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onThrow,
                   style={{
                     width: `${sizePercent}%`,
                     height: `${heightPercent}%`,
-                    left: `${((player.x - playerRadius) / width) * 100}%`,
-                    top: `${((player.y - playerRadius - 12) / height) * 100}%`,
-                    transition: 'left 90ms linear, top 90ms linear, opacity 120ms linear',
+                    left: `${((displayPos.x - playerRadius) / width) * 100}%`,
+                    top: `${((displayPos.y - playerRadius - 12) / height) * 100}%`,
+                    transition: 'opacity 120ms linear',
                   }}
                 >
                   <div className="relative h-full w-full">
