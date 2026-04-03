@@ -350,9 +350,10 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
       {!readOnly ? (
         <div className="pointer-events-none absolute inset-0 z-20">
           <div
-            className="pointer-events-auto absolute bottom-2 left-2 h-36 w-36 touch-none rounded-full md:bottom-4 md:left-4 md:h-40 md:w-40"
+            className="pointer-events-auto absolute inset-0 touch-none"
             onPointerDown={(event) => {
               event.preventDefault();
+              event.currentTarget.setPointerCapture?.(event.pointerId);
               const rect = event.currentTarget.getBoundingClientRect();
               joystickPointerIdRef.current = event.pointerId;
               setJoystickState({
@@ -364,13 +365,15 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
               });
             }}
             onPointerMove={moveJoystick}
-            onPointerUp={(event) => releaseJoystick(event)}
-            onPointerCancel={(event) => releaseJoystick(event)}
+            onPointerUp={(event) => {
+              event.currentTarget.releasePointerCapture?.(event.pointerId);
+              releaseJoystick(event);
+            }}
+            onPointerCancel={(event) => {
+              event.currentTarget.releasePointerCapture?.(event.pointerId);
+              releaseJoystick(event);
+            }}
           >
-            <div className="absolute inset-0 rounded-full border border-slate-400/25 bg-slate-900/25 backdrop-blur-sm" />
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tracking-[0.18em] text-slate-200/70">
-              TOUCH
-            </div>
             {joystickState.active ? (
               <div className="absolute inset-0">
                 <div
@@ -391,7 +394,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
             ) : null}
           </div>
           <button
-            className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-24 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-600/65 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm active:scale-95 active:bg-cyan-500/75 md:bottom-5 md:right-4"
+            className="pointer-events-auto absolute bottom-4 right-3 z-30 flex h-14 w-24 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-600/65 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm active:scale-95 active:bg-cyan-500/75 md:bottom-5 md:right-4"
             onClick={onThrow}
           >
             THROW

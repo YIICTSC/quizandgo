@@ -390,8 +390,8 @@ export default function SingleDodgeDebugScreen({
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
-        <div className="min-h-[50dvh] flex-1 sm:min-h-[420px]">
+      <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
+        <div className="min-h-[38dvh] flex-[1.15] sm:min-h-[420px]">
           <DodgeGame
             me={me}
             players={playerMap}
@@ -402,7 +402,7 @@ export default function SingleDodgeDebugScreen({
           />
         </div>
 
-        <div className="w-full rounded-3xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
+        <div className="w-full min-h-0 flex-1 overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
           <div className="mb-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 sm:mb-4 sm:p-4">
             <div className="text-xs font-bold tracking-[0.22em] text-amber-200">CHECK POINT</div>
             <div className="mt-2 text-sm text-slate-100">
@@ -419,7 +419,7 @@ export default function SingleDodgeDebugScreen({
           <div className="mb-3 rounded-2xl border border-slate-700 bg-slate-800/70 p-3 sm:mb-4 sm:p-4">
             <div className="text-sm font-bold text-white">操作</div>
             <div className="mt-2 space-y-1 text-sm text-slate-300">
-              <div>・タッチでジョイスティックが表示され、360°移動できます</div>
+              <div>・盤面のどこでもタッチするとジョイスティックが表示され、360°移動できます</div>
               <div>・十字キー / WASD でも移動できます</div>
               <div>・右下の `THROW` か Space / Enter で投球</div>
               <div>・最後に動いた向きへボールが飛びます</div>
