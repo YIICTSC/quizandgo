@@ -118,28 +118,30 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
 
     const scaledWidth = boardViewport.width * zoomScale;
     const scaledHeight = boardViewport.height * zoomScale;
-    const overflowX = Math.max(0, scaledWidth - boardViewport.width);
-    const overflowY = Math.max(0, scaledHeight - boardViewport.height);
-
     const meXRatio = ((me?.bomberX || 0) + 0.5) / width;
     const meYRatio = ((me?.bomberY || 0) + 0.5) / height;
     const meX = scaledWidth * meXRatio;
     const meY = scaledHeight * meYRatio;
 
-    // Keep a bit more space visible on the right and bottom so edge walls remain visible.
     const focusX = boardViewport.width * 0.42;
     const focusY = boardViewport.height * 0.32;
-    const edgeMarginX = boardViewport.width * 0.08;
-    const edgeMarginY = boardViewport.height * 0.1;
+    const minTranslateX = boardViewport.width - scaledWidth;
+    const minTranslateY = boardViewport.height - scaledHeight;
 
     let x = focusX - meX;
     let y = focusY - meY;
 
-    const rightEdgeVisibleX = boardViewport.width - scaledWidth + edgeMarginX;
-    const bottomEdgeVisibleY = boardViewport.height - scaledHeight + edgeMarginY;
+    x = clamp(x, minTranslateX, 0);
+    y = clamp(y, minTranslateY, 0);
 
-    x = clamp(x, rightEdgeVisibleX, 0);
-    y = clamp(y, bottomEdgeVisibleY, 0);
+    // When the player reaches the far right/bottom area, pin the camera to that edge
+    // so the outer wall is guaranteed to remain visible.
+    if (meXRatio >= 0.78) {
+      x = minTranslateX;
+    }
+    if (meYRatio >= 0.78) {
+      y = minTranslateY;
+    }
 
     return { x, y };
   })();
