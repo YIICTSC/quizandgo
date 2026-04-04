@@ -325,6 +325,13 @@ export default function HostScreen({
       }
       return 'bomber_host';
     }
+    if (isDodgeGameType(resolvedGameType)) {
+      if (currentRoomState.state === 'results') return 'dodge_results';
+      if (currentRoomState.state === 'playing') {
+        return (timeRemaining ?? currentRoomState.timeRemaining ?? 0) <= 10 ? 'dodge_last10' : 'dodge_play';
+      }
+      return 'dodge_host';
+    }
     if (resolvedGameType === 'quiz') {
       if (isBattleQuizVariant(activeQuizVariant)) {
         if (currentRoomState.state === 'results') return 'bomber_results';
