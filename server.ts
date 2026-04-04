@@ -17,6 +17,7 @@ import {
   DODGE_RESPAWN_MS,
   DODGE_THROW_COOLDOWN_MS,
   DODGE_THROW_SPAWN_OFFSET,
+  getDodgeCourtSize,
   DODGE_WIDTH,
 } from './src/lib/dodgeConfig.ts';
 
@@ -208,11 +209,6 @@ const isColorBomberGameType = (gameType?: string) => gameType === 'color_bomber'
 const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
 const isTeamDodgeMode = (room?: Room) => isDodgeGameType(room?.gameType) && room?.dodgeMode === 'team';
 const DODGE_SINGLE_OUTFIELD_DEPTH = 58;
-const getDodgeCourtSize = (playerCount: number) => {
-  if (playerCount >= 12) return { width: 1320, height: 742 };
-  if (playerCount >= 8) return { width: 1160, height: 653 };
-  return { width: DODGE_WIDTH, height: DODGE_HEIGHT };
-};
 const getDodgeTeamSide = (teamId?: number | null) => (teamId === 2 ? 'right' : 'left');
 const getDodgeInfieldRange = (room: Room, player: Player) => {
   const courtWidth = room.dodgeState?.width ?? DODGE_WIDTH;

@@ -10,3 +10,9 @@ export const DODGE_THROW_COOLDOWN_MS = 360;
 export const DODGE_BALL_LIFETIME_MS = 1700;
 export const DODGE_RESPAWN_MS = 2200;
 export const DODGE_THROW_SPAWN_OFFSET = 4;
+
+export const getDodgeCourtSize = (playerCount: number) => {
+  if (playerCount >= 12) return { width: 1320, height: 742 };
+  if (playerCount >= 8) return { width: 1160, height: 653 };
+  return { width: DODGE_WIDTH, height: DODGE_HEIGHT };
+};
