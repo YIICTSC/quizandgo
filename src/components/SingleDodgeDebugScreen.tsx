@@ -42,6 +42,7 @@ type DebugPlayer = {
   dodgeFacing: DodgeDirection;
   respawnAt?: number | null;
   nextTurnAt?: number;
+  nextBallRefillAt?: number;
 };
 
 type DebugBall = {
@@ -59,6 +60,8 @@ type DebugBall = {
 
 const BOT_COUNT = 3;
 const BOT_COLORS = ['#f97316', '#22c55e', '#a855f7', '#f43f5e', '#06b6d4'];
+const BOT_BALL_REFILL_MS = 2400;
+const BOT_MAX_BALL_STOCK = 2;
 
 const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -171,6 +174,7 @@ const createBot = (index: number, debug: boolean): DebugPlayer => {
     dodgeFacing: directions[index % directions.length],
     respawnAt: null,
     nextTurnAt: performance.now() + 600 + index * 240,
+    nextBallRefillAt: performance.now() + BOT_BALL_REFILL_MS * (0.6 + Math.random() * 0.7),
   };
 };
 
@@ -353,6 +357,19 @@ export default function SingleDodgeDebugScreen({
           }
 
           let direction = player.dodgeFacing;
+          let nextBallStock = player.dodgeBallStock;
+          let nextBallRefillAt = player.nextBallRefillAt;
+          if (!debugMode) {
+            if (!nextBallRefillAt) {
+              nextBallRefillAt = now + BOT_BALL_REFILL_MS * (0.6 + Math.random() * 0.7);
+            }
+            while (nextBallRefillAt <= now) {
+              if (nextBallStock < BOT_MAX_BALL_STOCK) {
+                nextBallStock += 1;
+              }
+              nextBallRefillAt += BOT_BALL_REFILL_MS;
+            }
+          }
           if (!player.nextTurnAt || now >= player.nextTurnAt) {
             const options: DodgeDirection[] = ['up', 'down', 'left', 'right'];
             if (me && Math.random() < 0.65) {
@@ -381,7 +398,7 @@ export default function SingleDodgeDebugScreen({
             nextY = clamp(player.y + bounceVector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
           }
 
-          if (!debugMode && now - lastThrowAt > 450 && player.dodgeBallStock > 0 && Math.random() < 0.02) {
+          if (!debugMode && now - lastThrowAt > 450 && nextBallStock > 0 && Math.random() < 0.02) {
             const throwVector = getMoveVector(direction);
             const shotType = getRandomShotType();
             const speedScale = shotType === 'fast' ? 1.75 : 1;
@@ -402,8 +419,9 @@ export default function SingleDodgeDebugScreen({
             ]);
             return {
               ...player,
-              dodgeBallStock: Math.max(0, player.dodgeBallStock - 1),
+              dodgeBallStock: Math.max(0, nextBallStock - 1),
               dodgeFacing: direction,
+              nextBallRefillAt,
               nextTurnAt: !player.nextTurnAt || now >= player.nextTurnAt ? now + 700 + Math.random() * 900 : player.nextTurnAt,
             };
           }
@@ -413,6 +431,8 @@ export default function SingleDodgeDebugScreen({
             x: nextX,
             y: nextY,
             dodgeFacing: direction,
+            dodgeBallStock: nextBallStock,
+            nextBallRefillAt,
             nextTurnAt: !player.nextTurnAt || now >= player.nextTurnAt ? now + 700 + Math.random() * 900 : player.nextTurnAt,
           };
         });
