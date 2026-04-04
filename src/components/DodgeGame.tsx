@@ -33,7 +33,7 @@ type DodgeGameProps = {
   dodgeState: any;
   onSetMove?: (direction: DodgeDirection | null) => void;
   onSetMoveVector?: (vector: MoveVector | null) => void;
-  onThrow?: () => void;
+  onThrow?: (aimVector?: MoveVector) => void;
   readOnly?: boolean;
 };
 
@@ -65,6 +65,13 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     onSetMoveVectorRef.current = onSetMoveVector;
     onThrowRef.current = onThrow;
   }, [onSetMove, onSetMoveVector, onThrow]);
+
+  const getCurrentAimVector = () => {
+    const vector = activeVectorRef.current || getMoveVector(activeDirectionRef.current);
+    const normalized = normalizeVector(vector);
+    if (!normalized.x && !normalized.y) return undefined;
+    return normalized;
+  };
 
   const setMoveDirection = (direction: DodgeDirection | null) => {
     activeVectorRef.current = null;
@@ -204,7 +211,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
         if (activeDirectionRef.current !== 'right') setMoveDirection('right');
       } else if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
-        onThrowRef.current?.();
+        onThrowRef.current?.(getCurrentAimVector());
       }
     };
 
@@ -401,7 +408,11 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
           </div>
           <button
             className="pointer-events-auto absolute bottom-4 right-3 z-30 flex h-14 w-24 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-600/65 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm active:scale-95 active:bg-cyan-500/75 md:bottom-5 md:right-4"
-            onClick={onThrow}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              onThrowRef.current?.(getCurrentAimVector());
+            }}
+            onClick={(event) => event.preventDefault()}
           >
             THROW
           </button>

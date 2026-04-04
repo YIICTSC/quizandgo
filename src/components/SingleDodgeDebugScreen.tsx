@@ -235,6 +235,7 @@ export default function SingleDodgeDebugScreen({
   const [lastAimVector, setLastAimVector] = useState<MoveVector>({ x: 1, y: 0 });
   const [lastThrowAt, setLastThrowAt] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [debugShotType, setDebugShotType] = useState<'random' | 'normal' | 'fast' | 'wave' | 'homing'>('random');
   const [timeRemaining, setTimeRemaining] = useState(() => debugMode ? 9999 : (timeLimit || 300));
   const [question, setQuestion] = useState<SingleDodgeQuestion | null>(null);
   const [answerResult, setAnswerResult] = useState<boolean | null>(null);
@@ -566,17 +567,17 @@ export default function SingleDodgeDebugScreen({
     [players]
   );
 
-  const throwBall = () => {
+  const throwBall = (requestedVector?: MoveVector) => {
     const now = performance.now();
     if (!me || !me.alive || now - lastThrowAt < DODGE_THROW_COOLDOWN_MS) return;
     if (!debugMode && me.dodgeBallStock <= 0) return;
-    const vector = heldVectorRef.current || lastAimVectorRef.current || getMoveVector(me.dodgeFacing);
+    const vector = requestedVector || heldVectorRef.current || lastAimVectorRef.current || getMoveVector(me.dodgeFacing);
     if (!vector.x && !vector.y) return;
     setLastThrowAt(now);
     if (!debugMode) {
       setPlayers((current) => current.map((player) => player.id === 'me' ? { ...player, dodgeBallStock: Math.max(0, player.dodgeBallStock - 1) } : player));
     }
-    const shotType = getRandomShotType();
+    const shotType = debugMode && debugShotType !== 'random' ? debugShotType : getRandomShotType();
     const speedScale = shotType === 'fast' ? 1.75 : 1;
     setBalls((current) => [
       ...current,
@@ -713,6 +714,31 @@ export default function SingleDodgeDebugScreen({
                   コートサイズ: <span className="font-bold text-cyan-200">{courtWidth} × {courtHeight}</span>
                 </div>
                 <div className="text-[11px] text-slate-400">※ 人数変更時は盤面とスポーン位置を再初期化します。</div>
+              </div>
+              <div className="mt-3 grid gap-2 rounded-xl border border-amber-300/25 bg-slate-900/60 p-2.5">
+                <div className="text-[11px] font-bold tracking-[0.2em] text-amber-200">SHOT TYPE</div>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {[
+                    { label: 'ランダム', value: 'random' },
+                    { label: '通常', value: 'normal' },
+                    { label: '高速', value: 'fast' },
+                    { label: '波動', value: 'wave' },
+                    { label: '追尾', value: 'homing' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setDebugShotType(option.value as typeof debugShotType)}
+                      className={`rounded-lg border px-2 py-1 text-xs font-bold ${
+                        debugShotType === option.value
+                          ? 'border-cyan-300 bg-cyan-500/25 text-cyan-100'
+                          : 'border-slate-600 bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[11px] text-slate-400">必殺球の挙動確認時は「高速 / 波動 / 追尾」を選択してください。</div>
               </div>
               <div className="mt-3 text-xs text-slate-300">投球ベクトル: x {lastAimVector.x.toFixed(2)} / y {lastAimVector.y.toFixed(2)}</div>
             </div>
