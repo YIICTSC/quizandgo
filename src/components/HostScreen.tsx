@@ -858,7 +858,7 @@ export default function HostScreen({
                         )}
                       </>
                     )}
-                    {resolvedGameType === 'dodge' && (
+                    {!isSinglePlayer && resolvedGameType === 'dodge' && (
                       <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
                         <span className="text-[11px] font-bold text-slate-300">モード</span>
                         <button
