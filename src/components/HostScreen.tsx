@@ -317,7 +317,6 @@ export default function HostScreen({
     return teamRankings.slice(0, 3);
   }, [isTeamAggregateResults, teamRankings]);
   const bgmScene = useMemo(() => {
-    if (isSinglePlayer) return 'host';
     if (isBomberGameType(resolvedGameType)) {
       if (currentRoomState.state === 'results') return 'bomber_results';
       if (currentRoomState.state === 'playing') {
