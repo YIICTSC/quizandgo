@@ -639,20 +639,22 @@ export default function SingleDodgeDebugScreen({
             <div className="text-xs font-bold tracking-[0.25em] text-cyan-300">{debugMode ? 'DEBUG DODGE' : 'SINGLE DODGE'}</div>
             <h1 className="text-lg font-black text-white sm:text-2xl">{gameTitle || (debugMode ? 'バトルドッジ 挙動確認' : 'バトルドッジ 1人用')}</h1>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={resetArena}
-              className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 sm:px-4 sm:py-2 sm:text-sm"
-            >
-              リセット
-            </button>
-            <button
-              onClick={onReturnToTitle}
-              className="rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-bold text-cyan-100 hover:bg-cyan-500/25 sm:px-4 sm:py-2 sm:text-sm"
-            >
-              タイトルへ戻る
-            </button>
-          </div>
+          {debugMode && (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={resetArena}
+                className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 sm:px-4 sm:py-2 sm:text-sm"
+              >
+                リセット
+              </button>
+              <button
+                onClick={onReturnToTitle}
+                className="rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-bold text-cyan-100 hover:bg-cyan-500/25 sm:px-4 sm:py-2 sm:text-sm"
+              >
+                タイトルへ戻る
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
