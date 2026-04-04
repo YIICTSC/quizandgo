@@ -297,7 +297,7 @@ export default function SingleDodgeDebugScreen({
   }, [players]);
 
   useEffect(() => {
-    startBGM('play');
+    startBGM('dodge_play');
     if (!debugMode) setNextQuestion();
 
     const timer = window.setInterval(() => {

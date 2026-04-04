@@ -22,6 +22,11 @@
   - 推奨: テンポが速い・緊張感・短いループでも飽きにくい
   - 目安: 118-140 BPM / エレクトロ / 8bit / アーケード感
   - 候補名: `bomber_lobby.mp3`, `bomber_battle.mp3`, `bomber_last10.mp3`, `bomber_results.mp3`
+- `dodge/`
+  - バトルドッジ専用BGM用
+  - 推奨: スピード感・緊張感・回避アクションと相性の良いリズム
+  - 目安: 115-138 BPM / エレクトロ / アーケード感
+  - 候補名: `dodge_lobby.mp3`, `dodge_battle.mp3`, `dodge_last10.mp3`, `dodge_results.mp3`
 - `results/`
   - 結果画面用
   - 推奨: 達成感・表彰感・少し華やか
@@ -50,6 +55,13 @@
     - `bomber_battle.mp3`: 通常バトル用の主旋律
     - `bomber_last10.mp3`: 残り10秒など終盤加速用
     - `bomber_results.mp3`: クイズボンバー専用の勝敗まとめ
+- バトルドッジ
+  - 移動・投球・回避テンポに合わせたスピード感重視
+  - 候補:
+    - `dodge_lobby.mp3`: ルーム待機や開始前の軽い緊張感
+    - `dodge_battle.mp3`: 通常プレイ用の主旋律
+    - `dodge_last10.mp3`: 残り10秒など終盤加速用
+    - `dodge_results.mp3`: バトルドッジ専用の勝敗まとめ
 - クイズモード
   - `クラシック / コンボクイズ / 早押しポイント`
     - 待機: `host_lobby.mp3`
