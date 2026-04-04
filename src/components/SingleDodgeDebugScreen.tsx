@@ -7,13 +7,12 @@ import {
   DODGE_BALL_LIFETIME_MS,
   DODGE_BALL_RADIUS,
   DODGE_BALL_SPEED,
-  DODGE_HEIGHT,
   DODGE_MOVE_SPEED,
   DODGE_PLAYER_RADIUS,
   DODGE_RESPAWN_MS,
   DODGE_THROW_COOLDOWN_MS,
   DODGE_THROW_SPAWN_OFFSET,
-  DODGE_WIDTH,
+  getDodgeCourtSize,
 } from '../lib/dodgeConfig';
 
 type DodgeDirection = 'up' | 'down' | 'left' | 'right';
@@ -147,15 +146,15 @@ const vectorToFacing = (vector: MoveVector | null): DodgeDirection | null => {
   return Math.abs(vector.x) > Math.abs(vector.y) ? (vector.x >= 0 ? 'right' : 'left') : (vector.y >= 0 ? 'down' : 'up');
 };
 
-const spawnPoints = [
-  { x: 180, y: 150 },
-  { x: 180, y: 390 },
-  { x: 780, y: 150 },
-  { x: 780, y: 390 },
-  { x: 480, y: 270 },
+const getSpawnPoints = (width: number, height: number) => [
+  { x: width * 0.19, y: height * 0.28 },
+  { x: width * 0.19, y: height * 0.72 },
+  { x: width * 0.81, y: height * 0.28 },
+  { x: width * 0.81, y: height * 0.72 },
+  { x: width * 0.5, y: height * 0.5 },
 ];
 
-const createBot = (index: number, debug: boolean): DebugPlayer => {
+const createBot = (index: number, debug: boolean, spawnPoints: Array<{ x: number; y: number }>): DebugPlayer => {
   const spawn = spawnPoints[index + 1] || spawnPoints[0];
   const directions: DodgeDirection[] = ['left', 'right', 'up', 'down'];
   return {
@@ -185,7 +184,8 @@ const loadPlayerAvatar = () => {
   return avatar;
 };
 
-const createInitialPlayers = (debug: boolean) => {
+const createInitialPlayers = (debug: boolean, width: number, height: number) => {
+  const spawnPoints = getSpawnPoints(width, height);
   const meSpawn = spawnPoints[0];
   const me: DebugPlayer = {
     id: 'me',
@@ -203,7 +203,7 @@ const createInitialPlayers = (debug: boolean) => {
     dodgeFacing: 'right',
     respawnAt: null,
   };
-  return [me, ...Array.from({ length: BOT_COUNT }, (_, index) => createBot(index, debug))];
+  return [me, ...Array.from({ length: BOT_COUNT }, (_, index) => createBot(index, debug, spawnPoints))];
 };
 
 export default function SingleDodgeDebugScreen({
@@ -220,7 +220,15 @@ export default function SingleDodgeDebugScreen({
   onReturnToTitle: () => void;
 }) {
   const debugMode = mode === 'debug_dodge';
-  const [players, setPlayers] = useState<DebugPlayer[]>(() => createInitialPlayers(debugMode));
+  const [debugParticipantCount, setDebugParticipantCount] = useState(BOT_COUNT + 1);
+  const courtSize = useMemo(
+    () => getDodgeCourtSize(debugMode ? debugParticipantCount : BOT_COUNT + 1),
+    [debugMode, debugParticipantCount]
+  );
+  const courtWidth = courtSize.width;
+  const courtHeight = courtSize.height;
+  const spawnPoints = useMemo(() => getSpawnPoints(courtWidth, courtHeight), [courtHeight, courtWidth]);
+  const [players, setPlayers] = useState<DebugPlayer[]>(() => createInitialPlayers(debugMode, courtWidth, courtHeight));
   const [balls, setBalls] = useState<DebugBall[]>([]);
   const [heldDirection, setHeldDirection] = useState<DodgeDirection | null>(null);
   const [heldVector, setHeldVector] = useState<MoveVector | null>(null);
@@ -346,8 +354,8 @@ export default function SingleDodgeDebugScreen({
           }
 
           if (player.id === 'me') {
-            const nextX = clamp(player.x + meVector.x * DODGE_MOVE_SPEED * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
-            const nextY = clamp(player.y + meVector.y * DODGE_MOVE_SPEED * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
+            const nextX = clamp(player.x + meVector.x * DODGE_MOVE_SPEED * dt, DODGE_PLAYER_RADIUS, courtWidth - DODGE_PLAYER_RADIUS);
+            const nextY = clamp(player.y + meVector.y * DODGE_MOVE_SPEED * dt, DODGE_PLAYER_RADIUS, courtHeight - DODGE_PLAYER_RADIUS);
             return {
               ...player,
               x: nextX,
@@ -382,9 +390,9 @@ export default function SingleDodgeDebugScreen({
           }
 
           const vector = getMoveVector(direction);
-          let nextX = clamp(player.x + vector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
-          let nextY = clamp(player.y + vector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
-          const bounced = nextX === DODGE_PLAYER_RADIUS || nextX === DODGE_WIDTH - DODGE_PLAYER_RADIUS || nextY === DODGE_PLAYER_RADIUS || nextY === DODGE_HEIGHT - DODGE_PLAYER_RADIUS;
+          let nextX = clamp(player.x + vector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, courtWidth - DODGE_PLAYER_RADIUS);
+          let nextY = clamp(player.y + vector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, courtHeight - DODGE_PLAYER_RADIUS);
+          const bounced = nextX === DODGE_PLAYER_RADIUS || nextX === courtWidth - DODGE_PLAYER_RADIUS || nextY === DODGE_PLAYER_RADIUS || nextY === courtHeight - DODGE_PLAYER_RADIUS;
           if (bounced) {
             const opposite: Record<DodgeDirection, DodgeDirection> = {
               up: 'down',
@@ -394,8 +402,8 @@ export default function SingleDodgeDebugScreen({
             };
             direction = opposite[direction];
             const bounceVector = getMoveVector(direction);
-            nextX = clamp(player.x + bounceVector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
-            nextY = clamp(player.y + bounceVector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
+            nextX = clamp(player.x + bounceVector.x * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, courtWidth - DODGE_PLAYER_RADIUS);
+            nextY = clamp(player.y + bounceVector.y * DODGE_MOVE_SPEED * 0.8 * dt, DODGE_PLAYER_RADIUS, courtHeight - DODGE_PLAYER_RADIUS);
           }
 
           if (!debugMode && now - lastThrowAt > 450 && nextBallStock > 0 && Math.random() < 0.02) {
@@ -484,9 +492,9 @@ export default function SingleDodgeDebugScreen({
           const outOfBounds =
             now >= ball.expiresAt ||
             nextBall.x < -DODGE_BALL_RADIUS ||
-            nextBall.x > DODGE_WIDTH + DODGE_BALL_RADIUS ||
+            nextBall.x > courtWidth + DODGE_BALL_RADIUS ||
             nextBall.y < -DODGE_BALL_RADIUS ||
-            nextBall.y > DODGE_HEIGHT + DODGE_BALL_RADIUS;
+            nextBall.y > courtHeight + DODGE_BALL_RADIUS;
           if (outOfBounds) continue;
 
           let hit = false;
@@ -541,7 +549,7 @@ export default function SingleDodgeDebugScreen({
 
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [debugMode, getRandomShotType, lastThrowAt]);
+  }, [courtHeight, courtWidth, debugMode, getRandomShotType, lastThrowAt, spawnPoints]);
 
   const me = players.find((player) => player.id === 'me');
   const playerMap = useMemo(
@@ -611,7 +619,7 @@ export default function SingleDodgeDebugScreen({
   };
 
   const resetArena = () => {
-    setPlayers(createInitialPlayers(debugMode));
+    setPlayers(createInitialPlayers(debugMode, courtWidth, courtHeight));
     setBalls([]);
     handleSetHeldDirection(null);
     handleSetHeldVector(null);
@@ -624,6 +632,11 @@ export default function SingleDodgeDebugScreen({
       setNextQuestion();
     }
   };
+
+  useEffect(() => {
+    if (!debugMode) return;
+    resetArena();
+  }, [courtHeight, courtWidth, debugMode]);
 
   const answerStatus = answerResult == null
     ? '正解するとボール +1'
@@ -663,7 +676,7 @@ export default function SingleDodgeDebugScreen({
           <DodgeGame
             me={me}
             players={playerMap}
-            dodgeState={{ width: DODGE_WIDTH, height: DODGE_HEIGHT, playerRadius: DODGE_PLAYER_RADIUS, balls }}
+            dodgeState={{ width: courtWidth, height: courtHeight, playerRadius: DODGE_PLAYER_RADIUS, balls }}
             onSetMove={handleSetHeldDirection}
             onSetMoveVector={handleSetHeldVector}
             onThrow={throwBall}
@@ -682,6 +695,25 @@ export default function SingleDodgeDebugScreen({
             <div className="mb-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 sm:mb-4 sm:p-4">
               <div className="text-xs font-bold tracking-[0.22em] text-amber-200">CHECK POINT</div>
               <div className="mt-2 text-sm text-slate-100">移動、向き、投球、被弾、復活の挙動をローカルで確認できます。</div>
+              <div className="mt-3 grid gap-2 rounded-xl border border-amber-300/25 bg-slate-900/60 p-2.5">
+                <div className="text-[11px] font-bold tracking-[0.2em] text-amber-200">COURT PREVIEW</div>
+                <label className="text-xs text-slate-300">
+                  想定参加人数: <span className="font-bold text-cyan-200">{debugParticipantCount}人</span>
+                </label>
+                <input
+                  type="range"
+                  min={4}
+                  max={16}
+                  step={1}
+                  value={debugParticipantCount}
+                  onChange={(event) => setDebugParticipantCount(Number(event.target.value))}
+                  className="w-full accent-cyan-400"
+                />
+                <div className="text-xs text-slate-300">
+                  コートサイズ: <span className="font-bold text-cyan-200">{courtWidth} × {courtHeight}</span>
+                </div>
+                <div className="text-[11px] text-slate-400">※ 人数変更時は盤面とスポーン位置を再初期化します。</div>
+              </div>
               <div className="mt-3 text-xs text-slate-300">投球ベクトル: x {lastAimVector.x.toFixed(2)} / y {lastAimVector.y.toFixed(2)}</div>
             </div>
           ) : (

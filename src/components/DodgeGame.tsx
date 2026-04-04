@@ -284,7 +284,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
             }}
           >
             <div className="absolute inset-[5.5%] rounded-[1.5rem] border-2 border-white/25" />
-            <div className="absolute bottom-[12%] left-1/2 h-[30%] w-[16%] -translate-x-1/2 rounded-[999px] border border-white/10 bg-white/5" />
+            <div className="absolute left-1/2 top-1/2 h-[30%] w-[16%] -translate-x-1/2 -translate-y-1/2 rounded-[999px] border border-white/10 bg-white/5" />
             <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-white/15" />
 
             {(dodgeState.balls || []).map((ball: any) => (
