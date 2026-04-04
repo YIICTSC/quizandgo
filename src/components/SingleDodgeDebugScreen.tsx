@@ -53,6 +53,8 @@ type DebugBall = {
   vy: number;
   radius: number;
   expiresAt: number;
+  spawnedAt: number;
+  shotType?: 'normal' | 'fast' | 'wave' | 'homing';
 };
 
 const BOT_COUNT = 3;
@@ -60,6 +62,7 @@ const BOT_COLORS = ['#f97316', '#22c55e', '#a855f7', '#f43f5e', '#06b6d4'];
 
 const shuffle = <T,>(values: T[]) => [...values].sort(() => Math.random() - 0.5);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const optionColors = ['#e3342f', '#3490dc', '#f6993f', '#38c172'];
 
 const generateMathQuestion = (type: string): SingleDodgeQuestion => {
   const resolvedType = type === 'mix'
@@ -231,6 +234,20 @@ export default function SingleDodgeDebugScreen({
   const defeatSoundCooldownRef = useRef(0);
   const playersRef = useRef<DebugPlayer[]>(players);
 
+  const getRandomShotType = useCallback((): 'normal' | 'fast' | 'wave' | 'homing' => {
+    if (debugMode) return 'normal';
+    const pool: Array<'fast' | 'wave' | 'homing'> = ['fast', 'wave', 'homing'];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, [debugMode]);
+
+  const getOptionStateClass = (index: number) => {
+    const correctIndex = question ? question.options.findIndex((option) => option === question.answer) : -1;
+    if (answerResult === null) return 'hover:scale-105 active:scale-95';
+    if (index === correctIndex) return 'scale-[1.02] border-4 border-emerald-200 ring-4 ring-emerald-500/40 opacity-100';
+    if (!answerResult && index === selectedAnswerIndex) return 'border-4 border-rose-200 ring-4 ring-rose-500/40 opacity-100';
+    return 'opacity-35';
+  };
+
   const pickQuestion = useCallback(() => {
     if (debugMode) return null;
     if (mode !== 'custom') {
@@ -366,6 +383,8 @@ export default function SingleDodgeDebugScreen({
 
           if (!debugMode && now - lastThrowAt > 450 && player.dodgeBallStock > 0 && Math.random() < 0.02) {
             const throwVector = getMoveVector(direction);
+            const shotType = getRandomShotType();
+            const speedScale = shotType === 'fast' ? 1.75 : 1;
             setBalls((current) => [
               ...current,
               {
@@ -373,10 +392,12 @@ export default function SingleDodgeDebugScreen({
                 ownerId: player.id,
                 x: player.x + throwVector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
                 y: player.y + throwVector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
-                vx: throwVector.x * DODGE_BALL_SPEED,
-                vy: throwVector.y * DODGE_BALL_SPEED,
+                vx: throwVector.x * DODGE_BALL_SPEED * speedScale,
+                vy: throwVector.y * DODGE_BALL_SPEED * speedScale,
                 radius: DODGE_BALL_RADIUS,
                 expiresAt: now + DODGE_BALL_LIFETIME_MS,
+                spawnedAt: now,
+                shotType,
               },
             ]);
             return {
@@ -405,10 +426,40 @@ export default function SingleDodgeDebugScreen({
         const scorerIds = new Set<string>();
 
         for (const ball of currentBalls) {
+          const ageMs = now - (ball.spawnedAt || now);
+          let nextVx = ball.vx;
+          let nextVy = ball.vy;
+          let nextX = ball.x;
+          let nextY = ball.y;
+
+          if (ball.shotType === 'wave') {
+            const magnitude = Math.sin(ageMs / 90) * 18;
+            if (Math.abs(ball.vx) > Math.abs(ball.vy)) {
+              nextY += magnitude * dt;
+            } else {
+              nextX += magnitude * dt;
+            }
+          } else if (ball.shotType === 'homing') {
+            const owner = activePlayers.find((player) => player.id === ball.ownerId);
+            const enemies = activePlayers.filter((player) => player.alive && player.id !== ball.ownerId);
+            const target = enemies.sort((a, b) => Math.hypot(a.x - ball.x, a.y - ball.y) - Math.hypot(b.x - ball.x, b.y - ball.y))[0];
+            if (target || owner) {
+              const toTarget = target
+                ? { x: target.x - ball.x, y: target.y - ball.y }
+                : { x: 1, y: 0 };
+              const len = Math.hypot(toTarget.x, toTarget.y) || 1;
+              const dir = { x: toTarget.x / len, y: toTarget.y / len };
+              nextVx = ball.vx * 0.88 + dir.x * DODGE_BALL_SPEED * 0.5;
+              nextVy = ball.vy * 0.88 + dir.y * DODGE_BALL_SPEED * 0.5;
+            }
+          }
+
           const nextBall = {
             ...ball,
-            x: ball.x + ball.vx * dt,
-            y: ball.y + ball.vy * dt,
+            vx: nextVx,
+            vy: nextVy,
+            x: nextX + nextVx * dt,
+            y: nextY + nextVy * dt,
           };
           const outOfBounds =
             now >= ball.expiresAt ||
@@ -470,7 +521,7 @@ export default function SingleDodgeDebugScreen({
 
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [debugMode, lastThrowAt]);
+  }, [debugMode, getRandomShotType, lastThrowAt]);
 
   const me = players.find((player) => player.id === 'me');
   const playerMap = useMemo(
@@ -497,6 +548,8 @@ export default function SingleDodgeDebugScreen({
     if (!debugMode) {
       setPlayers((current) => current.map((player) => player.id === 'me' ? { ...player, dodgeBallStock: Math.max(0, player.dodgeBallStock - 1) } : player));
     }
+    const shotType = getRandomShotType();
+    const speedScale = shotType === 'fast' ? 1.75 : 1;
     setBalls((current) => [
       ...current,
       {
@@ -504,10 +557,12 @@ export default function SingleDodgeDebugScreen({
         ownerId: 'me',
         x: me.x + vector.x * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
         y: me.y + vector.y * (DODGE_PLAYER_RADIUS + DODGE_BALL_RADIUS + DODGE_THROW_SPAWN_OFFSET),
-        vx: vector.x * DODGE_BALL_SPEED,
-        vy: vector.y * DODGE_BALL_SPEED,
+        vx: vector.x * DODGE_BALL_SPEED * speedScale,
+        vy: vector.y * DODGE_BALL_SPEED * speedScale,
         radius: DODGE_BALL_RADIUS,
         expiresAt: now + DODGE_BALL_LIFETIME_MS,
+        spawnedAt: now,
+        shotType,
       },
     ]);
   };
@@ -616,21 +671,13 @@ export default function SingleDodgeDebugScreen({
                   <div className="mt-3 text-base font-bold text-white">{question.question}</div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {question.options.map((option, index) => {
-                      const isCorrect = option === question.answer;
-                      const isSelected = selectedAnswerIndex === index;
-                      const highlight = answerResult == null
-                        ? 'border-slate-600 bg-slate-800/70 hover:bg-slate-700'
-                        : isCorrect
-                          ? 'border-emerald-400 bg-emerald-500/25'
-                          : isSelected
-                            ? 'border-rose-400 bg-rose-500/25'
-                            : 'border-slate-700 bg-slate-800/40 opacity-60';
                       return (
                         <button
                           key={`${option}-${index}`}
                           onClick={() => submitAnswer(index)}
                           disabled={answerResult !== null || timeRemaining <= 0}
-                          className={`rounded-xl border px-3 py-2 text-left text-sm font-bold text-white transition ${highlight}`}
+                          className={`rounded-2xl p-3 text-left text-base font-bold text-white shadow-lg transition-transform ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(index)}`}
+                          style={{ backgroundColor: optionColors[index % 4] }}
                         >
                           {option}
                         </button>
