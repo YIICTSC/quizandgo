@@ -1976,7 +1976,7 @@ async function startServer() {
       io.to(roomId).emit('roomStateUpdate', room);
     });
 
-    socket.on('throwDodgeBall', ({ roomId }: { roomId: string }) => {
+    socket.on('throwDodgeBall', ({ roomId, vector }: { roomId: string; vector?: { x: number; y: number } | null }) => {
       const room = rooms[roomId];
       const player = room?.players[socket.id];
       if (!room || !player || room.state !== 'playing' || !isDodgeGameType(room.gameType) || !room.dodgeState || !player.alive) return;
@@ -1985,11 +1985,25 @@ async function startServer() {
       const now = Date.now();
       if (now - (player.lastDodgeThrowAt || 0) < DODGE_THROW_COOLDOWN_MS) return;
 
-      const moveVector = player.dodgeMoveVector
+      const requestedVector = vector
+        ? getNormalizedDodgeMoveVector({
+          x: clamp(vector.x, -1, 1),
+          y: clamp(vector.y, -1, 1),
+        })
+        : null;
+      if (requestedVector && (Math.abs(requestedVector.x) > 0.01 || Math.abs(requestedVector.y) > 0.01)) {
+        player.dodgeAimVector = requestedVector;
+        player.dodgeFacing = Math.abs(requestedVector.x) > Math.abs(requestedVector.y)
+          ? (requestedVector.x >= 0 ? 'right' : 'left')
+          : (requestedVector.y >= 0 ? 'down' : 'up');
+      }
+
+      const moveVector = requestedVector
+        || (player.dodgeMoveVector
         ? getNormalizedDodgeMoveVector(player.dodgeMoveVector)
         : player.dodgeAimVector
           ? getNormalizedDodgeMoveVector(player.dodgeAimVector)
-          : getDodgeMoveVector(player.dodgeFacing || player.dodgeMoveDirection);
+          : getDodgeMoveVector(player.dodgeFacing || player.dodgeMoveDirection));
       const fallbackTowardEnemy = player.x < room.dodgeState.width / 2 ? 1 : -1;
       const throwVector = Math.abs(moveVector.x) < 0.01 && Math.abs(moveVector.y) < 0.01
         ? { x: fallbackTowardEnemy, y: 0 }

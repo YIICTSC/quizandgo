@@ -317,8 +317,8 @@ export default function PlayerScreen({ roomId, playerName }: { roomId: string, p
     socket.emit('setDodgeMoveVector', { roomId, vector });
   }, [roomId]);
 
-  const handleDodgeThrow = useCallback(() => {
-    socket.emit('throwDodgeBall', { roomId });
+  const handleDodgeThrow = useCallback((vector?: { x: number; y: number }) => {
+    socket.emit('throwDodgeBall', { roomId, vector });
   }, [roomId]);
 
   if (!roomState) {
