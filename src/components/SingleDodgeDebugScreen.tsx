@@ -672,7 +672,7 @@ export default function SingleDodgeDebugScreen({
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
-        <div className="h-[42dvh] min-h-[240px] max-h-[52dvh] w-full flex-none overflow-hidden rounded-2xl sm:h-auto sm:max-h-none sm:min-h-[420px] sm:flex-[1.15]">
+        <div className="h-[46dvh] min-h-[260px] max-h-[62dvh] w-full flex-none overflow-hidden rounded-2xl sm:h-auto sm:max-h-none sm:min-h-[460px] sm:flex-[1.25]">
           <DodgeGame
             me={me}
             players={playerMap}
@@ -703,7 +703,7 @@ export default function SingleDodgeDebugScreen({
                 <input
                   type="range"
                   min={4}
-                  max={16}
+                  max={40}
                   step={1}
                   value={debugParticipantCount}
                   onChange={(event) => setDebugParticipantCount(Number(event.target.value))}
