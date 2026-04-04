@@ -208,38 +208,44 @@ const isColorBomberGameType = (gameType?: string) => gameType === 'color_bomber'
 const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
 const isTeamDodgeMode = (room?: Room) => isDodgeGameType(room?.gameType) && room?.dodgeMode === 'team';
 const DODGE_SINGLE_OUTFIELD_DEPTH = 58;
+const getDodgeCourtSize = (playerCount: number) => {
+  if (playerCount >= 12) return { width: 1320, height: 742 };
+  if (playerCount >= 8) return { width: 1160, height: 653 };
+  return { width: DODGE_WIDTH, height: DODGE_HEIGHT };
+};
 const getDodgeTeamSide = (teamId?: number | null) => (teamId === 2 ? 'right' : 'left');
 const getDodgeInfieldRange = (room: Room, player: Player) => {
-  const mid = DODGE_WIDTH / 2;
+  const courtWidth = room.dodgeState?.width ?? DODGE_WIDTH;
+  const mid = courtWidth / 2;
   const isRight = getDodgeTeamSide(player.teamId) === 'right';
   if (!isTeamDodgeMode(room)) {
-    return { minX: DODGE_PLAYER_RADIUS, maxX: DODGE_WIDTH - DODGE_PLAYER_RADIUS };
+    return { minX: DODGE_PLAYER_RADIUS, maxX: courtWidth - DODGE_PLAYER_RADIUS };
   }
   if (player.dodgeRole === 'outfield') {
     return isRight
-      ? { minX: DODGE_WIDTH - DODGE_PLAYER_RADIUS - 42, maxX: DODGE_WIDTH - DODGE_PLAYER_RADIUS }
+      ? { minX: courtWidth - DODGE_PLAYER_RADIUS - 42, maxX: courtWidth - DODGE_PLAYER_RADIUS }
       : { minX: DODGE_PLAYER_RADIUS, maxX: DODGE_PLAYER_RADIUS + 42 };
   }
   return isRight
-    ? { minX: mid + DODGE_PLAYER_RADIUS, maxX: DODGE_WIDTH - DODGE_PLAYER_RADIUS }
+    ? { minX: mid + DODGE_PLAYER_RADIUS, maxX: courtWidth - DODGE_PLAYER_RADIUS }
     : { minX: DODGE_PLAYER_RADIUS, maxX: mid - DODGE_PLAYER_RADIUS };
 };
-const isSingleDodgeOutfieldZone = (x: number, y: number) =>
+const isSingleDodgeOutfieldZone = (x: number, y: number, width = DODGE_WIDTH, height = DODGE_HEIGHT) =>
   x <= DODGE_SINGLE_OUTFIELD_DEPTH ||
-  x >= DODGE_WIDTH - DODGE_SINGLE_OUTFIELD_DEPTH ||
+  x >= width - DODGE_SINGLE_OUTFIELD_DEPTH ||
   y <= DODGE_SINGLE_OUTFIELD_DEPTH ||
-  y >= DODGE_HEIGHT - DODGE_SINGLE_OUTFIELD_DEPTH;
+  y >= height - DODGE_SINGLE_OUTFIELD_DEPTH;
 
-const clampSingleDodgeOutfieldPosition = (x: number, y: number) => {
-  const clampedX = clamp(x, DODGE_PLAYER_RADIUS, DODGE_WIDTH - DODGE_PLAYER_RADIUS);
-  const clampedY = clamp(y, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
-  if (isSingleDodgeOutfieldZone(clampedX, clampedY)) {
+const clampSingleDodgeOutfieldPosition = (x: number, y: number, width = DODGE_WIDTH, height = DODGE_HEIGHT) => {
+  const clampedX = clamp(x, DODGE_PLAYER_RADIUS, width - DODGE_PLAYER_RADIUS);
+  const clampedY = clamp(y, DODGE_PLAYER_RADIUS, height - DODGE_PLAYER_RADIUS);
+  if (isSingleDodgeOutfieldZone(clampedX, clampedY, width, height)) {
     return { x: clampedX, y: clampedY };
   }
   const targetLeft = DODGE_SINGLE_OUTFIELD_DEPTH;
-  const targetRight = DODGE_WIDTH - DODGE_SINGLE_OUTFIELD_DEPTH;
+  const targetRight = width - DODGE_SINGLE_OUTFIELD_DEPTH;
   const targetTop = DODGE_SINGLE_OUTFIELD_DEPTH;
-  const targetBottom = DODGE_HEIGHT - DODGE_SINGLE_OUTFIELD_DEPTH;
+  const targetBottom = height - DODGE_SINGLE_OUTFIELD_DEPTH;
   const options = [
     { x: targetLeft, y: clampedY },
     { x: targetRight, y: clampedY },
@@ -249,25 +255,25 @@ const clampSingleDodgeOutfieldPosition = (x: number, y: number) => {
   return options.sort((a, b) => Math.hypot(a.x - clampedX, a.y - clampedY) - Math.hypot(b.x - clampedX, b.y - clampedY))[0];
 };
 
-const getDodgeOutfieldPoint = (player: Player) => {
+const getDodgeOutfieldPoint = (player: Player, width = DODGE_WIDTH, height = DODGE_HEIGHT) => {
   const isRight = getDodgeTeamSide(player.teamId) === 'right';
   return {
-    x: isRight ? DODGE_WIDTH - DODGE_PLAYER_RADIUS - 18 : DODGE_PLAYER_RADIUS + 18,
-    y: DODGE_HEIGHT / 2,
+    x: isRight ? width - DODGE_PLAYER_RADIUS - 18 : DODGE_PLAYER_RADIUS + 18,
+    y: height / 2,
   };
 };
-const getSingleDodgeOutfieldPoint = () => {
+const getSingleDodgeOutfieldPoint = (width = DODGE_WIDTH, height = DODGE_HEIGHT) => {
   const side = Math.floor(Math.random() * 4);
   if (side === 0) {
-    return { x: DODGE_SINGLE_OUTFIELD_DEPTH, y: DODGE_HEIGHT * (0.2 + Math.random() * 0.6) };
+    return { x: DODGE_SINGLE_OUTFIELD_DEPTH, y: height * (0.2 + Math.random() * 0.6) };
   }
   if (side === 1) {
-    return { x: DODGE_WIDTH - DODGE_SINGLE_OUTFIELD_DEPTH, y: DODGE_HEIGHT * (0.2 + Math.random() * 0.6) };
+    return { x: width - DODGE_SINGLE_OUTFIELD_DEPTH, y: height * (0.2 + Math.random() * 0.6) };
   }
   if (side === 2) {
-    return { x: DODGE_WIDTH * (0.2 + Math.random() * 0.6), y: DODGE_SINGLE_OUTFIELD_DEPTH };
+    return { x: width * (0.2 + Math.random() * 0.6), y: DODGE_SINGLE_OUTFIELD_DEPTH };
   }
-  return { x: DODGE_WIDTH * (0.2 + Math.random() * 0.6), y: DODGE_HEIGHT - DODGE_SINGLE_OUTFIELD_DEPTH };
+  return { x: width * (0.2 + Math.random() * 0.6), y: height - DODGE_SINGLE_OUTFIELD_DEPTH };
 };
 const roomUsesTeams = (room: Room) =>
   room.gameType === 'golf' ||
@@ -551,13 +557,13 @@ const buildExplosionCells = (room: Room, originX: number, originY: number, range
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const getDodgeSpawnPoints = (playerCount: number) => {
+const getDodgeSpawnPoints = (playerCount: number, width = DODGE_WIDTH, height = DODGE_HEIGHT) => {
   const cols = Math.max(2, Math.ceil(Math.sqrt(playerCount * (16 / 9))));
   const rows = Math.max(2, Math.ceil(playerCount / cols));
   const marginX = 90;
   const marginY = 70;
-  const usableWidth = DODGE_WIDTH - marginX * 2;
-  const usableHeight = DODGE_HEIGHT - marginY * 2;
+  const usableWidth = width - marginX * 2;
+  const usableHeight = height - marginY * 2;
   const points: { x: number; y: number }[] = [];
 
   for (let row = 0; row < rows; row += 1) {
@@ -573,14 +579,16 @@ const getDodgeSpawnPoints = (playerCount: number) => {
 };
 
 const assignDodgeSpawnPositions = (room: Room, players: Player[]) => {
+  const width = room.dodgeState?.width ?? DODGE_WIDTH;
+  const height = room.dodgeState?.height ?? DODGE_HEIGHT;
   if (isTeamDodgeMode(room)) {
     const left = players.filter((player) => getDodgeTeamSide(player.teamId) === 'left');
     const right = players.filter((player) => getDodgeTeamSide(player.teamId) === 'right');
     const layoutTeam = (members: Player[], isRight: boolean) => {
       const lanes = Math.max(1, members.length);
       members.forEach((player, index) => {
-        const y = ((index + 1) / (lanes + 1)) * DODGE_HEIGHT;
-        const x = isRight ? DODGE_WIDTH * 0.75 : DODGE_WIDTH * 0.25;
+        const y = ((index + 1) / (lanes + 1)) * height;
+        const x = isRight ? width * 0.75 : width * 0.25;
         player.x = x;
         player.y = y;
         player.dodgeFacing = isRight ? 'left' : 'right';
@@ -597,12 +605,12 @@ const assignDodgeSpawnPositions = (room: Room, players: Player[]) => {
     return;
   }
 
-  const points = getDodgeSpawnPoints(players.length || 1).sort(() => Math.random() - 0.5);
+  const points = getDodgeSpawnPoints(players.length || 1, width, height).sort(() => Math.random() - 0.5);
   players.forEach((player, index) => {
-    const point = points[index] || { x: DODGE_WIDTH / 2, y: DODGE_HEIGHT / 2 };
+    const point = points[index] || { x: width / 2, y: height / 2 };
     player.x = point.x;
     player.y = point.y;
-    player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
+    player.dodgeFacing = point.x < width / 2 ? 'right' : 'left';
     player.dodgeRole = 'infield';
     player.dodgeReadyToAssist = false;
     player.dodgeMoveDirection = null;
@@ -613,10 +621,17 @@ const assignDodgeSpawnPositions = (room: Room, players: Player[]) => {
 };
 
 const createDodgeState = (room: Room, players: Player[]): DodgeState => {
+  const court = getDodgeCourtSize(players.length);
+  room.dodgeState = {
+    width: court.width,
+    height: court.height,
+    playerRadius: DODGE_PLAYER_RADIUS,
+    balls: [],
+  };
   assignDodgeSpawnPositions(room, players);
   return {
-    width: DODGE_WIDTH,
-    height: DODGE_HEIGHT,
+    width: court.width,
+    height: court.height,
     playerRadius: DODGE_PLAYER_RADIUS,
     balls: [],
   };
@@ -624,8 +639,9 @@ const createDodgeState = (room: Room, players: Player[]): DodgeState => {
 
 const respawnDodgePlayer = (room: Room, player: Player) => {
   if (!room.dodgeState) return;
+  const { width, height } = room.dodgeState;
   if (isTeamDodgeMode(room)) {
-    const point = getDodgeOutfieldPoint(player);
+    const point = getDodgeOutfieldPoint(player, width, height);
     player.x = point.x;
     player.y = point.y;
     player.alive = true;
@@ -639,7 +655,7 @@ const respawnDodgePlayer = (room: Room, player: Player) => {
     player.dodgeFacing = getDodgeTeamSide(player.teamId) === 'right' ? 'left' : 'right';
     return;
   }
-  const point = getSingleDodgeOutfieldPoint();
+  const point = getSingleDodgeOutfieldPoint(width, height);
   player.x = point.x;
   player.y = point.y;
   player.alive = true;
@@ -650,7 +666,7 @@ const respawnDodgePlayer = (room: Room, player: Player) => {
   player.dodgeMoveVector = null;
   player.dodgeAimVector = null;
   player.dodgeInvulnerableUntil = Date.now() + 1200;
-  player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
+  player.dodgeFacing = point.x < width / 2 ? 'right' : 'left';
 };
 
 const defeatDodgePlayer = (room: Room, player: Player, owner: Player | null, ballId: string, now: number) => {
@@ -659,7 +675,7 @@ const defeatDodgePlayer = (room: Room, player: Player, owner: Player | null, bal
     if (player.dodgeRole === 'infield') {
       player.dodgeRole = 'outfield';
       player.dodgeReadyToAssist = false;
-      const point = getDodgeOutfieldPoint(player);
+      const point = getDodgeOutfieldPoint(player, room.dodgeState.width, room.dodgeState.height);
       player.x = point.x;
       player.y = point.y;
       player.alive = true;
@@ -671,7 +687,7 @@ const defeatDodgePlayer = (room: Room, player: Player, owner: Player | null, bal
     }
   } else {
     if (player.dodgeRole === 'infield') {
-      const point = getSingleDodgeOutfieldPoint();
+      const point = getSingleDodgeOutfieldPoint(room.dodgeState.width, room.dodgeState.height);
       player.x = point.x;
       player.y = point.y;
       player.dodgeRole = 'outfield';
@@ -713,12 +729,14 @@ const restoreSingleDodgeInfieldIfEmpty = (room: Room, now: number) => {
 
   const outfieldPlayers = players.filter((player) => player.dodgeRole === 'outfield');
   if (outfieldPlayers.length === 0) return;
-  const points = getDodgeSpawnPoints(outfieldPlayers.length || 1).sort(() => Math.random() - 0.5);
+  const width = room.dodgeState?.width ?? DODGE_WIDTH;
+  const height = room.dodgeState?.height ?? DODGE_HEIGHT;
+  const points = getDodgeSpawnPoints(outfieldPlayers.length || 1, width, height).sort(() => Math.random() - 0.5);
   outfieldPlayers.forEach((player, index) => {
-    const point = points[index] || { x: DODGE_WIDTH / 2, y: DODGE_HEIGHT / 2 };
+    const point = points[index] || { x: width / 2, y: height / 2 };
     player.x = point.x;
     player.y = point.y;
-    player.dodgeFacing = point.x < DODGE_WIDTH / 2 ? 'right' : 'left';
+    player.dodgeFacing = point.x < width / 2 ? 'right' : 'left';
     player.dodgeRole = 'infield';
     player.dodgeReadyToAssist = false;
     player.dodgeMoveDirection = null;
@@ -1225,7 +1243,7 @@ const startDodgeLoop = (io: Server, roomId: string) => {
         const nextX = clamp(player.x + move.x * DODGE_MOVE_SPEED * dt, range.minX, range.maxX);
         const nextY = clamp(player.y + move.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
         if (!isTeamDodgeMode(room) && player.dodgeRole === 'outfield') {
-          const clamped = clampSingleDodgeOutfieldPosition(nextX, nextY);
+          const clamped = clampSingleDodgeOutfieldPosition(nextX, nextY, width, height);
           player.x = clamped.x;
           player.y = clamped.y;
         } else {
@@ -1294,9 +1312,9 @@ const startDodgeLoop = (io: Server, roomId: string) => {
             owner.dodgeReadyToAssist = false;
             owner.dodgeInvulnerableUntil = now + 700;
             owner.x = isTeamDodgeMode(room)
-              ? (getDodgeTeamSide(owner.teamId) === 'right' ? DODGE_WIDTH * 0.74 : DODGE_WIDTH * 0.26)
-              : DODGE_WIDTH * (0.35 + Math.random() * 0.3);
-            owner.y = clamp(owner.y, DODGE_PLAYER_RADIUS, DODGE_HEIGHT - DODGE_PLAYER_RADIUS);
+              ? (getDodgeTeamSide(owner.teamId) === 'right' ? width * 0.74 : width * 0.26)
+              : width * (0.35 + Math.random() * 0.3);
+            owner.y = clamp(owner.y, DODGE_PLAYER_RADIUS, height - DODGE_PLAYER_RADIUS);
           }
           restoreSingleDodgeInfieldIfEmpty(room, now);
           const winner = resolveTeamDodgeWinner(room);
