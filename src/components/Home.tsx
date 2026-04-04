@@ -223,8 +223,8 @@ export default function Home({
       </div>
 
       {showDebugMenu ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl rounded-3xl border border-cyan-500/40 bg-slate-900 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:items-center">
+          <div className="my-2 w-full max-w-4xl max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl border border-cyan-500/40 bg-slate-900 p-6 shadow-2xl sm:my-0">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <div className="text-xs font-bold tracking-[0.3em] text-cyan-300">DEBUG MENU</div>
