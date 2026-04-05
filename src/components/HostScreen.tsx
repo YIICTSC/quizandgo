@@ -80,6 +80,9 @@ export default function HostScreen({
   gameTitle = 'ゴルフゲーム',
   gameType = 'golf',
   onStartSinglePlayer,
+  hostParticipating = false,
+  onChangeHostParticipation,
+  onSwitchToHostPlayerScreen,
 }: {
   roomId: string;
   onReturnToTitle: () => void;
@@ -87,6 +90,9 @@ export default function HostScreen({
   gameTitle?: string;
   gameType?: string;
   onStartSinglePlayer?: (payload: { mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion: number }) => void;
+  hostParticipating?: boolean;
+  onChangeHostParticipation?: (enabled: boolean) => void;
+  onSwitchToHostPlayerScreen?: () => void;
 }) {
   const [roomState, setRoomState] = useState<any>(null);
   const [selectedMode, setSelectedMode] = useState<string>('mix');
@@ -221,6 +227,7 @@ export default function HostScreen({
     return url.toString();
   }, [roomId]);
   const players = Object.values(currentRoomState.players);
+  const hostJoinedAsPlayer = !isSinglePlayer && Boolean(currentRoomState.players?.[socket.id]);
   const selectedQuestionCount = units
     .filter((u) => selectedUnits.includes(u.unit))
     .reduce((total, unit) => total + unit.questions.length, 0);
@@ -660,6 +667,28 @@ export default function HostScreen({
                   <p className="mb-2 text-center text-[11px] text-slate-400 md:text-xs">
                     {isSinglePlayer ? '単元を選んでシングルプレイを開始できます。' : (players.length === 0 ? '参加者を待っています...' : `${players.length}人が参加中`)}
                   </p>
+                  {!isSinglePlayer ? (
+                    <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        onClick={() => onChangeHostParticipation?.(!hostParticipating)}
+                        className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                          hostParticipating
+                            ? 'border border-cyan-300 bg-cyan-500 text-slate-950'
+                            : 'border border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                        }`}
+                      >
+                        ホストもゲームに参加 {hostParticipating ? 'ON' : 'OFF'}
+                      </button>
+                      {hostJoinedAsPlayer ? (
+                        <button
+                          onClick={onSwitchToHostPlayerScreen}
+                          className="rounded-xl border border-fuchsia-300/40 bg-fuchsia-500/15 px-4 py-2 text-sm font-bold text-fuchsia-100 transition-colors hover:bg-fuchsia-500/25"
+                        >
+                          プレイヤー画面に切り替え
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     {resolvedGameType === 'quiz' ? (
                       <button

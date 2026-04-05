@@ -12,7 +12,7 @@ import SinglePlayScreen from './components/SinglePlayScreen';
 import SingleQuizScreen from './components/SingleQuizScreen';
 import SingleBomberScreen from './components/SingleBomberScreen';
 import SingleDodgeDebugScreen from './components/SingleDodgeDebugScreen';
-import { AvatarConfig } from './avatar';
+import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from './avatar';
 
 const getGameTitle = (gameType: string) => {
   if (gameType === 'golf') return 'ゴルフゲーム';
@@ -28,13 +28,39 @@ export default function App() {
   const [role, setRole] = useState<'none' | 'host' | 'player' | 'single_setup' | 'single_play'>('none');
   const [roomId, setRoomId] = useState<string>('');
   const [playerName, setPlayerName] = useState<string>('');
+  const [hostPlayerName] = useState<string>('ホスト');
+  const [hostParticipating, setHostParticipating] = useState(false);
+  const [hostView, setHostView] = useState<'host' | 'player'>('host');
   const [selectedGameType, setSelectedGameType] = useState<string>('golf');
   const [singlePlayConfig, setSinglePlayConfig] = useState<{ mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion?: number; debugHole?: number; debugFreePlay?: boolean; debugPlayerCount?: number } | null>(null);
   const returnToTitle = () => {
     setRole('none');
     setRoomId('');
     setPlayerName('');
+    setHostParticipating(false);
+    setHostView('host');
     setSinglePlayConfig(null);
+  };
+
+  const getSavedAvatar = () => {
+    try {
+      const saved = window.localStorage.getItem(AVATAR_STORAGE_KEY);
+      return normalizeAvatar(saved ? JSON.parse(saved) : null);
+    } catch (e) {
+      return createRandomAvatar();
+    }
+  };
+
+  const handleHostParticipationChange = (enabled: boolean) => {
+    setHostParticipating(enabled);
+    if (enabled) {
+      socket.emit('joinRoom', { roomId, name: hostPlayerName, avatar: getSavedAvatar() });
+      setPlayerName(hostPlayerName);
+      setHostView('player');
+      return;
+    }
+    socket.emit('leaveRoom', { roomId });
+    setHostView('host');
   };
 
   useEffect(() => {
@@ -63,12 +89,18 @@ export default function App() {
   }, []);
 
   if (role === 'host') {
+    if (hostView === 'player' && hostParticipating) {
+      return <PlayerScreen roomId={roomId} playerName={hostPlayerName} onSwitchToHostScreen={() => setHostView('host')} />;
+    }
     return (
-        <HostScreen
+      <HostScreen
         roomId={roomId}
         onReturnToTitle={returnToTitle}
         gameTitle={getGameTitle(selectedGameType)}
         gameType={selectedGameType}
+        hostParticipating={hostParticipating}
+        onChangeHostParticipation={handleHostParticipationChange}
+        onSwitchToHostPlayerScreen={() => setHostView('player')}
       />
     );
   }
@@ -152,6 +184,8 @@ export default function App() {
       onCreate={(gameType, debugConfig) => {
         setSelectedGameType(gameType);
         setRole('host');
+        setHostParticipating(false);
+        setHostView('host');
         socket.emit('createRoom', { gameType, debugConfig });
       }}
       onStartSinglePlayer={(gameType) => {
