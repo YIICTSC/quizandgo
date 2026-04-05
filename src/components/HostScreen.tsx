@@ -505,8 +505,18 @@ export default function HostScreen({
       ? sortedPlayers.filter((player: any) => player.teamId === teamId).map((player: any) => player.name)
       : [];
 
+  const playerSwitchButton = !isSinglePlayer && hostJoinedAsPlayer && onSwitchToHostPlayerScreen ? (
+    <button
+      onClick={onSwitchToHostPlayerScreen}
+      className="fixed right-4 top-4 z-50 rounded-xl border border-fuchsia-300/40 bg-fuchsia-500/20 px-4 py-2 text-sm font-bold text-fuchsia-100 shadow-lg backdrop-blur transition-colors hover:bg-fuchsia-500/35"
+    >
+      ゲーム画面に切り替え
+    </button>
+  ) : null;
+
   return (
     <div className="h-[100dvh] overflow-y-auto bg-slate-900 p-3 text-white md:p-4 lg:overflow-hidden">
+      {playerSwitchButton}
       <div className="mx-auto flex min-h-full max-w-6xl flex-col lg:h-full">
         <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold md:text-3xl">{isSinglePlayer ? 'Quiz & Go! シングル設定' : 'Quiz & Go! ホスト画面'}</h1>
@@ -684,7 +694,7 @@ export default function HostScreen({
                           onClick={onSwitchToHostPlayerScreen}
                           className="rounded-xl border border-fuchsia-300/40 bg-fuchsia-500/15 px-4 py-2 text-sm font-bold text-fuchsia-100 transition-colors hover:bg-fuchsia-500/25"
                         >
-                          プレイヤー画面に切り替え
+                          ゲーム画面に切り替え
                         </button>
                       ) : null}
                     </div>
