@@ -6,7 +6,7 @@ import path from 'path';
 import { addItemToInventory, GameItemId, getRandomItemChoices } from './src/gameItems.ts';
 import { findMatchingOptionIndex, shuffleOptionsWithFirstCorrect } from './src/lib/answerMatching.ts';
 import { BOMBER_BASE_HEIGHT, BOMBER_BASE_WIDTH, getBomberDimensions } from './src/lib/bomberDimensions.ts';
-import { AvatarConfig, normalizeAvatar } from './src/avatar.ts';
+import { AvatarConfig, createRandomAvatar, normalizeAvatar } from './src/avatar.ts';
 import {
   DODGE_BALL_LIFETIME_MS,
   DODGE_BALL_RADIUS,
@@ -30,6 +30,7 @@ const PORT = Number(process.env.PORT || 3000);
 interface Player {
   id: string;
   name: string;
+  isPseudo?: boolean;
   avatar: AvatarConfig;
   holesCompleted: number; // クリアしたホール数
   totalStrokes: number;   // 全ホールの合計打数
@@ -187,6 +188,8 @@ interface Room {
   }[];
   dodgeMode?: 'single' | 'team';
   dodgeWinnerTeamId?: number | null;
+  debugPseudoPlayerCount?: number;
+  debugIncludeHostAsPseudoPlayer?: boolean;
 }
 
 const rooms: Record<string, Room> = {};
@@ -295,6 +298,67 @@ const getTeamInitial = (name: string) => {
   if (!trimmed) return '?';
   return Array.from(trimmed)[0];
 };
+
+const createBasePlayer = (id: string, name: string, color: string, avatar?: AvatarConfig, isPseudo = false): Player => ({
+  id,
+  name,
+  isPseudo,
+  avatar: normalizeAvatar(avatar ?? createRandomAvatar()),
+  holesCompleted: 0,
+  totalStrokes: 0,
+  currentStrokes: 0,
+  correctAnswers: 0,
+  quizPoints: 0,
+  quizCombo: 0,
+  maxQuizCombo: 0,
+  fastestAnswerMs: null,
+  lastQuestionIssuedAt: null,
+  quizLives: 0,
+  battleRoyaleWins: 0,
+  currentBattlePairId: null,
+  currentBattlePairIds: [],
+  canShoot: false,
+  x: 100,
+  y: 100,
+  color,
+  items: [],
+  activeItemId: null,
+  pendingItemChoices: null,
+  shotsRemaining: 0,
+  teamId: null,
+  bomberX: 1,
+  bomberY: 1,
+  bomberSpawnX: 1,
+  bomberSpawnY: 1,
+  alive: true,
+  respawnAt: null,
+  kills: 0,
+  blocksDestroyed: 0,
+  deaths: 0,
+  timeAliveMs: 0,
+  bombsAvailable: 1,
+  bombRange: 2,
+  fireLevel: 0,
+  hasKickBomb: false,
+  hasShield: false,
+  hasRemoteBomb: false,
+  hasPierceFire: false,
+  moveSpeedLevel: 0,
+  territoryCells: 0,
+  lastBomberMoveAt: 0,
+  lastBroadcastX: 100,
+  lastBroadcastY: 100,
+  lastBroadcastAt: 0,
+  dodgeBallStock: 0,
+  dodgeFacing: 'right',
+  dodgeMoveDirection: null,
+  dodgeMoveVector: null,
+  dodgeAimVector: null,
+  dodgeInvulnerableUntil: null,
+  lastDodgeThrowAt: 0,
+  dodgeRole: 'infield',
+  dodgeReadyToAssist: false,
+});
 
 const randomFloorPosition = (grid: BomberCell[][], used: Set<string>) => {
   const candidates: { x: number; y: number }[] = [];
@@ -1106,11 +1170,78 @@ const resetRoomToWaiting = (room: Room) => {
   Object.values(room.players).forEach((player) => resetPlayerState(player));
 };
 
+const simulatePseudoPlayersLoad = (room: Room) => {
+  const pseudoPlayers = Object.values(room.players).filter((player) => player.isPseudo);
+  if (pseudoPlayers.length === 0) return;
+
+  pseudoPlayers.forEach((player) => {
+    // 疑似的なCPU負荷を発生させる（参加人数に比例）
+    let accumulator = 0;
+    for (let i = 0; i < 180; i += 1) {
+      accumulator += Math.sin((i + 1) * 0.13) * Math.cos((i + 1) * 0.07);
+    }
+
+    if (room.gameType === 'quiz') {
+      if (Math.random() < 0.68) {
+        player.correctAnswers += 1;
+        if (room.quizVariant === 'combo') {
+          player.quizCombo += 1;
+          player.maxQuizCombo = Math.max(player.maxQuizCombo, player.quizCombo);
+          player.quizPoints += 100 + (player.quizCombo - 1) * 25;
+        } else if (room.quizVariant === 'speed') {
+          player.quizPoints += 140;
+          player.fastestAnswerMs = player.fastestAnswerMs == null ? 1200 : Math.min(player.fastestAnswerMs, 1200);
+        } else if (room.quizVariant === 'boss') {
+          const damage = 95;
+          player.quizPoints += damage;
+          room.bossHp = Math.max(0, (room.bossHp || room.bossMaxHp || 0) - damage);
+        } else {
+          player.quizPoints += 100;
+        }
+      } else if (room.quizVariant === 'combo') {
+        player.quizCombo = 0;
+      }
+      player.currentQuestion = getQuestionForRoom(room);
+      return;
+    }
+
+    if (isBomberGameType(room.gameType)) {
+      player.timeAliveMs += 850;
+      player.blocksDestroyed += Math.random() < 0.45 ? 1 : 0;
+      player.kills += Math.random() < 0.18 ? 1 : 0;
+      player.deaths += Math.random() < 0.14 ? 1 : 0;
+      player.currentQuestion = getQuestionForRoom(room);
+      return;
+    }
+
+    if (isDodgeGameType(room.gameType)) {
+      player.timeAliveMs += 900;
+      player.kills += Math.random() < 0.22 ? 1 : 0;
+      player.deaths += Math.random() < 0.2 ? 1 : 0;
+      player.currentQuestion = getQuestionForRoom(room);
+      return;
+    }
+
+    // golf など
+    const strokes = 2 + Math.floor(Math.random() * 5);
+    player.currentStrokes += 1;
+    player.totalStrokes += strokes;
+    player.holesCompleted += Math.random() < 0.35 ? 1 : 0;
+    player.canShoot = accumulator > -9999;
+  });
+
+  if (room.gameType === 'quiz' && room.quizVariant === 'boss' && (room.bossHp || 0) <= 0) {
+    room.state = 'results';
+  }
+};
+
 const startRoomTimer = (io: Server, roomId: string) => {
   const timerInterval = setInterval(() => {
     if (rooms[roomId] && rooms[roomId].state === 'playing') {
+      simulatePseudoPlayersLoad(rooms[roomId]);
       rooms[roomId].timeRemaining -= 1;
       io.to(roomId).emit('timeUpdate', rooms[roomId].timeRemaining);
+      io.to(roomId).emit('roomStateUpdate', rooms[roomId]);
 
       if (rooms[roomId].timeRemaining <= 0) {
         clearInterval(timerInterval);
@@ -1418,9 +1549,11 @@ async function startServer() {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('createRoom', ({ gameType }: { gameType?: string } = {}) => {
+    socket.on('createRoom', ({ gameType, debugConfig }: { gameType?: string; debugConfig?: { pseudoPlayerCount?: number; includeHostAsPseudoPlayer?: boolean } } = {}) => {
       // Generate a 6-digit numeric PIN
       const roomId = Math.floor(100000 + Math.random() * 900000).toString();
+      const pseudoPlayerCount = Math.max(0, Math.min(300, Number(debugConfig?.pseudoPlayerCount) || 0));
+      const includeHostAsPseudoPlayer = Boolean(debugConfig?.includeHostAsPseudoPlayer);
       rooms[roomId] = {
         id: roomId,
         hostId: socket.id,
@@ -1445,7 +1578,19 @@ async function startServer() {
         dodgeState: null,
         dodgeMode: 'single',
         dodgeWinnerTeamId: null,
+        debugPseudoPlayerCount: pseudoPlayerCount,
+        debugIncludeHostAsPseudoPlayer: includeHostAsPseudoPlayer,
       };
+      if (includeHostAsPseudoPlayer) {
+        const hostPseudoId = `pseudo-host-${socket.id}`;
+        const color = COLORS[Object.keys(rooms[roomId].players).length % COLORS.length];
+        rooms[roomId].players[hostPseudoId] = createBasePlayer(hostPseudoId, 'HOST-PLAYER', color, createRandomAvatar(), true);
+      }
+      for (let index = 0; index < pseudoPlayerCount; index += 1) {
+        const pseudoId = `pseudo-${index + 1}-${Math.random().toString(36).slice(2, 8)}`;
+        const color = COLORS[Object.keys(rooms[roomId].players).length % COLORS.length];
+        rooms[roomId].players[pseudoId] = createBasePlayer(pseudoId, `BOT-${String(index + 1).padStart(3, '0')}`, color, createRandomAvatar(), true);
+      }
       socket.join(roomId);
       socket.emit('roomCreated', roomId);
       socket.emit('roomStateUpdate', rooms[roomId]);
@@ -1461,65 +1606,7 @@ async function startServer() {
         }
         socket.join(roomId);
         const color = COLORS[Object.keys(room.players).length % COLORS.length];
-        room.players[socket.id] = {
-          id: socket.id,
-          name,
-          avatar: normalizeAvatar(avatar),
-          holesCompleted: 0,
-          totalStrokes: 0,
-          currentStrokes: 0,
-          correctAnswers: 0,
-          quizPoints: 0,
-          quizCombo: 0,
-          maxQuizCombo: 0,
-          fastestAnswerMs: null,
-          lastQuestionIssuedAt: null,
-          quizLives: 0,
-          battleRoyaleWins: 0,
-          currentBattlePairId: null,
-          currentBattlePairIds: [],
-          canShoot: false,
-          x: 100,
-          y: 100,
-          color,
-          items: [],
-          activeItemId: null,
-          pendingItemChoices: null,
-          shotsRemaining: 0,
-          teamId: null,
-          bomberX: 1,
-          bomberY: 1,
-          bomberSpawnX: 1,
-          bomberSpawnY: 1,
-          alive: true,
-          respawnAt: null,
-          kills: 0,
-          blocksDestroyed: 0,
-          deaths: 0,
-          timeAliveMs: 0,
-          bombsAvailable: 1,
-          bombRange: 2,
-          fireLevel: 0,
-          hasKickBomb: false,
-          hasShield: false,
-          hasRemoteBomb: false,
-          hasPierceFire: false,
-          moveSpeedLevel: 0,
-          territoryCells: 0,
-          lastBomberMoveAt: 0,
-          lastBroadcastX: 100,
-          lastBroadcastY: 100,
-          lastBroadcastAt: 0,
-          dodgeBallStock: 0,
-          dodgeFacing: 'right',
-          dodgeMoveDirection: null,
-          dodgeMoveVector: null,
-          dodgeAimVector: null,
-          dodgeInvulnerableUntil: null,
-          lastDodgeThrowAt: 0,
-          dodgeRole: 'infield',
-          dodgeReadyToAssist: false,
-        };
+        room.players[socket.id] = createBasePlayer(socket.id, name, color, avatar, false);
         
         // If joining mid-game, generate an initial question for them
         if (room.state === 'teamReveal') {

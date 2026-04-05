@@ -26,7 +26,7 @@ export default function Home({
   onStartDebugDodgeMode,
 }: {
   onJoin: (id: string, name: string, avatar: AvatarConfig) => void,
-  onCreate: (gameType: string) => void,
+  onCreate: (gameType: string, debugConfig?: { pseudoPlayerCount: number; includeHostAsPseudoPlayer: boolean }) => void,
   onStartSinglePlayer: (gameType: string) => void,
   onStartDebugCourse: (hole: number) => void,
   onStartDebugBomberMap: (playerCount: number) => void,
@@ -38,6 +38,8 @@ export default function Home({
   const [singlePlayerMode, setSinglePlayerMode] = useState(false);
   const [titleTapCount, setTitleTapCount] = useState(0);
   const [showDebugMenu, setShowDebugMenu] = useState(false);
+  const [debugLoadGameType, setDebugLoadGameType] = useState<string>('golf');
+  const [debugPseudoPlayerCount, setDebugPseudoPlayerCount] = useState<number>(20);
   const [isBgmOn, setIsBgmOn] = useState(() => isBGMEnabled());
   const [avatar] = useState<AvatarConfig>(() => {
     try {
@@ -303,7 +305,49 @@ export default function Home({
                   <div className="mt-3 text-xs text-slate-500">※ 2〜3人時は最低4人想定と同じサイズになります。</div>
                   <div className="mt-4 space-y-2 text-sm text-slate-400">
                     <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">クイズモード検証（今後追加）</div>
-                    <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2">参加通信テスト（今後追加）</div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+                  <div className="mb-2 text-sm font-bold text-rose-100">ホスト負荷テスト（擬似プレイヤー）</div>
+                  <p className="mb-3 text-xs text-slate-300">
+                    擬似プレイヤーを任意人数追加した状態でホスト部屋を作成します。開始後は全擬似プレイヤー分の回答処理が走るため、
+                    実参加人数に応じたサーバー負荷の検証に使えます。
+                  </p>
+                  <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="rounded-xl border border-slate-600 bg-slate-900/50 px-3 py-2 text-xs text-slate-300">
+                      <div className="mb-1 font-bold text-slate-200">ゲーム</div>
+                      <select
+                        value={debugLoadGameType}
+                        onChange={(e) => setDebugLoadGameType(e.target.value)}
+                        className="w-full rounded-lg border border-slate-500 bg-slate-800 px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      >
+                        {HOST_GAME_OPTIONS.map((option) => (
+                          <option key={option.id} value={option.id}>{option.title}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="rounded-xl border border-slate-600 bg-slate-900/50 px-3 py-2 text-xs text-slate-300">
+                      <div className="mb-1 font-bold text-slate-200">擬似プレイヤー人数</div>
+                      <input
+                        type="number"
+                        min={0}
+                        max={300}
+                        step={1}
+                        value={debugPseudoPlayerCount}
+                        onChange={(e) => setDebugPseudoPlayerCount(Math.max(0, Math.min(300, Number(e.target.value) || 0)))}
+                        className="w-full rounded-lg border border-slate-500 bg-slate-800 px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      />
+                    </label>
+                  </div>
+                  <button
+                    onClick={() => onCreate(debugLoadGameType, { pseudoPlayerCount: debugPseudoPlayerCount, includeHostAsPseudoPlayer: true })}
+                    className="w-full rounded-xl border border-rose-300/40 bg-rose-500/20 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-rose-500/30"
+                  >
+                    擬似プレイヤー付きでホスト開始
+                  </button>
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    ※ このデバッグ開始ではホスト本人も擬似プレイヤーとして1人分追加されます。
                   </div>
                 </div>
               </div>
