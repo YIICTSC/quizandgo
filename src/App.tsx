@@ -149,10 +149,10 @@ export default function App() {
         setRole('player');
         socket.emit('joinRoom', { roomId: id, name, avatar });
       }}
-      onCreate={(gameType) => {
+      onCreate={(gameType, debugConfig) => {
         setSelectedGameType(gameType);
         setRole('host');
-        socket.emit('createRoom', { gameType });
+        socket.emit('createRoom', { gameType, debugConfig });
       }}
       onStartSinglePlayer={(gameType) => {
         setSelectedGameType(gameType);
