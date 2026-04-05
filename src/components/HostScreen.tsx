@@ -499,8 +499,8 @@ export default function HostScreen({
       : [];
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-900 text-white p-3 md:p-4">
-      <div className="mx-auto flex h-full max-w-6xl flex-col">
+    <div className="h-[100dvh] overflow-y-auto bg-slate-900 p-3 text-white md:p-4 lg:overflow-hidden">
+      <div className="mx-auto flex min-h-full max-w-6xl flex-col lg:h-full">
         <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold md:text-3xl">{isSinglePlayer ? 'Quiz & Go! シングル設定' : 'Quiz & Go! ホスト画面'}</h1>
           {!isSinglePlayer && (
@@ -1192,7 +1192,7 @@ export default function HostScreen({
           </div>
 
           {!isSinglePlayer && (
-          <div className="min-h-0">
+          <div className={`min-h-0 ${currentRoomState.state === 'waiting' ? 'max-h-[38vh] lg:max-h-none' : ''}`}>
             <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
               <h2 className="mb-4 flex shrink-0 items-center justify-between text-xl font-bold">
                 <span>
