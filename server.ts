@@ -1671,6 +1671,16 @@ async function startServer() {
       }
     });
 
+    socket.on('leaveRoom', ({ roomId }: { roomId: string }) => {
+      const room = rooms[roomId];
+      if (!room || !room.players[socket.id]) return;
+      delete room.players[socket.id];
+      if (room.state === 'teamReveal' && room.teamMode) {
+        assignRandomTeams(room, room.teamCount);
+      }
+      io.to(roomId).emit('roomStateUpdate', room);
+    });
+
     socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire, quizVariant, quizBattleLives, quizBattleQuestionLimit, dodgeMode }) => {
       const room = rooms[roomId];
       if (room && room.hostId === socket.id) {
