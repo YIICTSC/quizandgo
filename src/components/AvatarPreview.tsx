@@ -1,17 +1,31 @@
 import { AvatarConfig, normalizeAvatar } from '../avatar';
 
+type AvatarFaceDirection = 'front' | 'up' | 'down' | 'left' | 'right';
+type AvatarExpression = 'normal' | 'happy' | 'sad';
+
 export default function AvatarPreview({
   avatar,
   size = 96,
   className = '',
+  faceDirection = 'front',
+  expression = 'normal',
 }: {
   avatar: AvatarConfig | null | undefined;
   size?: number;
   className?: string;
+  faceDirection?: AvatarFaceDirection;
+  expression?: AvatarExpression;
 }) {
   const config = normalizeAvatar(avatar);
   const center = 64;
   const faceFill = config.skinColor;
+  const faceOffset = {
+    front: { x: 0, y: 0 },
+    up: { x: 0, y: -3 },
+    down: { x: 0, y: 3 },
+    left: { x: -4, y: 0 },
+    right: { x: 4, y: 0 },
+  }[faceDirection];
 
   return (
     <svg
@@ -171,19 +185,30 @@ export default function AvatarPreview({
         </>
       ) : null}
 
-      {config.eyeType === 'dot' ? (
+      <g transform={`translate(${faceOffset.x} ${faceOffset.y})`}>
+      {expression === 'happy' ? (
+        <>
+          <path d="M45 68 C48 62 55 62 58 68" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M70 68 C73 62 80 62 83 68" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+        </>
+      ) : expression === 'sad' ? (
+        <>
+          <path d="M44 64 L58 64" stroke={config.accentColor} strokeWidth="4" strokeLinecap="round" />
+          <path d="M70 64 L84 64" stroke={config.accentColor} strokeWidth="4" strokeLinecap="round" />
+        </>
+      ) : config.eyeType === 'dot' ? (
         <>
           <circle cx="51" cy="66" r="4.5" fill={config.accentColor} />
           <circle cx="77" cy="66" r="4.5" fill={config.accentColor} />
         </>
       ) : null}
-      {config.eyeType === 'smile' ? (
+      {expression === 'normal' && config.eyeType === 'smile' ? (
         <>
           <path d="M44 67 C47 61 54 61 57 67" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
           <path d="M71 67 C74 61 81 61 84 67" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
         </>
       ) : null}
-      {config.eyeType === 'wide' ? (
+      {expression === 'normal' && config.eyeType === 'wide' ? (
         <>
           <circle cx="51" cy="66" r="7" fill="#ffffff" />
           <circle cx="77" cy="66" r="7" fill="#ffffff" />
@@ -191,20 +216,20 @@ export default function AvatarPreview({
           <circle cx="77" cy="66" r="3.5" fill={config.accentColor} />
         </>
       ) : null}
-      {config.eyeType === 'wink' ? (
+      {expression === 'normal' && config.eyeType === 'wink' ? (
         <>
           <circle cx="51" cy="66" r="4.5" fill={config.accentColor} />
           <path d="M71 66 L83 66" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" />
         </>
       ) : null}
-      {config.eyeType === 'sleepy' ? (
+      {expression === 'normal' && config.eyeType === 'sleepy' ? (
         <>
           <path d="M44 64 L58 64" stroke={config.accentColor} strokeWidth="4" strokeLinecap="round" />
           <path d="M70 64 L84 64" stroke={config.accentColor} strokeWidth="4" strokeLinecap="round" />
           <path d="M47 59 L54 62" stroke={config.accentColor} strokeWidth="2.5" strokeLinecap="round" />
         </>
       ) : null}
-      {config.eyeType === 'angry' ? (
+      {expression === 'normal' && config.eyeType === 'angry' ? (
         <>
           <path d="M45 69 L57 64" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" />
           <path d="M71 64 L83 69" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" />
@@ -212,52 +237,57 @@ export default function AvatarPreview({
           <circle cx="77" cy="68" r="3.5" fill={config.accentColor} />
         </>
       ) : null}
-      {config.eyeType === 'sparkle' ? (
+      {expression === 'normal' && config.eyeType === 'sparkle' ? (
         <>
           <path d="M51 58 L53 63 L58 65 L53 67 L51 72 L49 67 L44 65 L49 63 Z" fill={config.accentColor} />
           <path d="M77 58 L79 63 L84 65 L79 67 L77 72 L75 67 L70 65 L75 63 Z" fill={config.accentColor} />
         </>
       ) : null}
-      {config.eyeType === 'heart' ? (
+      {expression === 'normal' && config.eyeType === 'heart' ? (
         <>
           <path d="M51 71 C43 66 45 58 51 60 C57 58 59 66 51 71 Z" fill="#ef4444" />
           <path d="M77 71 C69 66 71 58 77 60 C83 58 85 66 77 71 Z" fill="#ef4444" />
         </>
       ) : null}
 
-      {config.mouthType === 'smile' ? (
+      {expression === 'happy' ? (
+        <path d="M49 84 C56 96 72 96 79 84" stroke={config.accentColor} strokeWidth="5" strokeLinecap="round" fill="none" />
+      ) : expression === 'sad' ? (
+        <path d="M52 93 C58 84 70 84 76 93" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+      ) : config.mouthType === 'smile' ? (
         <path d="M50 86 C58 94 70 94 78 86" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
       ) : null}
-      {config.mouthType === 'open' ? (
+      {expression === 'normal' && config.mouthType === 'open' ? (
         <ellipse cx="64" cy="88" rx="9" ry="6" fill={config.accentColor} />
       ) : null}
-      {config.mouthType === 'flat' ? (
+      {expression === 'normal' && config.mouthType === 'flat' ? (
         <path d="M55 88 L73 88" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" />
       ) : null}
-      {config.mouthType === 'tooth' ? (
+      {expression === 'normal' && config.mouthType === 'tooth' ? (
         <>
           <rect x="54" y="82" width="20" height="10" rx="4" fill="#ffffff" stroke={config.accentColor} strokeWidth="3" />
           <path d="M64 82 L64 92" stroke={config.accentColor} strokeWidth="2.5" />
         </>
       ) : null}
-      {config.mouthType === 'grin' ? (
+      {expression === 'normal' && config.mouthType === 'grin' ? (
         <>
           <path d="M51 84 Q64 96 77 84" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
           <path d="M53 86 H75" stroke={config.accentColor} strokeWidth="2" strokeLinecap="round" />
         </>
       ) : null}
-      {config.mouthType === 'pout' ? (
+      {expression === 'normal' && config.mouthType === 'pout' ? (
         <path d="M54 90 C58 84 70 84 74 90" stroke={config.accentColor} strokeWidth="4.5" strokeLinecap="round" fill="none" />
       ) : null}
-      {config.mouthType === 'tongue' ? (
+      {expression === 'normal' && config.mouthType === 'tongue' ? (
         <>
           <path d="M54 86 Q64 94 74 86" stroke={config.accentColor} strokeWidth="4" fill="none" strokeLinecap="round" />
           <path d="M60 87 Q64 98 68 87" fill="#f472b6" />
         </>
       ) : null}
-      {config.mouthType === 'surprised' ? (
+      {expression === 'normal' && config.mouthType === 'surprised' ? (
         <circle cx="64" cy="88" r="6.5" fill="none" stroke={config.accentColor} strokeWidth="4" />
       ) : null}
+      </g>
 
       {config.accessoryType === 'glasses' ? (
         <>
