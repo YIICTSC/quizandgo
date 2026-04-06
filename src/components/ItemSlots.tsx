@@ -48,8 +48,14 @@ export default function ItemSlots({
             >
               {item ? (
                 <>
-                  <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-white/70">
-                    {index + 1}
+                  <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-white/70">
+                    <span>{index + 1}</span>
+                    <img
+                      src={item.iconAsset}
+                      alt={`${item.name} アイコン`}
+                      className="h-6 w-6 rounded border border-white/20 bg-slate-900/60 p-0.5"
+                      loading="lazy"
+                    />
                   </div>
                   <div className="text-xs font-bold leading-tight">{item.shortName}</div>
                   <div className="mt-1 line-clamp-2 text-[10px] leading-snug text-white/75">{item.description}</div>
