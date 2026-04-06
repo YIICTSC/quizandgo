@@ -27,6 +27,11 @@ const getMoveVector = (direction: DodgeDirection | null) => {
   }
 };
 
+const getDirectionFromDelta = (dx: number, dy: number): DodgeDirection | null => {
+  if (Math.abs(dx) < 0.6 && Math.abs(dy) < 0.6) return null;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+};
+
 type DodgeGameProps = {
   me?: any;
   players: Record<string, any>;
@@ -46,6 +51,8 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
   const onSetMoveVectorRef = useRef(onSetMoveVector);
   const onThrowRef = useRef(onThrow);
   const [displayPositions, setDisplayPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [facingByPlayer, setFacingByPlayer] = useState<Record<string, DodgeDirection>>({});
+  const previousPositionByPlayerRef = useRef<Record<string, { x: number; y: number }>>({});
   const [joystickState, setJoystickState] = useState<{ active: boolean; originX: number; originY: number; knobX: number; knobY: number }>({
     active: false,
     originX: 0,
@@ -239,11 +246,40 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     };
   }, [readOnly]);
 
+  useEffect(() => {
+    const nextPositions: Record<string, { x: number; y: number }> = {};
+    const nextFacingUpdates: Record<string, DodgeDirection> = {};
+    Object.values(players || {}).forEach((player: any) => {
+      if (typeof player?.x !== 'number' || typeof player?.y !== 'number') return;
+      const previous = previousPositionByPlayerRef.current[player.id];
+      const directionFromMove = previous ? getDirectionFromDelta(player.x - previous.x, player.y - previous.y) : null;
+      const fallbackDirection: DodgeDirection | null = player.dodgeFacing || null;
+      const nextDirection = directionFromMove || fallbackDirection;
+      if (nextDirection) {
+        nextFacingUpdates[player.id] = nextDirection;
+      }
+      nextPositions[player.id] = { x: player.x, y: player.y };
+    });
+    previousPositionByPlayerRef.current = nextPositions;
+    setFacingByPlayer((current) => {
+      let changed = false;
+      const merged = { ...current };
+      Object.entries(nextFacingUpdates).forEach(([id, direction]) => {
+        if (merged[id] !== direction) {
+          merged[id] = direction;
+          changed = true;
+        }
+      });
+      return changed ? merged : current;
+    });
+  }, [players]);
+
   if (!dodgeState) {
     return <div className="flex h-full items-center justify-center text-slate-400">コートを準備しています...</div>;
   }
 
   const joystickRadius = 64;
+  const aliveCount = Object.values(players || {}).filter((player: any) => player.alive).length;
 
   const moveJoystick = (event: any) => {
     if (joystickPointerIdRef.current !== event.pointerId) return;
@@ -320,6 +356,9 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
               const displayPos = displayPositions[player.id] || { x: player.x, y: player.y };
               const sizePercent = ((playerRadius * 2) / width) * 100;
               const heightPercent = ((playerRadius * 2 + 24) / height) * 100;
+              const isWinner = aliveCount === 1 && player.alive;
+              const expression = isWinner ? 'happy' : player.alive ? 'normal' : 'sad';
+              const faceDirection = facingByPlayer[player.id] || player.dodgeFacing || 'front';
               return (
                 <div
                   key={player.id}
@@ -334,7 +373,12 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
                 >
                   <div className="relative h-full w-full">
                     <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2">
-                      <AvatarPreview avatar={player.avatar} size={Math.max(20, Math.min(30, playerRadius + 4))} />
+                      <AvatarPreview
+                        avatar={player.avatar}
+                        size={Math.max(20, Math.min(30, playerRadius + 4))}
+                        faceDirection={faceDirection}
+                        expression={expression}
+                      />
                     </div>
                     <div
                       className="absolute bottom-0 left-0 z-0 flex items-center justify-center rounded-2xl border-2 text-[10px] font-black text-slate-950 shadow-md"

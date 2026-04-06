@@ -390,6 +390,12 @@ export default function PlayerScreen({
   const myBattleOpponents = myBattleOpponentIds.map((id: string) => roomState.players?.[id]).filter(Boolean);
   const myBattleQuestion = myBattlePair?.question || question;
   const myBattleAnswered = Boolean(myBattlePair?.answers?.[socket.id]);
+  const getBattleCardExpression = (playerId?: string) => {
+    if (!playerId || !myBattlePair) return 'normal' as const;
+    if (myBattlePair.winnerId === playerId) return 'happy' as const;
+    if (myBattlePair.loserIds?.includes(playerId)) return 'sad' as const;
+    return 'normal' as const;
+  };
   const myTeamId = me?.teamId ?? null;
   const teammates = sortedPlayers.filter((player: any) => player.teamId === myTeamId);
   const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
@@ -671,7 +677,7 @@ export default function PlayerScreen({
                 <div className={`grid items-center gap-4 ${myBattleOpponents.length >= 2 ? 'md:grid-cols-[1fr_auto_1fr_auto_1fr]' : 'md:grid-cols-[1fr_auto_1fr]'}`}>
                   <div className={`rounded-[1.5rem] border p-4 ${myBattlePair?.winnerId === socket.id ? 'border-emerald-300 bg-emerald-500/12' : myBattlePair?.loserIds?.includes(socket.id) ? 'border-rose-300 bg-rose-500/12' : 'border-slate-700 bg-slate-950/50'}`}>
                     <div className="mb-3 flex justify-center">
-                      <AvatarPreview avatar={me?.avatar} size={82} />
+                      <AvatarPreview avatar={me?.avatar} size={82} expression={getBattleCardExpression(socket.id)} />
                     </div>
                     <div className="text-2xl font-black text-white">{playerName}</div>
                     <div className={`mt-2 text-sm font-black ${myBattlePair?.winnerId === socket.id ? 'text-emerald-200' : myBattlePair?.loserIds?.includes(socket.id) ? 'text-rose-200' : 'text-slate-300'}`}>
@@ -681,7 +687,7 @@ export default function PlayerScreen({
                   <div className="text-4xl font-black tracking-[0.18em] text-fuchsia-200 md:text-5xl">VS</div>
                   <div className={`rounded-[1.5rem] border p-4 ${myBattlePair?.winnerId === myBattleOpponents[0]?.id ? 'border-emerald-300 bg-emerald-500/12' : myBattlePair?.loserIds?.includes(myBattleOpponents[0]?.id) ? 'border-rose-300 bg-rose-500/12' : 'border-slate-700 bg-slate-950/50'}`}>
                     <div className="mb-3 flex justify-center">
-                      <AvatarPreview avatar={myBattleOpponents[0]?.avatar} size={82} />
+                      <AvatarPreview avatar={myBattleOpponents[0]?.avatar} size={82} expression={getBattleCardExpression(myBattleOpponents[0]?.id)} />
                     </div>
                     <div className="text-2xl font-black text-white">{myBattleOpponents[0]?.name || 'WAIT'}</div>
                     <div className={`mt-2 text-sm font-black ${myBattlePair?.winnerId === myBattleOpponents[0]?.id ? 'text-emerald-200' : myBattlePair?.loserIds?.includes(myBattleOpponents[0]?.id) ? 'text-rose-200' : 'text-slate-300'}`}>
@@ -693,7 +699,7 @@ export default function PlayerScreen({
                       <div className="text-4xl font-black tracking-[0.18em] text-amber-200 md:text-5xl">VS</div>
                       <div className={`rounded-[1.5rem] border p-4 ${myBattlePair?.winnerId === myBattleOpponents[1]?.id ? 'border-emerald-300 bg-emerald-500/12' : myBattlePair?.loserIds?.includes(myBattleOpponents[1]?.id) ? 'border-rose-300 bg-rose-500/12' : 'border-slate-700 bg-slate-950/50'}`}>
                         <div className="mb-3 flex justify-center">
-                          <AvatarPreview avatar={myBattleOpponents[1]?.avatar} size={82} />
+                          <AvatarPreview avatar={myBattleOpponents[1]?.avatar} size={82} expression={getBattleCardExpression(myBattleOpponents[1]?.id)} />
                         </div>
                         <div className="text-2xl font-black text-white">{myBattleOpponents[1]?.name || 'WAIT'}</div>
                         <div className={`mt-2 text-sm font-black ${myBattlePair?.winnerId === myBattleOpponents[1]?.id ? 'text-emerald-200' : myBattlePair?.loserIds?.includes(myBattleOpponents[1]?.id) ? 'text-rose-200' : 'text-slate-300'}`}>

@@ -25,6 +25,10 @@ const itemLabelMap: Record<string, string> = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const getDirectionFromDelta = (dx: number, dy: number): 'up' | 'down' | 'left' | 'right' | null => {
+  if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return null;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+};
 
 const getAutoZoomScale = (width: number, height: number) => {
   const maxSide = Math.max(width, height);
@@ -45,6 +49,8 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const moveHoldIntervalRef = useRef<number | null>(null);
   const activeMoveDirectionRef = useRef<'up' | 'down' | 'left' | 'right' | null>(null);
+  const previousPositionByPlayerRef = useRef<Record<string, { x: number; y: number }>>({});
+  const [facingByPlayer, setFacingByPlayer] = useState<Record<string, 'up' | 'down' | 'left' | 'right'>>({});
   const moveRepeatMs = getBomberMoveRepeatMs(me?.moveSpeedLevel || 0);
 
   const stopMoveHold = () => {
@@ -164,6 +170,34 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
     };
   }, [aspect]);
 
+  useEffect(() => {
+    const nextPositions: Record<string, { x: number; y: number }> = {};
+    const nextFacingUpdates: Record<string, 'up' | 'down' | 'left' | 'right'> = {};
+
+    Object.values(players || {}).forEach((player: any) => {
+      if (typeof player?.bomberX !== 'number' || typeof player?.bomberY !== 'number') return;
+      const previous = previousPositionByPlayerRef.current[player.id];
+      const direction = previous ? getDirectionFromDelta(player.bomberX - previous.x, player.bomberY - previous.y) : null;
+      if (direction) {
+        nextFacingUpdates[player.id] = direction;
+      }
+      nextPositions[player.id] = { x: player.bomberX, y: player.bomberY };
+    });
+
+    previousPositionByPlayerRef.current = nextPositions;
+    setFacingByPlayer((current) => {
+      let changed = false;
+      const merged = { ...current };
+      Object.entries(nextFacingUpdates).forEach(([id, direction]) => {
+        if (merged[id] !== direction) {
+          merged[id] = direction;
+          changed = true;
+        }
+      });
+      return changed ? merged : current;
+    });
+  }, [players]);
+
   const translate = (() => {
     if (!boardViewport || zoomScale === 1) {
       return { x: 0, y: 0 };
@@ -200,6 +234,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   })();
 
   const alivePlayers = Object.values(players || {});
+  const aliveCount = alivePlayers.filter((player: any) => player.alive).length;
   const bindMoveButton = (direction: 'up' | 'down' | 'left' | 'right') => ({
     onPointerDown: (event: any) => {
       event.preventDefault();
@@ -305,7 +340,11 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 </div>
               ))}
 
-              {alivePlayers.map((player: any) => (
+              {alivePlayers.map((player: any) => {
+                const isWinner = aliveCount === 1 && player.alive;
+                const expression = isWinner ? 'happy' : player.alive ? 'normal' : 'sad';
+                const faceDirection = (player.id === me?.id && activeMoveDirectionRef.current) || facingByPlayer[player.id] || 'front';
+                return (
                 <div
                   key={player.id}
                   className={`absolute ${
@@ -323,7 +362,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 >
                   <div className="relative h-full w-full">
                     <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2">
-                      <AvatarPreview avatar={player.avatar} size={22} />
+                      <AvatarPreview avatar={player.avatar} size={22} faceDirection={faceDirection} expression={expression} />
                     </div>
                     <div
                       className="absolute bottom-0 left-0 z-0 flex items-center justify-center rounded-lg border-2 text-[10px] font-black text-slate-950"
@@ -338,7 +377,8 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
