@@ -167,8 +167,9 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
               nextX = clamp(currentPos.x + moveVector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
               nextY = clamp(currentPos.y + moveVector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
             } else {
-              nextX = currentPos.x + (player.x - currentPos.x) * 0.72;
-              nextY = currentPos.y + (player.y - currentPos.y) * 0.72;
+              // 停止時はサーバー座標へ即時同期し、停止直後のぶれを抑える。
+              nextX = player.x;
+              nextY = player.y;
             }
           } else {
             nextX = currentPos.x + (player.x - currentPos.x) * 0.52;

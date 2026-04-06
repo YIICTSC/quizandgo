@@ -7,6 +7,7 @@ export const DODGE_BALL_RADIUS = 11;
 export const DODGE_MOVE_SPEED = 340;
 export const DODGE_BALL_SPEED = 560;
 export const DODGE_THROW_COOLDOWN_MS = 360;
+export const DODGE_SPECIAL_SHOT_MIN_RUNUP_MS = 520;
 export const DODGE_BALL_LIFETIME_MS = 1700;
 export const DODGE_RESPAWN_MS = 2200;
 export const DODGE_THROW_SPAWN_OFFSET = 4;
