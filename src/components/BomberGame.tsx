@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AvatarPreview from './AvatarPreview';
+import { BOMBER_ITEM_META, BomberItemId } from '../lib/bomberItems';
 
 type BomberGameProps = {
   roomId: string;
@@ -10,51 +11,6 @@ type BomberGameProps = {
   onPlaceBomb: () => void;
   onDetonateRemote?: () => void;
   canUseRemote?: boolean;
-};
-
-const itemIconMap: Record<string, { color: string; pixels: Array<[number, number]> }> = {
-  fire_up: {
-    color: '#f97316',
-    pixels: [
-      [3, 0], [2, 1], [3, 1], [4, 1], [2, 2], [3, 2], [4, 2], [1, 3], [2, 3], [3, 3], [4, 3],
-      [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [2, 5], [3, 5], [4, 5], [3, 6],
-    ],
-  },
-  kick_bomb: {
-    color: '#f59e0b',
-    pixels: [
-      [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [4, 2], [1, 3], [2, 3], [3, 3], [4, 3],
-      [2, 4], [3, 4], [4, 4], [5, 4], [4, 5], [5, 5], [6, 5],
-    ],
-  },
-  shield: {
-    color: '#38bdf8',
-    pixels: [
-      [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [1, 3], [2, 3], [3, 3], [4, 3], [5, 3],
-      [2, 4], [3, 4], [4, 4], [2, 5], [3, 5], [4, 5], [3, 6],
-    ],
-  },
-  remote_bomb: {
-    color: '#22d3ee',
-    pixels: [
-      [2, 2], [3, 2], [4, 2], [2, 3], [3, 3], [4, 3], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4],
-      [1, 5], [5, 5], [1, 6], [5, 6],
-    ],
-  },
-  pierce_fire: {
-    color: '#f43f5e',
-    pixels: [
-      [3, 0], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [2, 3], [3, 3], [4, 3],
-      [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [3, 5], [3, 6],
-    ],
-  },
-  speed_up: {
-    color: '#a3e635',
-    pixels: [
-      [1, 1], [2, 1], [3, 1], [4, 1], [4, 2], [3, 2], [2, 2], [2, 3], [3, 3], [4, 3], [5, 3],
-      [5, 4], [4, 4], [3, 4], [3, 5], [4, 5], [5, 5],
-    ],
-  },
 };
 
 const floorTileStyle = {
@@ -416,6 +372,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               )}
 
               {(bomberState.itemDrops || []).map((drop: any) => (
+                
                 <div
                   key={drop.id}
                   className="absolute flex items-center justify-center border border-slate-900 bg-amber-100/95"
@@ -428,11 +385,12 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                   }}
                   title={drop.itemId}
                 >
-                  <svg viewBox="0 0 8 8" className="h-[80%] w-[80%]" shapeRendering="crispEdges" aria-hidden="true">
-                    {(itemIconMap[drop.itemId]?.pixels || itemIconMap.speed_up.pixels).map(([px, py], i) => (
-                      <rect key={`${drop.id}-pixel-${i}`} x={px} y={py} width="1" height="1" fill={itemIconMap[drop.itemId]?.color || '#a3e635'} />
-                    ))}
-                  </svg>
+                  <img
+                    src={BOMBER_ITEM_META[(drop.itemId as BomberItemId) || 'speed_up']?.iconAsset || BOMBER_ITEM_META.speed_up.iconAsset}
+                    alt={`${drop.itemId} アイテム`}
+                    className="h-[82%] w-[82%] rounded-[2px] border border-slate-900/60 bg-slate-950/20 p-[1px]"
+                    loading="lazy"
+                  />
                 </div>
               ))}
 

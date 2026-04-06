@@ -27,7 +27,15 @@ export default function ItemRewardOverlay({
                 style={{ background: `linear-gradient(135deg, ${item.color}, #0f172a)` }}
               >
                 <div className="text-[10px] font-bold tracking-[0.24em] text-white/70 md:text-xs md:tracking-[0.3em]">ITEM</div>
-                <div className="mt-1.5 text-xl font-bold md:mt-2 md:text-3xl">{item.name}</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <img
+                    src={item.iconAsset}
+                    alt={`${item.name} アイコン`}
+                    className="h-12 w-12 rounded-lg border border-white/20 bg-slate-900/60 p-1 md:h-14 md:w-14"
+                    loading="lazy"
+                  />
+                  <div className="text-xl font-bold md:text-3xl">{item.name}</div>
+                </div>
                 <div className="mt-2 text-sm leading-relaxed text-white/85 md:mt-3 md:text-base">{item.description}</div>
                 <div className="mt-3 text-xs font-bold text-white/90 md:mt-5 md:text-sm">これを受け取る</div>
               </button>

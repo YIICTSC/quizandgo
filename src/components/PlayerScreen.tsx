@@ -13,6 +13,7 @@ import DodgeGame from './DodgeGame';
 import AvatarPreview from './AvatarPreview';
 import AvatarEditor from './AvatarEditor';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
+import { BOMBER_ITEM_META } from '../lib/bomberItems';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -400,13 +401,13 @@ export default function PlayerScreen({
   const teammates = sortedPlayers.filter((player: any) => player.teamId === myTeamId);
   const myTeamName = myTeamId ? (roomState.teamNames?.[myTeamId] || `Team ${myTeamId}`) : null;
   const bomberItems = [
-    me?.fireLevel > 0 ? `🔥x${me.fireLevel}` : null,
-    (me?.moveSpeedLevel || 0) > 0 ? `⚡x${me.moveSpeedLevel}` : null,
-    me?.hasKickBomb ? '🥾キック' : null,
-    me?.hasShield ? '🛡️シールド' : null,
-    me?.hasRemoteBomb ? '📡リモコン' : null,
-    me?.hasPierceFire ? '💥貫通' : null,
-  ].filter(Boolean);
+    ...(me?.fireLevel > 0 ? [{ itemId: 'fire_up' as const, count: me.fireLevel }] : []),
+    ...((me?.moveSpeedLevel || 0) > 0 ? [{ itemId: 'speed_up' as const, count: me.moveSpeedLevel }] : []),
+    ...(me?.hasKickBomb ? [{ itemId: 'kick_bomb' as const }] : []),
+    ...(me?.hasShield ? [{ itemId: 'shield' as const }] : []),
+    ...(me?.hasRemoteBomb ? [{ itemId: 'remote_bomb' as const }] : []),
+    ...(me?.hasPierceFire ? [{ itemId: 'pierce_fire' as const }] : []),
+  ];
 
   if (roomState.state === 'waiting') {
     return (
@@ -805,11 +806,15 @@ export default function PlayerScreen({
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {bomberItems.length > 0 ? bomberItems.map((item) => (
-                  <span key={item as string} className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">
-                    {item}
-                  </span>
-                )) : (
+                {bomberItems.length > 0 ? bomberItems.map(({ itemId, count }) => {
+                  const item = BOMBER_ITEM_META[itemId];
+                  return (
+                    <span key={`${itemId}-${count || 1}`} className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">
+                      <img src={item.iconAsset} alt={`${item.label} アイコン`} className="h-4 w-4 rounded-sm border border-white/20 bg-slate-900/60 p-[1px]" />
+                      <span>{item.label}{count ? `x${count}` : ''}</span>
+                    </span>
+                  );
+                }) : (
                   <span className="text-[10px] text-slate-400">所持アイテムなし</span>
                 )}
               </div>

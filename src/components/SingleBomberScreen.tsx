@@ -6,6 +6,7 @@ import { findMatchingOptionIndex, matchesSpeechAnswer, shuffleOptionsWithFirstCo
 import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, startBGM, stopBGM } from '../lib/sound';
 import { getBomberDimensions } from '../lib/bomberDimensions';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
+import { BOMBER_ITEM_META, BomberItemId } from '../lib/bomberItems';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -37,7 +38,6 @@ type SingleBomberQuestion = {
 };
 
 type BomberCell = 'solid' | 'breakable' | 'floor';
-type BomberItemId = 'fire_up' | 'kick_bomb' | 'shield' | 'remote_bomb' | 'pierce_fire' | 'speed_up';
 type Enemy = { id: string; name: string; color: string; x: number; y: number; alive: boolean; avatar: AvatarConfig };
 type Bomb = {
   id: string;
@@ -255,6 +255,14 @@ export default function SingleBomberScreen({
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechTranscript, setSpeechTranscript] = useState('');
+  const bomberItems = [
+    ...(fireLevel > 0 ? [{ itemId: 'fire_up' as const, count: fireLevel }] : []),
+    ...(moveSpeedLevel > 0 ? [{ itemId: 'speed_up' as const, count: moveSpeedLevel }] : []),
+    ...(hasKickBomb ? [{ itemId: 'kick_bomb' as const }] : []),
+    ...(hasShield ? [{ itemId: 'shield' as const }] : []),
+    ...(hasRemoteBomb ? [{ itemId: 'remote_bomb' as const }] : []),
+    ...(hasPierceFire ? [{ itemId: 'pierce_fire' as const }] : []),
+  ];
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const enemyTickRef = useRef(0);
   const prevExplosionCountRef = useRef(0);
@@ -769,12 +777,15 @@ export default function SingleBomberScreen({
             </div>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
-            {fireLevel > 0 ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🔥x{fireLevel}</span> : null}
-            {moveSpeedLevel > 0 ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">⚡x{moveSpeedLevel}</span> : null}
-            {hasKickBomb ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🥾キック</span> : null}
-            {hasShield ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">🛡️シールド</span> : null}
-            {hasRemoteBomb ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">📡リモコン</span> : null}
-            {hasPierceFire ? <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">💥貫通</span> : null}
+            {bomberItems.map(({ itemId, count }) => {
+              const item = BOMBER_ITEM_META[itemId];
+              return (
+                <span key={`${itemId}-${count || 1}`} className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">
+                  <img src={item.iconAsset} alt={`${item.label} アイコン`} className="h-4 w-4 rounded-sm border border-white/20 bg-slate-900/60 p-[1px]" />
+                  <span>{item.label}{count ? `x${count}` : ''}</span>
+                </span>
+              );
+            })}
           </div>
         </div>
 
