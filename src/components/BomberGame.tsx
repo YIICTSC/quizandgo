@@ -362,7 +362,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 >
                   <div className="relative h-full w-full">
                     <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2">
-                      <AvatarPreview avatar={player.avatar} size={22} faceDirection={faceDirection} expression={expression} />
+                      <AvatarPreview avatar={player.avatar} size={22} faceDirection={faceDirection} expression={expression} viewMode="topdown" />
                     </div>
                     <div
                       className="absolute bottom-0 left-0 z-0 flex items-center justify-center rounded-lg border-2 text-[10px] font-black text-slate-950"

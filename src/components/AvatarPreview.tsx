@@ -2,6 +2,7 @@ import { AvatarConfig, normalizeAvatar } from '../avatar';
 
 type AvatarFaceDirection = 'front' | 'up' | 'down' | 'left' | 'right';
 type AvatarExpression = 'normal' | 'happy' | 'sad';
+type AvatarViewMode = 'portrait' | 'topdown';
 
 export default function AvatarPreview({
   avatar,
@@ -9,16 +10,19 @@ export default function AvatarPreview({
   className = '',
   faceDirection = 'front',
   expression = 'normal',
+  viewMode = 'portrait',
 }: {
   avatar: AvatarConfig | null | undefined;
   size?: number;
   className?: string;
   faceDirection?: AvatarFaceDirection;
   expression?: AvatarExpression;
+  viewMode?: AvatarViewMode;
 }) {
   const config = normalizeAvatar(avatar);
   const center = 64;
   const faceFill = config.skinColor;
+  const isTopDownBackView = viewMode === 'topdown' && faceDirection === 'up';
   const faceOffset = {
     front: { x: 0, y: 0 },
     up: { x: 0, y: -3 },
@@ -185,6 +189,7 @@ export default function AvatarPreview({
         </>
       ) : null}
 
+      {!isTopDownBackView ? (
       <g transform={`translate(${faceOffset.x} ${faceOffset.y})`}>
       {expression === 'happy' ? (
         <>
@@ -288,8 +293,9 @@ export default function AvatarPreview({
         <circle cx="64" cy="88" r="6.5" fill="none" stroke={config.accentColor} strokeWidth="4" />
       ) : null}
       </g>
+      ) : null}
 
-      {config.accessoryType === 'glasses' ? (
+      {!isTopDownBackView && config.accessoryType === 'glasses' ? (
         <>
           <rect x="40" y="58" width="20" height="16" rx="6" fill="none" stroke={config.accentColor} strokeWidth="4" />
           <rect x="68" y="58" width="20" height="16" rx="6" fill="none" stroke={config.accentColor} strokeWidth="4" />
