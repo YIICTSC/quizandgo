@@ -89,19 +89,41 @@ export default function App() {
   }, []);
 
   if (role === 'host') {
-    if (hostView === 'player' && hostParticipating) {
-      return <PlayerScreen roomId={roomId} playerName={hostPlayerName} onSwitchToHostScreen={() => setHostView('host')} />;
-    }
     return (
-      <HostScreen
-        roomId={roomId}
-        onReturnToTitle={returnToTitle}
-        gameTitle={getGameTitle(selectedGameType)}
-        gameType={selectedGameType}
-        hostParticipating={hostParticipating}
-        onChangeHostParticipation={handleHostParticipationChange}
-        onSwitchToHostPlayerScreen={() => setHostView('player')}
-      />
+      <div className="relative min-h-screen">
+        <div
+          className={
+            hostParticipating && hostView === 'player'
+              ? 'pointer-events-none invisible absolute inset-0'
+              : 'relative z-10'
+          }
+        >
+          <HostScreen
+            roomId={roomId}
+            onReturnToTitle={returnToTitle}
+            gameTitle={getGameTitle(selectedGameType)}
+            gameType={selectedGameType}
+            hostParticipating={hostParticipating}
+            onChangeHostParticipation={handleHostParticipationChange}
+            onSwitchToHostPlayerScreen={() => setHostView('player')}
+          />
+        </div>
+        {hostParticipating ? (
+          <div
+            className={
+              hostView === 'player'
+                ? 'relative z-20'
+                : 'pointer-events-none invisible absolute inset-0'
+            }
+          >
+            <PlayerScreen
+              roomId={roomId}
+              playerName={hostPlayerName}
+              onSwitchToHostScreen={() => setHostView('host')}
+            />
+          </div>
+        ) : null}
+      </div>
     );
   }
 
