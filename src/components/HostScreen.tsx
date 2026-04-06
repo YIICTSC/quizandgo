@@ -1207,31 +1207,6 @@ export default function HostScreen({
                   </div>
                 ) : null}
 
-                {isDodgeGameType(resolvedGameType) ? (
-                  <div className="mb-8 w-full max-w-4xl rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-5 text-left">
-                    <div className="mb-2 text-sm font-bold tracking-[0.25em] text-cyan-200">QUIZ DODGE STATUS</div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-                        <div className="text-xs text-slate-400">参加人数</div>
-                        <div className="mt-1 text-3xl font-black text-white">{players.length}</div>
-                      </div>
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-                        <div className="text-xs text-slate-400">飛んでいるボール</div>
-                        <div className="mt-1 text-3xl font-black text-cyan-200">{currentRoomState.dodgeState?.balls?.length || 0}</div>
-                      </div>
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-                        <div className="text-xs text-slate-400">復活待ち</div>
-                        <div className="mt-1 text-3xl font-black text-rose-200">
-                          {players.filter((player: any) => !player.alive).length}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
-                      ホスト側では全体コートの同期表示を省略しています。右側ランキングと問題進行を見ながら司会進行してください。
-                    </div>
-                  </div>
-                ) : null}
-
                 <p className="text-center text-slate-400 text-lg">
                   このPINで途中参加できます:{' '}
                   <button
