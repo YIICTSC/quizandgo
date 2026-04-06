@@ -1115,9 +1115,11 @@ const finalizeBattleRoyaleRoundIfNeeded = (io: Server, roomId: string) => {
   });
 
   const groups = pairBattleRoyalePlayers(Object.values(room.players));
+  const sharedBattleQuestion = getQuestionForRoom(room);
+
   groups.forEach((group, index) => {
     const pairId = `battle-${nextRound}-${index}`;
-    const question = group.length >= 2 ? getQuestionForRoom(room) : null;
+    const question = group.length >= 2 ? sharedBattleQuestion : null;
     room.quizBattlePairs?.push({
       id: pairId,
       playerIds: group.map((player) => player.id),
@@ -1507,8 +1509,8 @@ const generateMathQuestion = (type: string) => {
       text = `${num1} - ${num2} = ?`;
       break;
     case 'mul':
-      num1 = Math.floor(Math.random() * 9) + 2;
-      num2 = Math.floor(Math.random() * 9) + 2;
+      num1 = Math.floor(Math.random() * 9) + 1;
+      num2 = Math.floor(Math.random() * 9) + 1;
       answer = num1 * num2;
       text = `${num1} × ${num2} = ?`;
       break;
