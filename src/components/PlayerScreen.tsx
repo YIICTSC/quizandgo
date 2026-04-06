@@ -351,9 +351,26 @@ export default function PlayerScreen({
       ホスト画面へ切り替え
     </button>
   ) : null;
+  const hostRemainingSeconds = timeRemaining ?? roomState?.timeRemaining ?? roomState?.timeLimit ?? null;
+  const hostPersistentGameInfo = onSwitchToHostScreen ? (
+    <div className="fixed left-4 top-4 z-50 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-300/35 bg-slate-950/85 px-3 py-2 text-xs font-mono shadow-lg backdrop-blur md:text-sm">
+      <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2.5 py-1.5 text-cyan-100">
+        PIN: <span className="font-black tracking-[0.2em] text-cyan-300">{roomId}</span>
+      </div>
+      <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2.5 py-1.5 text-yellow-100">
+        残り: <span className="font-black text-yellow-300">{hostRemainingSeconds ?? '--'}</span>
+      </div>
+    </div>
+  ) : null;
 
   if (!roomState) {
-    return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">読み込み中...</div>;
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        {hostSwitchButton}
+        {hostPersistentGameInfo}
+        読み込み中...
+      </div>
+    );
   }
 
   const me = roomState.players[socket.id];
@@ -389,6 +406,7 @@ export default function PlayerScreen({
     return (
       <div className="min-h-screen bg-slate-900 text-white p-4">
         {hostSwitchButton}
+        {hostPersistentGameInfo}
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-4xl items-center justify-center">
           <div className="w-full rounded-3xl border border-slate-700 bg-slate-800 p-5 shadow-2xl md:p-8">
             <div className="mb-5 text-center">
@@ -416,6 +434,7 @@ export default function PlayerScreen({
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
         {hostSwitchButton}
+        {hostPersistentGameInfo}
         <div className="w-full max-w-4xl rounded-3xl border border-cyan-500/30 bg-slate-800 p-6 shadow-2xl md:p-8">
           <div className="mb-6 text-center">
             <h1 className="text-4xl font-black text-cyan-200 md:text-5xl">チーム発表</h1>
@@ -446,6 +465,7 @@ export default function PlayerScreen({
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
         {hostSwitchButton}
+        {hostPersistentGameInfo}
         <h1 className="text-5xl font-bold mb-8 text-yellow-400">ゲーム終了</h1>
         <p className="text-2xl text-slate-300 mb-12">最終結果はホスト画面で確認してください。</p>
         <div className="bg-slate-800 px-12 py-8 rounded-2xl border border-slate-700 shadow-2xl text-center">
@@ -485,6 +505,7 @@ export default function PlayerScreen({
       return (
         <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
           {hostSwitchButton}
+          {hostPersistentGameInfo}
           <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-800 p-4 shadow-2xl md:p-8">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -751,6 +772,7 @@ export default function PlayerScreen({
       return (
         <div className="h-screen overflow-hidden bg-slate-900 text-white">
           {hostSwitchButton}
+          {hostPersistentGameInfo}
           <div className="mx-auto flex h-full max-w-7xl flex-col gap-2 p-2 md:p-3">
             <div className="rounded-2xl border border-slate-700 bg-slate-800 p-2.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -889,6 +911,7 @@ export default function PlayerScreen({
       return (
         <div className="h-screen overflow-hidden bg-slate-900 text-white">
           {hostSwitchButton}
+          {hostPersistentGameInfo}
           <div className="mx-auto flex h-full max-w-7xl flex-col gap-2 p-2 md:p-3">
             <div className="rounded-2xl border border-slate-700 bg-slate-800 p-2.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1019,6 +1042,7 @@ export default function PlayerScreen({
     return (
       <div className="h-screen overflow-hidden bg-slate-900 text-white">
         {hostSwitchButton}
+        {hostPersistentGameInfo}
         <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-3 p-3 md:p-4">
           <div className="shrink-0">
             <div className="flex flex-wrap items-start justify-between gap-3">
