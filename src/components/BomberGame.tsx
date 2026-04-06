@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AvatarPreview from './AvatarPreview';
+import { withBaseUrl } from '../lib/assetPath';
 import { BOMBER_ITEM_META, BomberItemId } from '../lib/bomberItems';
 
 type BomberGameProps = {
@@ -386,7 +387,7 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                   title={drop.itemId}
                 >
                   <img
-                    src={BOMBER_ITEM_META[(drop.itemId as BomberItemId) || 'speed_up']?.iconAsset || BOMBER_ITEM_META.speed_up.iconAsset}
+                    src={withBaseUrl(BOMBER_ITEM_META[(drop.itemId as BomberItemId) || 'speed_up']?.iconAsset || BOMBER_ITEM_META.speed_up.iconAsset)}
                     alt={`${drop.itemId} アイテム`}
                     className="h-[82%] w-[82%] rounded-[2px] border border-slate-900/60 bg-slate-950/20 p-[1px]"
                     loading="lazy"

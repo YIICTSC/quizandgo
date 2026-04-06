@@ -7,6 +7,7 @@ import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSou
 import { getBomberDimensions } from '../lib/bomberDimensions';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from '../avatar';
 import { BOMBER_ITEM_META, BomberItemId } from '../lib/bomberItems';
+import { withBaseUrl } from '../lib/assetPath';
 
 type BrowserSpeechRecognition = {
   continuous: boolean;
@@ -781,7 +782,7 @@ export default function SingleBomberScreen({
               const item = BOMBER_ITEM_META[itemId];
               return (
                 <span key={`${itemId}-${count || 1}`} className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-bold text-cyan-100">
-                  <img src={item.iconAsset} alt={`${item.label} アイコン`} className="h-4 w-4 rounded-sm border border-white/20 bg-slate-900/60 p-[1px]" />
+                  <img src={withBaseUrl(item.iconAsset)} alt={`${item.label} アイコン`} className="h-4 w-4 rounded-sm border border-white/20 bg-slate-900/60 p-[1px]" />
                   <span>{item.label}{count ? `x${count}` : ''}</span>
                 </span>
               );

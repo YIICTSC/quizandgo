@@ -3,6 +3,7 @@ import { socket } from '../socket';
 import GolfGame from './GolfGame';
 import { playCorrectSound, playDefeatSound, playExplosionSound, playIncorrectSound, playSpecialShotSound, stopBGM } from '../lib/sound';
 import { calculateGameScore } from '../lib/scoring';
+import { withBaseUrl } from '../lib/assetPath';
 import { matchesSpeechAnswer } from '../lib/answerMatching';
 import ProblemVisual from './ProblemVisual';
 import ItemSlots from './ItemSlots';
@@ -810,7 +811,7 @@ export default function PlayerScreen({
                   const item = BOMBER_ITEM_META[itemId];
                   return (
                     <span key={`${itemId}-${count || 1}`} className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold text-cyan-100">
-                      <img src={item.iconAsset} alt={`${item.label} アイコン`} className="h-4 w-4 rounded-sm border border-white/20 bg-slate-900/60 p-[1px]" />
+                      <img src={withBaseUrl(item.iconAsset)} alt={`${item.label} アイコン`} className="h-4 w-4 rounded-sm border border-white/20 bg-slate-900/60 p-[1px]" />
                       <span>{item.label}{count ? `x${count}` : ''}</span>
                     </span>
                   );

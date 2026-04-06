@@ -1,4 +1,5 @@
 import { GAME_ITEM_MAP, GameItemId } from '../gameItems';
+import { withBaseUrl } from '../lib/assetPath';
 
 export default function ItemRewardOverlay({
   choices,
@@ -29,7 +30,7 @@ export default function ItemRewardOverlay({
                 <div className="text-[10px] font-bold tracking-[0.24em] text-white/70 md:text-xs md:tracking-[0.3em]">ITEM</div>
                 <div className="mt-2 flex items-center gap-3">
                   <img
-                    src={item.iconAsset}
+                    src={withBaseUrl(item.iconAsset)}
                     alt={`${item.name} アイコン`}
                     className="h-12 w-12 rounded-lg border border-white/20 bg-slate-900/60 p-1 md:h-14 md:w-14"
                     loading="lazy"
