@@ -13,16 +13,72 @@ type BomberGameProps = {
 };
 
 const CONTROL_BUTTON =
-  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/40 text-lg font-black text-white shadow-lg backdrop-blur-sm active:scale-95 active:bg-slate-800/65 md:h-12 md:w-12 md:text-xl';
+  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md border-2 border-amber-950 bg-amber-300 text-lg font-black text-amber-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.35),inset_0_-2px_0_rgba(120,53,15,0.75),0_6px_0_rgba(120,53,15,0.8)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(120,53,15,0.75),0_3px_0_rgba(120,53,15,0.8)] md:h-12 md:w-12 md:text-xl';
 
-const itemLabelMap: Record<string, string> = {
-  fire_up: '🔥',
-  kick_bomb: '🥾',
-  shield: '🛡️',
-  remote_bomb: '📡',
-  pierce_fire: '💥',
-  speed_up: '⚡',
+const itemIconMap: Record<string, { color: string; pixels: Array<[number, number]> }> = {
+  fire_up: {
+    color: '#f97316',
+    pixels: [
+      [3, 0], [2, 1], [3, 1], [4, 1], [2, 2], [3, 2], [4, 2], [1, 3], [2, 3], [3, 3], [4, 3],
+      [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [2, 5], [3, 5], [4, 5], [3, 6],
+    ],
+  },
+  kick_bomb: {
+    color: '#f59e0b',
+    pixels: [
+      [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [4, 2], [1, 3], [2, 3], [3, 3], [4, 3],
+      [2, 4], [3, 4], [4, 4], [5, 4], [4, 5], [5, 5], [6, 5],
+    ],
+  },
+  shield: {
+    color: '#38bdf8',
+    pixels: [
+      [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [1, 3], [2, 3], [3, 3], [4, 3], [5, 3],
+      [2, 4], [3, 4], [4, 4], [2, 5], [3, 5], [4, 5], [3, 6],
+    ],
+  },
+  remote_bomb: {
+    color: '#22d3ee',
+    pixels: [
+      [2, 2], [3, 2], [4, 2], [2, 3], [3, 3], [4, 3], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4],
+      [1, 5], [5, 5], [1, 6], [5, 6],
+    ],
+  },
+  pierce_fire: {
+    color: '#f43f5e',
+    pixels: [
+      [3, 0], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [2, 3], [3, 3], [4, 3],
+      [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [3, 5], [3, 6],
+    ],
+  },
+  speed_up: {
+    color: '#a3e635',
+    pixels: [
+      [1, 1], [2, 1], [3, 1], [4, 1], [4, 2], [3, 2], [2, 2], [2, 3], [3, 3], [4, 3], [5, 3],
+      [5, 4], [4, 4], [3, 4], [3, 5], [4, 5], [5, 5],
+    ],
+  },
 };
+
+const floorTileStyle = {
+  backgroundColor: '#3f3f46',
+  backgroundImage:
+    'linear-gradient(0deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05)), repeating-linear-gradient(0deg, #3f3f46 0 3px, #52525b 3px 4px, #3f3f46 4px 8px), repeating-linear-gradient(90deg, #3f3f46 0 3px, #52525b 3px 4px, #3f3f46 4px 8px)',
+} as const;
+
+const solidTileStyle = {
+  backgroundColor: '#7c5d42',
+  backgroundImage:
+    'linear-gradient(145deg, rgba(255,255,255,0.22) 0 20%, transparent 20% 100%), repeating-linear-gradient(0deg, #6b4f37 0 3px, #7c5d42 3px 6px), repeating-linear-gradient(90deg, #6b4f37 0 3px, #7c5d42 3px 6px)',
+  boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(41,25,14,0.7)',
+} as const;
+
+const breakableTileStyle = {
+  backgroundColor: '#c08457',
+  backgroundImage:
+    'linear-gradient(135deg, rgba(255,255,255,0.22) 0 15%, transparent 15% 100%), repeating-linear-gradient(0deg, #b27748 0 2px, #c08457 2px 4px), repeating-linear-gradient(90deg, #b27748 0 2px, #c08457 2px 4px)',
+  boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(120,53,15,0.65)',
+} as const;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const getDirectionFromDelta = (dx: number, dy: number): 'up' | 'down' | 'left' | 'right' | null => {
@@ -272,22 +328,18 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 row.map((cell: string, x: number) => {
                   const ownerId = bomberState.cellOwners?.[y]?.[x];
                   const ownerColor = ownerId ? players?.[ownerId]?.color : null;
-                  const className =
-                    cell === 'solid'
-                      ? 'bg-slate-500'
-                      : cell === 'breakable'
-                        ? 'bg-amber-700'
-                        : 'bg-slate-900';
+                  const tileStyle = cell === 'solid' ? solidTileStyle : cell === 'breakable' ? breakableTileStyle : floorTileStyle;
                   return (
                     <div
                       key={`cell-${x}-${y}`}
-                      className={`border border-slate-800/50 ${className}`}
+                      className="border border-stone-900/60"
                       style={
                         cell === 'floor' && ownerColor
                           ? {
-                              background: `linear-gradient(135deg, ${ownerColor}66, ${ownerColor}22)`,
+                              ...tileStyle,
+                              boxShadow: `inset 0 0 0 1px ${ownerColor}55`,
                             }
-                          : undefined
+                          : tileStyle
                       }
                     />
                   );
@@ -297,15 +349,20 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               {bomberState.bombs.map((bomb: any) => (
                 <div
                   key={bomb.id}
-                  className="absolute flex items-center justify-center rounded-full border-2 border-white/40 bg-rose-500 text-xs font-black text-white"
+                  className="absolute border border-slate-900 bg-slate-800"
                   style={{
                     width: `calc(${cellWidthPercent}% - 6px)`,
                     height: `calc(${cellHeightPercent}% - 6px)`,
                     left: `calc(${bomb.x * cellWidthPercent}% + 3px)`,
                     top: `calc(${bomb.y * cellHeightPercent}% + 3px)`,
+                    boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.45)',
                   }}
                 >
-                  B
+                  <div className="relative h-full w-full">
+                    <div className="absolute left-[12%] top-[12%] h-[20%] w-[20%] bg-white/60" />
+                    <div className="absolute left-[55%] top-[14%] h-[28%] w-[18%] bg-orange-400" />
+                    <div className="absolute left-[62%] top-[-10%] h-[18%] w-[8%] bg-zinc-700" />
+                  </div>
                 </div>
               ))}
 
@@ -313,12 +370,14 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
                 explosion.cells.map((cell: any, index: number) => (
                   <div
                     key={`${explosion.id}-${cell.x}-${cell.y}-${index}`}
-                    className="absolute rounded-lg bg-orange-400/80 shadow-[0_0_18px_rgba(251,146,60,0.7)]"
+                    className="absolute border border-orange-950/70"
                     style={{
                       width: `calc(${cellWidthPercent}% - 4px)`,
                       height: `calc(${cellHeightPercent}% - 4px)`,
                       left: `calc(${cell.x * cellWidthPercent}% + 2px)`,
                       top: `calc(${cell.y * cellHeightPercent}% + 2px)`,
+                      background: 'repeating-linear-gradient(0deg, #facc15 0 3px, #fb923c 3px 6px, #ea580c 6px 9px)',
+                      boxShadow: '0 0 12px rgba(251,146,60,0.4), inset 0 2px 0 rgba(255,255,255,0.35)',
                     }}
                   />
                 ))
@@ -327,16 +386,21 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               {(bomberState.itemDrops || []).map((drop: any) => (
                 <div
                   key={drop.id}
-                  className="absolute flex items-center justify-center rounded-md border border-white/25 bg-slate-800/80 text-[10px]"
+                  className="absolute flex items-center justify-center border border-slate-900 bg-amber-100/95"
                   style={{
                     width: `calc(${cellWidthPercent}% - 8px)`,
                     height: `calc(${cellHeightPercent}% - 8px)`,
                     left: `calc(${drop.x * cellWidthPercent}% + 4px)`,
                     top: `calc(${drop.y * cellHeightPercent}% + 4px)`,
+                    boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.65), inset 0 -2px 0 rgba(120,53,15,0.4)',
                   }}
                   title={drop.itemId}
                 >
-                  {itemLabelMap[drop.itemId] || '⭐'}
+                  <svg viewBox="0 0 8 8" className="h-[80%] w-[80%]" shapeRendering="crispEdges" aria-hidden="true">
+                    {(itemIconMap[drop.itemId]?.pixels || itemIconMap.speed_up.pixels).map(([px, py], i) => (
+                      <rect key={`${drop.id}-pixel-${i}`} x={px} y={py} width="1" height="1" fill={itemIconMap[drop.itemId]?.color || '#a3e635'} />
+                    ))}
+                  </svg>
                 </div>
               ))}
 
@@ -401,14 +465,14 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
           <div />
         </div>
         <button
-          className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-20 items-center justify-center rounded-2xl border border-rose-300/20 bg-rose-600/55 text-sm font-black tracking-wide text-white shadow-[0_0_20px_rgba(244,63,94,0.25)] backdrop-blur-sm active:scale-95 active:bg-rose-500/75 md:bottom-5 md:right-4"
+          className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-20 items-center justify-center rounded-md border-2 border-rose-950 bg-rose-400 text-sm font-black tracking-wide text-rose-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.35),inset_0_-3px_0_rgba(136,19,55,0.78),0_6px_0_rgba(136,19,55,0.85)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(136,19,55,0.78),0_3px_0_rgba(136,19,55,0.85)] md:bottom-5 md:right-4"
           onClick={onPlaceBomb}
         >
           BOMB
         </button>
         {canUseRemote && onDetonateRemote ? (
           <button
-            className="pointer-events-auto absolute bottom-20 right-3 flex h-12 w-20 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-600/55 text-xs font-black tracking-wide text-white shadow-[0_0_18px_rgba(34,211,238,0.25)] backdrop-blur-sm active:scale-95 active:bg-cyan-500/75 md:bottom-22 md:right-4"
+            className="pointer-events-auto absolute bottom-20 right-3 flex h-12 w-20 items-center justify-center rounded-md border-2 border-cyan-950 bg-cyan-300 text-xs font-black tracking-wide text-cyan-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.4),inset_0_-3px_0_rgba(8,47,73,0.78),0_6px_0_rgba(8,47,73,0.82)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(8,47,73,0.75),0_3px_0_rgba(8,47,73,0.82)] md:bottom-22 md:right-4"
             onClick={onDetonateRemote}
           >
             REMOTE
