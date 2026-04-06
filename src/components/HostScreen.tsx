@@ -73,6 +73,19 @@ const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
 const isBattleQuizVariant = (variant?: string) =>
   variant === 'team_battle' || variant === 'boss' || variant === 'battle_royale';
 
+const getCompetitionRank = <T,>(items: T[], getScore: (item: T) => number) => {
+  let previousScore: number | null = null;
+  let previousRank = 0;
+
+  return items.map((item, index) => {
+    const score = getScore(item);
+    const rank = previousScore !== null && score === previousScore ? previousRank : index + 1;
+    previousScore = score;
+    previousRank = rank;
+    return { item, rank, score };
+  });
+};
+
 export default function HostScreen({
   roomId,
   onReturnToTitle,
@@ -256,7 +269,11 @@ export default function HostScreen({
     }
     return a.totalStrokes - b.totalStrokes;
   });
-  const supportsPodiumReveal = resolvedGameType === 'golf' || isBomberGameType(resolvedGameType) || isDodgeGameType(resolvedGameType);
+  const supportsPodiumReveal =
+    resolvedGameType === 'golf' ||
+    resolvedGameType === 'quiz' ||
+    isBomberGameType(resolvedGameType) ||
+    isDodgeGameType(resolvedGameType);
   const handleCopyInviteUrl = async () => {
     if (!inviteUrl) return;
     try {
@@ -267,10 +284,14 @@ export default function HostScreen({
     }
     window.setTimeout(() => setInviteCopyState('idle'), 2200);
   };
+  const rankedPlayers = useMemo(
+    () => getCompetitionRank(sortedPlayers, (player: any) => calculateGameScore(resolvedGameType, player)),
+    [resolvedGameType, sortedPlayers]
+  );
   const podiumPlayers = useMemo(() => {
     if (!supportsPodiumReveal) return [];
-    return sortedPlayers.slice(0, 3);
-  }, [sortedPlayers, supportsPodiumReveal]);
+    return rankedPlayers.slice(0, 3);
+  }, [rankedPlayers, supportsPodiumReveal]);
   const teamGroups = useMemo(() => {
     const count = Math.max(2, Number(currentRoomState.teamCount) || teamCount || 2);
     return Array.from({ length: count }, (_, index) => ({
@@ -325,8 +346,12 @@ export default function HostScreen({
   }, [isTeamAggregateResults, resolvedGameType, teamGroups]);
   const podiumTeams = useMemo(() => {
     if (!isTeamAggregateResults) return [];
-    return teamRankings.slice(0, 3);
+    return getCompetitionRank(teamRankings, (team: any) => team.teamScore).slice(0, 3);
   }, [isTeamAggregateResults, teamRankings]);
+  const rankedTeams = useMemo(
+    () => getCompetitionRank(teamRankings, (team: any) => team.teamScore),
+    [teamRankings]
+  );
   const bgmScene = useMemo(() => {
     if (isBomberGameType(resolvedGameType)) {
       if (currentRoomState.state === 'results') return 'bomber_results';
@@ -1135,14 +1160,15 @@ export default function HostScreen({
                         .map((rank) => {
                           const entry = podiumEntries[rank - 1];
                           if (!entry) return null;
-                          return { entry, rank, revealIndexFromBottom: podiumEntries.length - rank };
+                          return { entry, revealIndexFromBottom: podiumEntries.length - rank };
                         })
-                        .filter((item): item is { entry: any; rank: number; revealIndexFromBottom: number } => item !== null);
+                        .filter((item): item is { entry: any; revealIndexFromBottom: number } => item !== null);
 
                       return (
                     <div className="mx-auto mb-4 flex max-w-3xl items-end justify-center gap-3 md:gap-5">
-                      {displayPodiumEntries.map(({ entry, rank, revealIndexFromBottom }) => {
+                      {displayPodiumEntries.map(({ entry, revealIndexFromBottom }) => {
                           const revealed = resultsRevealStep > revealIndexFromBottom;
+                          const rank = entry.rank;
                           const accent =
                             rank === 1 ? 'border-yellow-400 bg-yellow-500/15 text-yellow-100' :
                             rank === 2 ? 'border-slate-300 bg-slate-400/10 text-slate-100' :
@@ -1154,7 +1180,7 @@ export default function HostScreen({
 
                           return (
                             <div
-                              key={isTeamAggregateResults ? `team-${entry.teamId}` : entry.id}
+                              key={isTeamAggregateResults ? `team-${entry.item.teamId}` : entry.item.id}
                               className={`flex w-28 flex-col justify-between rounded-2xl border px-3 py-4 text-center transition-all duration-700 md:w-40 ${heightClass} ${
                                 revealed
                                   ? `${accent} opacity-100 translate-y-0 scale-100 shadow-[0_0_30px_rgba(250,204,21,0.15)]`
@@ -1165,21 +1191,21 @@ export default function HostScreen({
                                 <div className="text-3xl font-black md:text-4xl">{rank}位</div>
                                 {!isTeamAggregateResults && (
                                   <div className="mt-2 flex justify-center">
-                                    <AvatarPreview avatar={entry.avatar} size={42} />
+                                    <AvatarPreview avatar={entry.item.avatar} size={42} />
                                   </div>
                                 )}
                               </div>
                               <div className="space-y-1">
-                                <div className="text-lg font-bold leading-tight md:text-2xl">{isTeamAggregateResults ? entry.teamName : entry.name}</div>
+                                <div className="text-lg font-bold leading-tight md:text-2xl">{isTeamAggregateResults ? entry.item.teamName : entry.item.name}</div>
                                 {isTeamAggregateResults ? (
                                   <div className="space-y-1">
                                     <div className="text-[10px] leading-snug opacity-80 md:text-xs">
-                                      {entry.members.map((member: any) => member.name).join(' / ')}
+                                      {entry.item.members.map((member: any) => member.name).join(' / ')}
                                     </div>
                                   </div>
                                 ) : (() => {
-                                  const teamName = getTeamName(entry.teamId);
-                                  const teamMembers = getTeamMemberNames(entry.teamId);
+                                  const teamName = getTeamName(entry.item.teamId);
+                                  const teamMembers = getTeamMemberNames(entry.item.teamId);
                                   return teamName ? (
                                     <div className="space-y-1">
                                       <div className="rounded-full bg-cyan-500/15 px-2 py-1 text-[10px] font-bold text-cyan-100 md:text-xs">
@@ -1197,17 +1223,17 @@ export default function HostScreen({
                                 <div className="pt-2">
                                   <div className="text-[10px] opacity-70 md:text-xs">最終スコア</div>
                                   <div className="text-2xl font-black md:text-3xl">
-                                    {isTeamAggregateResults ? entry.teamScore : calculateGameScore(resolvedGameType, entry)}
+                                    {entry.score}
                                   </div>
                                   {isTeamAggregateResults ? (
                                     <div className="pt-1 text-[10px] opacity-80 md:text-xs">
                                       {resolvedGameType === 'team_bomber'
-                                        ? `合計撃破 ${entry.teamStats.kills} / 合計破壊 ${entry.teamStats.blocksDestroyed}`
+                                        ? `合計撃破 ${entry.item.teamStats.kills} / 合計破壊 ${entry.item.teamStats.blocksDestroyed}`
                                         : resolvedGameType === 'color_bomber'
-                                          ? `合計色面積 ${entry.teamStats.territoryCells} / 合計正答 ${entry.teamStats.correctAnswers}`
+                                          ? `合計色面積 ${entry.item.teamStats.territoryCells} / 合計正答 ${entry.item.teamStats.correctAnswers}`
                                           : resolvedGameType === 'quiz'
-                                            ? `合計スコア ${entry.teamStats.quizPoints || entry.teamScore} / 合計正答 ${entry.teamStats.correctAnswers}`
-                                          : `合計打数 ${entry.teamStats.totalStrokes}`}
+                                            ? `合計スコア ${entry.item.teamStats.quizPoints || entry.score} / 合計正答 ${entry.item.teamStats.correctAnswers}`
+                                          : `合計打数 ${entry.item.teamStats.totalStrokes}`}
                                     </div>
                                   ) : null}
                                 </div>
@@ -1300,12 +1326,12 @@ export default function HostScreen({
                     {renderTeamBoard(true)}
                   </div>
                 )}
-                {currentRoomState.state === 'results' && isTeamAggregateResults && teamRankings.map((team: any, index: number) => (
+                {currentRoomState.state === 'results' && isTeamAggregateResults && rankedTeams.map(({ item: team, rank }) => (
                   <div key={`result-team-${team.teamId}`} className="rounded-xl bg-slate-700 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
+                          <span className="w-6 font-bold text-slate-400">{rank}.</span>
                           <span className="font-bold text-base text-cyan-200 md:text-lg">{team.teamName}</span>
                         </div>
                         <div className="mt-1 text-[11px] text-slate-300">
@@ -1397,13 +1423,13 @@ export default function HostScreen({
                     </div>
                   </div>
                 ))}
-                {currentRoomState.state !== 'teamReveal' && !(currentRoomState.state === 'results' && isTeamAggregateResults) && sortedPlayers.map((p: any, index: number) => (
+                {currentRoomState.state !== 'teamReveal' && !(currentRoomState.state === 'results' && isTeamAggregateResults) && rankedPlayers.map(({ item: p, rank }, index: number) => (
                   <div
                     key={p.id}
                     className={`relative overflow-hidden rounded-xl bg-slate-700 p-3 transition-all duration-700 ${
                       currentRoomState.state === 'results' && supportsPodiumReveal
                         ? (() => {
-                            const podiumIndex = podiumPlayers.findIndex((player: any) => player.id === p.id);
+                            const podiumIndex = podiumPlayers.findIndex((player: any) => player.item.id === p.id);
                             if (podiumIndex === -1) return 'opacity-100';
                             const revealIndex = podiumPlayers.length - podiumIndex - 1;
                             return resultsRevealStep > revealIndex ? 'opacity-100 translate-x-0' : 'opacity-35 translate-x-2';
@@ -1420,8 +1446,8 @@ export default function HostScreen({
                     )}
                     <div className="flex items-center justify-between gap-3 pl-2">
                       <div className="min-w-0 flex items-center space-x-3">
-                        {currentRoomState.state === 'playing' && (
-                          <span className="w-6 font-bold text-slate-400">{index + 1}.</span>
+                        {(currentRoomState.state === 'playing' || currentRoomState.state === 'results') && (
+                          <span className="w-6 font-bold text-slate-400">{rank}.</span>
                         )}
                         <AvatarPreview avatar={p.avatar} size={36} className="shrink-0" />
                         <div className="min-w-0">
