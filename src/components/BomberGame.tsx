@@ -12,9 +12,6 @@ type BomberGameProps = {
   canUseRemote?: boolean;
 };
 
-const CONTROL_BUTTON =
-  'pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md border-2 border-amber-950 bg-amber-300 text-lg font-black text-amber-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.35),inset_0_-2px_0_rgba(120,53,15,0.75),0_6px_0_rgba(120,53,15,0.8)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(120,53,15,0.75),0_3px_0_rgba(120,53,15,0.8)] md:h-12 md:w-12 md:text-xl';
-
 const itemIconMap: Record<string, { color: string; pixels: Array<[number, number]> }> = {
   fire_up: {
     color: '#f97316',
@@ -105,8 +102,16 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const moveHoldIntervalRef = useRef<number | null>(null);
   const activeMoveDirectionRef = useRef<'up' | 'down' | 'left' | 'right' | null>(null);
+  const joystickPointerIdRef = useRef<number | null>(null);
   const previousPositionByPlayerRef = useRef<Record<string, { x: number; y: number }>>({});
   const [facingByPlayer, setFacingByPlayer] = useState<Record<string, 'up' | 'down' | 'left' | 'right'>>({});
+  const [joystickState, setJoystickState] = useState<{ active: boolean; originX: number; originY: number; knobX: number; knobY: number }>({
+    active: false,
+    originX: 0,
+    originY: 0,
+    knobX: 0,
+    knobY: 0,
+  });
   const moveRepeatMs = getBomberMoveRepeatMs(me?.moveSpeedLevel || 0);
 
   const stopMoveHold = () => {
@@ -291,19 +296,45 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
 
   const alivePlayers = Object.values(players || {});
   const aliveCount = alivePlayers.filter((player: any) => player.alive).length;
-  const bindMoveButton = (direction: 'up' | 'down' | 'left' | 'right') => ({
-    onPointerDown: (event: any) => {
-      event.preventDefault();
+  const joystickRadius = 64;
+  const joystickDeadZone = joystickRadius * 0.32;
+  const moveJoystick = (event: any) => {
+    if (joystickPointerIdRef.current !== event.pointerId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const dx = localX - joystickState.originX;
+    const dy = localY - joystickState.originY;
+    const distance = Math.hypot(dx, dy);
+    const ratio = distance > joystickRadius ? joystickRadius / distance : 1;
+    const limitedX = dx * ratio;
+    const limitedY = dy * ratio;
+    setJoystickState((current) => ({
+      ...current,
+      knobX: limitedX,
+      knobY: limitedY,
+    }));
+    if (distance < joystickDeadZone) {
+      stopMoveHold();
+      return;
+    }
+    const direction = getDirectionFromDelta(limitedX, limitedY);
+    if (direction) {
       startMoveHold(direction);
-    },
-    onPointerUp: () => stopMoveHold(),
-    onPointerCancel: () => stopMoveHold(),
-    onPointerLeave: () => {
-      if (activeMoveDirectionRef.current === direction) {
-        stopMoveHold();
-      }
-    },
-  });
+    }
+  };
+
+  const releaseJoystick = (event?: any) => {
+    if (event && joystickPointerIdRef.current !== event.pointerId) return;
+    joystickPointerIdRef.current = null;
+    setJoystickState((current) => ({
+      ...current,
+      active: false,
+      knobX: 0,
+      knobY: 0,
+    }));
+    stopMoveHold();
+  };
 
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center">
@@ -453,26 +484,59 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
         </div>
       ) : null}
       <div className="pointer-events-none absolute inset-0 z-20">
-        <div className="absolute bottom-3 left-3 grid grid-cols-3 gap-2 md:bottom-4 md:left-4">
-          <div />
-          <button className={CONTROL_BUTTON} {...bindMoveButton('up')}>↑</button>
-          <div />
-          <button className={CONTROL_BUTTON} {...bindMoveButton('left')}>←</button>
-          <div className="h-11 w-11 md:h-12 md:w-12" />
-          <button className={CONTROL_BUTTON} {...bindMoveButton('right')}>→</button>
-          <div />
-          <button className={CONTROL_BUTTON} {...bindMoveButton('down')}>↓</button>
-          <div />
+        <div
+          className="pointer-events-auto absolute inset-0 touch-none"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            const rect = event.currentTarget.getBoundingClientRect();
+            joystickPointerIdRef.current = event.pointerId;
+            setJoystickState({
+              active: true,
+              originX: event.clientX - rect.left,
+              originY: event.clientY - rect.top,
+              knobX: 0,
+              knobY: 0,
+            });
+          }}
+          onPointerMove={moveJoystick}
+          onPointerUp={(event) => {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+            releaseJoystick(event);
+          }}
+          onPointerCancel={(event) => {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+            releaseJoystick(event);
+          }}
+        >
+          {joystickState.active ? (
+            <div className="absolute inset-0">
+              <div
+                className="absolute h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-300/40 bg-amber-500/15"
+                style={{
+                  left: joystickState.originX,
+                  top: joystickState.originY,
+                }}
+              />
+              <div
+                className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200/70 bg-amber-300/70 shadow-[0_0_18px_rgba(251,191,36,0.55)]"
+                style={{
+                  left: joystickState.originX + joystickState.knobX,
+                  top: joystickState.originY + joystickState.knobY,
+                }}
+              />
+            </div>
+          ) : null}
         </div>
         <button
-          className="pointer-events-auto absolute bottom-4 right-3 flex h-14 w-20 items-center justify-center rounded-md border-2 border-rose-950 bg-rose-400 text-sm font-black tracking-wide text-rose-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.35),inset_0_-3px_0_rgba(136,19,55,0.78),0_6px_0_rgba(136,19,55,0.85)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(136,19,55,0.78),0_3px_0_rgba(136,19,55,0.85)] md:bottom-5 md:right-4"
+          className="pointer-events-auto absolute bottom-4 right-3 z-30 flex h-14 w-20 items-center justify-center rounded-md border-2 border-rose-950 bg-rose-400 text-sm font-black tracking-wide text-rose-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.35),inset_0_-3px_0_rgba(136,19,55,0.78),0_6px_0_rgba(136,19,55,0.85)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(136,19,55,0.78),0_3px_0_rgba(136,19,55,0.85)] md:bottom-5 md:right-4"
           onClick={onPlaceBomb}
         >
           BOMB
         </button>
         {canUseRemote && onDetonateRemote ? (
           <button
-            className="pointer-events-auto absolute bottom-20 right-3 flex h-12 w-20 items-center justify-center rounded-md border-2 border-cyan-950 bg-cyan-300 text-xs font-black tracking-wide text-cyan-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.4),inset_0_-3px_0_rgba(8,47,73,0.78),0_6px_0_rgba(8,47,73,0.82)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(8,47,73,0.75),0_3px_0_rgba(8,47,73,0.82)] md:bottom-22 md:right-4"
+            className="pointer-events-auto absolute bottom-20 right-3 z-30 flex h-12 w-20 items-center justify-center rounded-md border-2 border-cyan-950 bg-cyan-300 text-xs font-black tracking-wide text-cyan-950 shadow-[inset_0_2px_0_rgba(255,255,255,0.4),inset_0_-3px_0_rgba(8,47,73,0.78),0_6px_0_rgba(8,47,73,0.82)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(8,47,73,0.75),0_3px_0_rgba(8,47,73,0.82)] md:bottom-22 md:right-4"
             onClick={onDetonateRemote}
           >
             REMOTE
