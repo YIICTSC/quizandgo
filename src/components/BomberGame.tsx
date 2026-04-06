@@ -348,11 +348,12 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
             }}
           >
             <div
-              className="absolute inset-0 grid transition-transform duration-200 ease-out"
+              className="absolute inset-0 grid will-change-transform"
               style={{
                 ...boardStyle,
                 transformOrigin: 'top left',
-                transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoomScale})`,
+                transform: `translate3d(${translate.x}px, ${translate.y}px, 0) scale(${zoomScale})`,
+                transition: `transform ${moveRepeatMs}ms linear`,
               }}
             >
               {bomberState.grid.flatMap((row: string[], y: number) =>
