@@ -28,7 +28,7 @@ export default function App() {
   const [role, setRole] = useState<'none' | 'host' | 'player' | 'single_setup' | 'single_play'>('none');
   const [roomId, setRoomId] = useState<string>('');
   const [playerName, setPlayerName] = useState<string>('');
-  const [hostPlayerName] = useState<string>('ホスト');
+  const [hostPlayerName, setHostPlayerName] = useState<string>('ホスト');
   const [hostParticipating, setHostParticipating] = useState(false);
   const [hostView, setHostView] = useState<'host' | 'player'>('host');
   const [selectedGameType, setSelectedGameType] = useState<string>('golf');
@@ -37,6 +37,7 @@ export default function App() {
     setRole('none');
     setRoomId('');
     setPlayerName('');
+    setHostPlayerName('ホスト');
     setHostParticipating(false);
     setHostView('host');
     setSinglePlayConfig(null);
@@ -53,9 +54,10 @@ export default function App() {
 
   const handleHostParticipationChange = (enabled: boolean) => {
     setHostParticipating(enabled);
+    const resolvedHostPlayerName = hostPlayerName.trim() || 'ホスト';
     if (enabled) {
-      socket.emit('joinRoom', { roomId, name: hostPlayerName, avatar: getSavedAvatar() });
-      setPlayerName(hostPlayerName);
+      socket.emit('joinRoom', { roomId, name: resolvedHostPlayerName, avatar: getSavedAvatar() });
+      setPlayerName(resolvedHostPlayerName);
       setHostView('player');
       return;
     }
@@ -105,6 +107,8 @@ export default function App() {
             gameType={selectedGameType}
             hostParticipating={hostParticipating}
             onChangeHostParticipation={handleHostParticipationChange}
+            hostPlayerName={hostPlayerName}
+            onHostPlayerNameChange={setHostPlayerName}
             onSwitchToHostPlayerScreen={() => setHostView('player')}
           />
         </div>
