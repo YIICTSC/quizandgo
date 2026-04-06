@@ -90,8 +90,8 @@ const generateMathQuestion = (type: string): SingleDodgeQuestion => {
       text = `${num1} - ${num2} = ?`;
       break;
     case 'mul':
-      num1 = Math.floor(Math.random() * 9) + 2;
-      num2 = Math.floor(Math.random() * 9) + 2;
+      num1 = Math.floor(Math.random() * 9) + 1;
+      num2 = Math.floor(Math.random() * 9) + 1;
       answer = num1 * num2;
       text = `${num1} × ${num2} = ?`;
       break;
