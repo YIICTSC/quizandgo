@@ -253,7 +253,21 @@ export default function PlayerScreen({
   }, [isBomberMode, isDodgeMode, isQuizMode, roomId, stopRecognition]);
 
   useEffect(() => {
-    stopBGM();
+    const me = roomState?.players?.[socket.id];
+    if (!me?.currentQuestion) return;
+    setQuestion((current) => {
+      if (current?.text === me.currentQuestion.text) {
+        return current;
+      }
+      return {
+        text: me.currentQuestion.text,
+        options: me.currentQuestion.options,
+        hint: me.currentQuestion.hint,
+        visual: me.currentQuestion.visual,
+        audioPrompt: me.currentQuestion.audioPrompt,
+        speechPrompt: me.currentQuestion.speechPrompt,
+      };
+    });
   }, [roomState]);
 
   useEffect(() => {
