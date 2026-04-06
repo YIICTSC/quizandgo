@@ -378,7 +378,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
                         avatar={player.avatar}
                         size={Math.max(20, Math.min(30, playerRadius + 4))}
                         faceDirection={faceDirection}
-                        expression={expression}
+                        expression={expression} viewMode="topdown"
                       />
                     </div>
                     <div
