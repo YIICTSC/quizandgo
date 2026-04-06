@@ -1704,9 +1704,18 @@ async function startServer() {
       io.to(roomId).emit('roomStateUpdate', room);
     });
 
-    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire, quizVariant, quizBattleLives, quizBattleQuestionLimit, dodgeMode }) => {
+    socket.on('startGame', ({ roomId, mode, timeLimit, questions, shotsPerQuestion, teamMode, teamCount, bomberFriendlyFire, bomberBattleMode, bomberVisualMode, quizVariant, quizBattleLives, quizBattleQuestionLimit, dodgeMode }) => {
       const room = rooms[roomId];
       if (room && room.hostId === socket.id) {
+        if (room.gameType === 'bomber') {
+          if (bomberVisualMode === 'color') {
+            room.gameType = 'color_bomber';
+          } else if (bomberBattleMode === 'team') {
+            room.gameType = 'team_bomber';
+          } else {
+            room.gameType = 'bomber';
+          }
+        }
         room.shotsPerQuestion = Math.max(1, Math.min(5, Number(shotsPerQuestion) || 3));
         room.quizVariant = room.gameType === 'quiz'
           ? (['classic', 'combo', 'speed', 'team_battle', 'boss', 'battle_royale'].includes(quizVariant) ? quizVariant : 'classic')
