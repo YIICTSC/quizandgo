@@ -469,10 +469,6 @@ export default function HostScreen({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const getRevealRankLabel = (indexFromBottom: number, total: number) => {
-    return total - indexFromBottom;
-  };
-
   const renderTeamBoard = (compact = false) => (
     <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
       {teamGroups.map(({ teamId, teamName, members }) => (
@@ -1131,12 +1127,21 @@ export default function HostScreen({
                 {supportsPodiumReveal && (isTeamAggregateResults ? podiumTeams.length > 0 : podiumPlayers.length > 0) ? (
                   <div className="mb-8">
                     <p className="text-xl text-slate-300 mb-4">{isTeamAggregateResults ? '最終チームランキング発表' : '最終ランキング発表'}</p>
+                    {(() => {
+                      const podiumEntries = (isTeamAggregateResults ? podiumTeams : podiumPlayers).slice(0, 3);
+                      const podiumDisplayOrder =
+                        podiumEntries.length <= 2 ? podiumEntries.map((_, index) => index + 1) : [2, 1, 3];
+                      const displayPodiumEntries = podiumDisplayOrder
+                        .map((rank) => {
+                          const entry = podiumEntries[rank - 1];
+                          if (!entry) return null;
+                          return { entry, rank, revealIndexFromBottom: podiumEntries.length - rank };
+                        })
+                        .filter((item): item is { entry: any; rank: number; revealIndexFromBottom: number } => item !== null);
+
+                      return (
                     <div className="mx-auto mb-4 flex max-w-3xl items-end justify-center gap-3 md:gap-5">
-                      {(isTeamAggregateResults ? podiumTeams : podiumPlayers)
-                        .slice()
-                        .reverse()
-                        .map((entry: any, revealIndexFromBottom: number) => {
-                          const rank = getRevealRankLabel(revealIndexFromBottom, isTeamAggregateResults ? podiumTeams.length : podiumPlayers.length);
+                      {displayPodiumEntries.map(({ entry, rank, revealIndexFromBottom }) => {
                           const revealed = resultsRevealStep > revealIndexFromBottom;
                           const accent =
                             rank === 1 ? 'border-yellow-400 bg-yellow-500/15 text-yellow-100' :
@@ -1211,6 +1216,8 @@ export default function HostScreen({
                           );
                         })}
                     </div>
+                      );
+                    })()}
                     <p className="text-base text-slate-400">3位から順に発表します。</p>
                   </div>
                 ) : (
