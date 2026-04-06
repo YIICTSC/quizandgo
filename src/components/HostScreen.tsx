@@ -82,6 +82,8 @@ export default function HostScreen({
   onStartSinglePlayer,
   hostParticipating = false,
   onChangeHostParticipation,
+  hostPlayerName = 'ホスト',
+  onHostPlayerNameChange,
   onSwitchToHostPlayerScreen,
 }: {
   roomId: string;
@@ -92,6 +94,8 @@ export default function HostScreen({
   onStartSinglePlayer?: (payload: { mode: string; questions?: any[]; timeLimit: number; gameTitle: string; shotsPerQuestion: number }) => void;
   hostParticipating?: boolean;
   onChangeHostParticipation?: (enabled: boolean) => void;
+  hostPlayerName?: string;
+  onHostPlayerNameChange?: (name: string) => void;
   onSwitchToHostPlayerScreen?: () => void;
 }) {
   const [roomState, setRoomState] = useState<any>(null);
@@ -679,6 +683,17 @@ export default function HostScreen({
                   </p>
                   {!isSinglePlayer ? (
                     <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+                      <label className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2 text-xs text-slate-200">
+                        <span className="font-bold">参加名</span>
+                        <input
+                          value={hostPlayerName}
+                          onChange={(e) => onHostPlayerNameChange?.(e.target.value)}
+                          maxLength={20}
+                          disabled={hostParticipating}
+                          placeholder="ホスト"
+                          className="w-28 rounded-md border border-slate-500 bg-slate-900 px-2 py-1 text-sm text-white placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                      </label>
                       <button
                         onClick={() => onChangeHostParticipation?.(!hostParticipating)}
                         className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
