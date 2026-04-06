@@ -69,6 +69,14 @@ const getReadableUnitName = (unit: SubjectUnit) => {
 const isBomberGameType = (gameType?: string) =>
   gameType === 'bomber' || gameType === 'team_bomber' || gameType === 'color_bomber';
 const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
+const getGameTitleByType = (type?: string) => {
+  if (type === 'golf') return 'ゴルフゲーム';
+  if (type === 'quiz') return 'クイズモード';
+  if (type === 'dodge') return 'バトルドッジ';
+  if (type === 'team_bomber') return 'チームボンバー';
+  if (type === 'color_bomber') return 'カラーボンバー';
+  return 'クイズボンバー';
+};
 
 const isBattleQuizVariant = (variant?: string) =>
   variant === 'team_battle' || variant === 'boss' || variant === 'battle_royale';
@@ -122,6 +130,8 @@ export default function HostScreen({
   const [teamCount, setTeamCount] = useState<number>(2);
   const [dodgeMode, setDodgeMode] = useState<'single' | 'team'>('single');
   const [bomberFriendlyFire, setBomberFriendlyFire] = useState(false);
+  const [bomberBattleMode, setBomberBattleMode] = useState<'single' | 'team'>('single');
+  const [bomberVisualMode, setBomberVisualMode] = useState<'normal' | 'color'>('normal');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [resultsRevealStep, setResultsRevealStep] = useState<number>(0);
   const [showPinOverlay, setShowPinOverlay] = useState(false);
@@ -131,6 +141,24 @@ export default function HostScreen({
   const [quizBattleLivesDraft, setQuizBattleLivesDraft] = useState<number>(3);
   const [quizBattleQuestionLimitDraft, setQuizBattleQuestionLimitDraft] = useState<number>(10);
   const [teamCountDraft, setTeamCountDraft] = useState<number>(2);
+
+  useEffect(() => {
+    if (gameType === 'team_bomber') {
+      setBomberBattleMode('team');
+      setBomberVisualMode('normal');
+      setTeamMode(true);
+      return;
+    }
+    if (gameType === 'color_bomber') {
+      setBomberVisualMode('color');
+      return;
+    }
+    if (gameType === 'bomber') {
+      setBomberBattleMode('single');
+      setBomberVisualMode('normal');
+      setTeamMode(false);
+    }
+  }, [gameType]);
 
   const isSinglePlayer = mode === 'single';
   const allUnits = useMemo(() => getAllUnits(), []);
@@ -255,9 +283,25 @@ export default function HostScreen({
   
   // ランキング順にソート（スコアが高い順）
   const resolvedGameType = isSinglePlayer ? gameType : currentRoomState?.gameType || gameType;
+  const resolvedWaitingGameType = useMemo(() => {
+    if (!isSinglePlayer && currentRoomState?.state !== 'waiting') {
+      return resolvedGameType;
+    }
+    if (gameType !== 'bomber') {
+      return resolvedGameType;
+    }
+    if (bomberVisualMode === 'color') {
+      return 'color_bomber';
+    }
+    if (bomberBattleMode === 'team') {
+      return 'team_bomber';
+    }
+    return 'bomber';
+  }, [isSinglePlayer, currentRoomState?.state, resolvedGameType, gameType, bomberBattleMode, bomberVisualMode]);
   const effectiveTeamMode =
     resolvedGameType === 'team_bomber' ||
     (resolvedGameType === 'color_bomber' ? teamMode : teamMode) ||
+    (resolvedGameType === 'bomber' && bomberBattleMode === 'team') ||
     (resolvedGameType === 'dodge' && dodgeMode === 'team');
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     const scoreDiff = calculateGameScore(resolvedGameType, b) - calculateGameScore(resolvedGameType, a);
@@ -302,7 +346,7 @@ export default function HostScreen({
   }, [currentRoomState.teamCount, currentRoomState.teamNames, sortedPlayers, teamCount]);
   const requiresMorePlayersForTeams =
     !isSinglePlayer &&
-    (resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'quiz' || resolvedGameType === 'dodge') &&
+    (resolvedGameType === 'golf' || resolvedGameType === 'bomber' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'quiz' || resolvedGameType === 'dodge') &&
     effectiveTeamMode &&
     players.length < teamCount;
   const isTeamAggregateResults = !isSinglePlayer && (
@@ -465,6 +509,8 @@ export default function HostScreen({
       teamCount,
       dodgeMode,
       bomberFriendlyFire,
+      bomberBattleMode,
+      bomberVisualMode,
       quizVariant,
       quizBattleLives,
       quizBattleQuestionLimit,
@@ -586,7 +632,9 @@ export default function HostScreen({
                 <div className="mb-2 shrink-0 grid grid-cols-1 gap-2 xl:grid-cols-[200px_1fr]">
                   <div className="rounded-xl border border-slate-600 bg-slate-700/40 p-2.5">
                     <div className="mb-1 text-[10px] text-slate-400">選択中のゲーム</div>
-                    <div className="text-sm font-bold text-white md:text-base">{gameTitle}</div>
+                    <div className="text-sm font-bold text-white md:text-base">
+                      {gameType === 'bomber' ? getGameTitleByType(resolvedWaitingGameType) : gameTitle}
+                    </div>
                   </div>
 
                   <div className="rounded-xl border border-slate-600 bg-slate-700/30 p-2">
@@ -814,7 +862,7 @@ export default function HostScreen({
                         最後の1人が残るまで続行
                       </div>
                     )}
-                    {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber') && (
+                    {(resolvedGameType === 'golf' || resolvedGameType === 'team_bomber' || resolvedGameType === 'color_bomber' || resolvedGameType === 'bomber') && (
                       <>
                         {resolvedGameType === 'golf' && (
                           <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
@@ -892,6 +940,75 @@ export default function HostScreen({
                             >
                               チーム誤爆 {bomberFriendlyFire ? 'ON' : 'OFF'}
                             </button>
+                          </>
+                        )}
+                        {!isSinglePlayer && resolvedGameType === 'bomber' && (
+                          <>
+                            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                              <span className="text-[11px] font-bold text-slate-300">対戦形式</span>
+                              <button
+                                onClick={() => {
+                                  setBomberBattleMode('single');
+                                  setTeamMode(false);
+                                }}
+                                className={`rounded-lg px-3 py-1 text-xs font-bold ${bomberBattleMode === 'single' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                              >
+                                個人戦
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setBomberBattleMode('team');
+                                  setTeamMode(true);
+                                }}
+                                className={`rounded-lg px-3 py-1 text-xs font-bold ${bomberBattleMode === 'team' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                              >
+                                チーム戦
+                              </button>
+                              {bomberBattleMode === 'team' ? (
+                                <>
+                                  <span className="ml-1 text-[11px] font-bold text-slate-300">チーム数</span>
+                                  <select
+                                    value={teamCount}
+                                    onChange={(e) => setTeamCount(Number(e.target.value))}
+                                    className="rounded-lg border-2 border-slate-600 bg-slate-700 px-2 py-1 text-sm font-bold text-white focus:border-cyan-400 focus:outline-none"
+                                  >
+                                    {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => (
+                                      <option key={value} value={value}>
+                                        {value}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span className="text-[11px] font-bold text-slate-300">チーム</span>
+                                </>
+                              ) : null}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/40 px-3 py-2">
+                              <span className="text-[11px] font-bold text-slate-300">ゲームモード</span>
+                              <button
+                                onClick={() => setBomberVisualMode('normal')}
+                                className={`rounded-lg px-3 py-1 text-xs font-bold ${bomberVisualMode === 'normal' ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                              >
+                                通常モード
+                              </button>
+                              <button
+                                onClick={() => setBomberVisualMode('color')}
+                                className={`rounded-lg px-3 py-1 text-xs font-bold ${bomberVisualMode === 'color' ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                              >
+                                カラーモード
+                              </button>
+                            </div>
+                            {bomberBattleMode === 'team' && (
+                              <button
+                                onClick={() => setBomberFriendlyFire((current) => !current)}
+                                className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                                  bomberFriendlyFire
+                                    ? 'border border-rose-300 bg-rose-500 text-white'
+                                    : 'border border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                                }`}
+                              >
+                                チーム誤爆 {bomberFriendlyFire ? 'ON' : 'OFF'}
+                              </button>
+                            )}
                           </>
                         )}
                         {!isSinglePlayer && resolvedGameType === 'color_bomber' && (
