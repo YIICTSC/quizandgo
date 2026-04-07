@@ -133,7 +133,7 @@ export default function AvatarPreview({
   const center = 64;
   const faceFill = config.skinColor;
   const isTopDownBackView = viewMode === 'topdown' && faceDirection === 'up';
-  const shouldRenderLegacyHair = viewMode !== 'topdown' && hairTypeHasLegacyShape(config.hairType);
+  const portraitHairType = viewMode !== 'topdown' ? toPortraitHairType(config.hairType) : null;
   const faceOffset = {
     front: { x: 0, y: 0 },
     up: { x: 0, y: -3 },
@@ -215,7 +215,7 @@ export default function AvatarPreview({
       ) : null}
 
 
-      {!shouldRenderLegacyHair ? (
+      {viewMode === 'topdown' ? (
         <TopDownHairLayer
           hairType={config.hairType}
           hairColor={config.accentColor}
@@ -224,32 +224,32 @@ export default function AvatarPreview({
         />
       ) : null}
 
-      {shouldRenderLegacyHair && config.hairType === 'short' ? (
+      {portraitHairType === 'short' ? (
         <>
           <path d="M31 56 C34 25 94 25 97 56 C92 53 87 52 82 54 C78 47 72 45 64 47 C56 45 50 47 46 54 C41 52 36 53 31 56 Z" fill={config.accentColor} />
           <path d="M44 55 C50 48 57 46 64 50 C71 46 78 48 84 55" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'bangs' ? (
+      {portraitHairType === 'bangs' ? (
         <>
           <path d="M30 54 C34 20 94 20 98 54 C92 49 86 48 80 52 C75 46 70 45 64 53 C58 45 53 46 48 52 C42 48 36 49 30 54 Z" fill={config.accentColor} />
           <path d="M45 56 C49 63 55 66 60 56 C63 62 66 62 69 56 C74 66 80 63 84 56" stroke={config.skinColor} strokeWidth="2.8" strokeLinecap="round" fill="none" opacity="0.75" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'spike' ? (
+      {portraitHairType === 'spike' ? (
         <>
           <path d="M31 54 C37 24 91 22 97 54 C88 49 80 47 73 53 C69 43 60 43 55 53 C48 47 40 49 31 54 Z" fill={config.accentColor} />
           <path d="M44 56 C50 47 57 45 63 54 C69 44 78 46 84 56" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'bob' ? (
+      {portraitHairType === 'bob' ? (
         <>
           <path d="M27 56 C30 22 98 22 101 56 L95 84 C90 90 82 94 74 92 L80 64 C76 52 52 52 48 64 L54 92 C46 94 38 90 33 84 Z" fill={config.accentColor} />
           <path d="M38 56 C44 48 50 47 56 53" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
           <path d="M72 53 C78 47 84 48 90 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'curl' ? (
+      {portraitHairType === 'curl' ? (
         <>
           <circle cx="38" cy="48" r="10" fill={config.accentColor} />
           <circle cx="49" cy="39" r="10" fill={config.accentColor} />
@@ -260,7 +260,7 @@ export default function AvatarPreview({
           <path d="M42 55 C49 48 57 46 64 52 C71 46 79 47 86 55" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.86" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'ponytail' ? (
+      {portraitHairType === 'ponytail' ? (
         <>
           <path d="M32 56 C36 24 92 23 96 56 C91 52 86 51 81 54 C76 47 70 45 64 49 C58 45 52 47 47 54 C42 51 37 52 32 56 Z" fill={config.accentColor} />
           <path d="M44 56 C50 48 57 46 64 51 C71 46 78 48 85 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.88" />
@@ -268,7 +268,7 @@ export default function AvatarPreview({
           <circle cx="91" cy="57" r="4" fill={config.skinColor} opacity="0.85" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'princess' ? (
+      {portraitHairType === 'princess' ? (
         <>
           <path d="M30 54 C35 19 93 19 98 54 L95 95 C88 92 82 88 76 88 L82 64 C77 52 51 52 46 64 L52 88 C46 88 40 92 33 95 Z" fill={config.accentColor} />
           <path d="M40 56 C47 47 53 45 58 52" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
@@ -276,38 +276,38 @@ export default function AvatarPreview({
           <path d="M52 74 C56 78 60 79 64 79 C68 79 72 78 76 74" stroke={config.skinColor} strokeWidth="2.6" strokeLinecap="round" opacity="0.62" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'centerpart' ? (
+      {portraitHairType === 'centerpart' ? (
         <>
           <path d="M32 54 C36 20 92 20 96 54 C88 49 82 48 74 50 C70 39 66 36 64 36 C62 36 58 39 54 50 C46 48 40 49 32 54 Z" fill={config.accentColor} />
           <path d="M64 36 L64 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" opacity="0.92" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'upbang' ? (
+      {portraitHairType === 'upbang' ? (
         <>
           <path d="M34 58 C40 23 88 22 95 56 C86 45 75 39 64 40 C53 39 42 44 34 58 Z" fill={config.accentColor} />
           <path d="M44 50 L55 36 L60 50" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
           <path d="M68 50 L76 34 L83 49" stroke={config.accentColor} strokeWidth="3" strokeLinecap="round" fill="none" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'mash' ? (
+      {portraitHairType === 'mash' ? (
         <>
           <path d="M29 56 C33 24 95 24 99 56 C94 53 88 52 82 54 C77 47 71 46 64 49 C57 46 51 47 46 54 C40 52 34 53 29 56 Z" fill={config.accentColor} />
           <path d="M40 57 C48 49 57 47 64 52 C71 47 80 49 88 57" stroke={config.skinColor} strokeWidth="2.8" strokeLinecap="round" fill="none" opacity="0.72" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'slick' ? (
+      {portraitHairType === 'slick' ? (
         <>
           <path d="M35 57 C38 27 88 22 96 48 C87 44 79 42 70 42 C58 42 47 46 35 57 Z" fill={config.accentColor} />
           <path d="M44 45 C56 34 71 33 87 39" stroke={config.skinColor} strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.75" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'wolf' ? (
+      {portraitHairType === 'wolf' ? (
         <>
           <path d="M31 54 C36 20 92 20 97 54 L89 74 L80 66 L72 76 L64 66 L56 76 L47 66 L39 74 Z" fill={config.accentColor} />
           <path d="M41 54 C49 46 57 44 63 53 C69 44 78 45 87 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.86" />
         </>
       ) : null}
-      {shouldRenderLegacyHair && config.hairType === 'twoblock' ? (
+      {portraitHairType === 'twoblock' ? (
         <>
           <path d="M39 56 C43 24 91 23 94 54 C84 47 76 45 68 46 C60 46 51 49 39 56 Z" fill={config.accentColor} />
           <path d="M33 56 C34 45 36 39 39 35" stroke={config.skinColor} strokeWidth="4" strokeLinecap="round" opacity="0.7" />
@@ -465,6 +465,26 @@ export default function AvatarPreview({
   );
 }
 
-function hairTypeHasLegacyShape(hairType: AvatarHairType): boolean {
-  return hairType in LEGACY_HAIR_STYLE_BY_TYPE;
+function toPortraitHairType(hairType: AvatarHairType): keyof typeof LEGACY_HAIR_STYLE_BY_TYPE | null {
+  if (hairType === 'none') return null;
+  if (hairType in LEGACY_HAIR_STYLE_BY_TYPE) return hairType as keyof typeof LEGACY_HAIR_STYLE_BY_TYPE;
+
+  const mapped = LEGACY_HAIR_STYLE_BY_TYPE[hairType];
+  if (mapped) {
+    const reverseMapped = Object.entries(LEGACY_HAIR_STYLE_BY_TYPE).find(([, value]) => value === mapped)?.[0];
+    if (reverseMapped) return reverseMapped as keyof typeof LEGACY_HAIR_STYLE_BY_TYPE;
+  }
+
+  if (hairType.includes('ponytail') || hairType.includes('tail')) return 'ponytail';
+  if (hairType.includes('hime') || hairType.includes('princess')) return 'princess';
+  if (hairType.includes('wolf')) return 'wolf';
+  if (hairType.includes('two_block') || hairType.includes('block')) return 'twoblock';
+  if (hairType.includes('slick') || hairType.includes('upbang') || hairType.includes('all_back')) return 'slick';
+  if (hairType.includes('centerpart') || hairType.includes('comma')) return 'centerpart';
+  if (hairType.includes('bang') || hairType.includes('mash')) return 'bangs';
+  if (hairType.includes('curl') || hairType.includes('perm')) return 'curl';
+  if (hairType.includes('bob')) return 'bob';
+  if (hairType.includes('spiky') || hairType.includes('spike')) return 'spike';
+
+  return 'short';
 }
