@@ -54,6 +54,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
   const [displayBallPositions, setDisplayBallPositions] = useState<Record<string, { x: number; y: number; radius: number; shotType?: string }>>({});
   const [facingByPlayer, setFacingByPlayer] = useState<Record<string, DodgeDirection>>({});
   const previousPositionByPlayerRef = useRef<Record<string, { x: number; y: number }>>({});
+  const localStopGraceUntilRef = useRef(0);
   const [joystickState, setJoystickState] = useState<{ active: boolean; originX: number; originY: number; knobX: number; knobY: number }>({
     active: false,
     originX: 0,
@@ -89,6 +90,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
 
   const setMoveVector = (vector: MoveVector | null) => {
     if (!vector) {
+      localStopGraceUntilRef.current = performance.now() + 140;
       activeVectorRef.current = null;
       onSetMoveVectorRef.current?.(null);
       setMoveDirection(null);
@@ -184,12 +186,18 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
           if (!readOnly && me?.id === id && player.alive) {
             const moveVector = activeVectorRef.current || getMoveVector(activeDirectionRef.current);
             if (moveVector.x || moveVector.y) {
-              nextX = clamp(currentPos.x + moveVector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
-              nextY = clamp(currentPos.y + moveVector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+              const predictedX = clamp(currentPos.x + moveVector.x * DODGE_MOVE_SPEED * dt, playerRadius, width - playerRadius);
+              const predictedY = clamp(currentPos.y + moveVector.y * DODGE_MOVE_SPEED * dt, playerRadius, height - playerRadius);
+              const correction = Math.min(0.35, 1 - Math.exp(-6 * dt));
+              nextX = predictedX + (player.x - predictedX) * correction;
+              nextY = predictedY + (player.y - predictedY) * correction;
             } else {
-              const easing = 1 - Math.exp(-16 * dt);
-              nextX = currentPos.x + (player.x - currentPos.x) * easing;
-              nextY = currentPos.y + (player.y - currentPos.y) * easing;
+              const isWithinStopGrace = now < localStopGraceUntilRef.current;
+              if (!isWithinStopGrace) {
+                const easing = 1 - Math.exp(-9 * dt);
+                nextX = currentPos.x + (player.x - currentPos.x) * easing;
+                nextY = currentPos.y + (player.y - currentPos.y) * easing;
+              }
             }
           } else {
             const easing = 1 - Math.exp(-20 * dt);
