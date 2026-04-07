@@ -63,6 +63,8 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     knobY: 0,
   });
   const joystickPointerIdRef = useRef<number | null>(null);
+  const pressedDirectionsRef = useRef<Set<DodgeDirection>>(new Set());
+  const joystickVectorRef = useRef<MoveVector>({ x: 0, y: 0 });
 
   const width = dodgeState?.width || 960;
   const height = dodgeState?.height || 540;
@@ -258,19 +260,35 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
   useEffect(() => {
     if (readOnly || !onSetMoveRef.current || !onThrowRef.current) return;
 
+    const getDirectionFromKey = (key: string): DodgeDirection | null => {
+      if (['ArrowUp', 'w', 'W'].includes(key)) return 'up';
+      if (['ArrowDown', 's', 'S'].includes(key)) return 'down';
+      if (['ArrowLeft', 'a', 'A'].includes(key)) return 'left';
+      if (['ArrowRight', 'd', 'D'].includes(key)) return 'right';
+      return null;
+    };
+
+    const updateKeyboardMoveVector = () => {
+      const pressed = pressedDirectionsRef.current;
+      const vector = {
+        x: (pressed.has('right') ? 1 : 0) - (pressed.has('left') ? 1 : 0),
+        y: (pressed.has('down') ? 1 : 0) - (pressed.has('up') ? 1 : 0),
+      };
+      if (!vector.x && !vector.y) {
+        setMoveVector(null);
+        return;
+      }
+      setMoveVector(vector);
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (['ArrowUp', 'w', 'W'].includes(event.key)) {
+      const direction = getDirectionFromKey(event.key);
+      if (direction) {
         event.preventDefault();
-        if (activeDirectionRef.current !== 'up') setMoveDirection('up');
-      } else if (['ArrowDown', 's', 'S'].includes(event.key)) {
-        event.preventDefault();
-        if (activeDirectionRef.current !== 'down') setMoveDirection('down');
-      } else if (['ArrowLeft', 'a', 'A'].includes(event.key)) {
-        event.preventDefault();
-        if (activeDirectionRef.current !== 'left') setMoveDirection('left');
-      } else if (['ArrowRight', 'd', 'D'].includes(event.key)) {
-        event.preventDefault();
-        if (activeDirectionRef.current !== 'right') setMoveDirection('right');
+        if (!pressedDirectionsRef.current.has(direction)) {
+          pressedDirectionsRef.current.add(direction);
+          updateKeyboardMoveVector();
+        }
       } else if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         onThrowRef.current?.(getCurrentAimVector());
@@ -278,17 +296,18 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (
-        (activeDirectionRef.current === 'up' && ['ArrowUp', 'w', 'W'].includes(event.key)) ||
-        (activeDirectionRef.current === 'down' && ['ArrowDown', 's', 'S'].includes(event.key)) ||
-        (activeDirectionRef.current === 'left' && ['ArrowLeft', 'a', 'A'].includes(event.key)) ||
-        (activeDirectionRef.current === 'right' && ['ArrowRight', 'd', 'D'].includes(event.key))
-      ) {
-        setMoveVector(null);
+      const direction = getDirectionFromKey(event.key);
+      if (!direction) return;
+      if (pressedDirectionsRef.current.has(direction)) {
+        pressedDirectionsRef.current.delete(direction);
+        updateKeyboardMoveVector();
       }
     };
 
-    const stopAll = () => setMoveVector(null);
+    const stopAll = () => {
+      pressedDirectionsRef.current.clear();
+      setMoveVector(null);
+    };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -345,22 +364,26 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
     const dy = localY - joystickState.originY;
     const distance = Math.hypot(dx, dy);
     const ratio = distance > joystickRadius ? joystickRadius / distance : 1;
-    const limitedX = dx * ratio;
-    const limitedY = dy * ratio;
+    const rawX = (dx * ratio) / joystickRadius;
+    const rawY = (dy * ratio) / joystickRadius;
+    const smoothing = 0.4;
+    const smoothedX = joystickVectorRef.current.x + (rawX - joystickVectorRef.current.x) * smoothing;
+    const smoothedY = joystickVectorRef.current.y + (rawY - joystickVectorRef.current.y) * smoothing;
+    joystickVectorRef.current = { x: smoothedX, y: smoothedY };
+    const limitedX = smoothedX * joystickRadius;
+    const limitedY = smoothedY * joystickRadius;
     setJoystickState((current) => ({
       ...current,
       knobX: limitedX,
       knobY: limitedY,
     }));
-    setMoveVector({
-      x: limitedX / joystickRadius,
-      y: limitedY / joystickRadius,
-    });
+    setMoveVector(joystickVectorRef.current);
   };
 
   const releaseJoystick = (event?: any) => {
     if (event && joystickPointerIdRef.current !== event.pointerId) return;
     joystickPointerIdRef.current = null;
+    joystickVectorRef.current = { x: 0, y: 0 };
     setJoystickState((current) => ({
       ...current,
       active: false,
@@ -476,6 +499,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
                 knobX: 0,
                 knobY: 0,
               });
+              joystickVectorRef.current = { x: 0, y: 0 };
             }}
             onPointerMove={moveJoystick}
             onPointerUp={(event) => {
