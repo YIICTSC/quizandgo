@@ -123,8 +123,9 @@ export default function AvatarPreview({
       ) : null}
       {config.hairType === 'bob' ? (
         <>
-          <path d="M27 56 C30 22 98 22 101 56 L95 84 C90 90 82 94 74 92 L74 62 C70 54 58 54 54 62 L54 92 C46 94 38 90 33 84 Z" fill={config.accentColor} />
-          <path d="M39 56 C45 47 54 45 62 52 C70 45 79 47 89 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
+          <path d="M27 56 C30 22 98 22 101 56 L95 84 C90 90 82 94 74 92 L80 64 C76 52 52 52 48 64 L54 92 C46 94 38 90 33 84 Z" fill={config.accentColor} />
+          <path d="M38 56 C44 48 50 47 56 53" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
+          <path d="M72 53 C78 47 84 48 90 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
         </>
       ) : null}
       {config.hairType === 'curl' ? (
@@ -148,8 +149,9 @@ export default function AvatarPreview({
       ) : null}
       {config.hairType === 'princess' ? (
         <>
-          <path d="M30 54 C35 19 93 19 98 54 L95 95 C88 92 82 88 76 88 L76 63 C71 54 57 54 52 63 L52 88 C46 88 40 92 33 95 Z" fill={config.accentColor} />
-          <path d="M41 56 C48 46 56 44 64 52 C72 44 80 46 87 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
+          <path d="M30 54 C35 19 93 19 98 54 L95 95 C88 92 82 88 76 88 L82 64 C77 52 51 52 46 64 L52 88 C46 88 40 92 33 95 Z" fill={config.accentColor} />
+          <path d="M40 56 C47 47 53 45 58 52" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
+          <path d="M70 52 C75 45 81 47 88 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
           <path d="M52 74 C56 78 60 79 64 79 C68 79 72 78 76 74" stroke={config.skinColor} strokeWidth="2.6" strokeLinecap="round" opacity="0.62" />
         </>
       ) : null}
