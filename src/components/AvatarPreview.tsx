@@ -58,10 +58,22 @@ function TopDownHairLayer({ hairType, hairColor, skinColor, faceDirection }: {
   const rx = direction === 'LEFT' || direction === 'RIGHT' ? 26 + (styleSeed % 7) : widthSpread;
   const ry = direction === 'UP' ? 18 + (styleSeed % 7) : 18 + (styleSeed % 5);
   const sideSign = direction === 'RIGHT' ? 1 : direction === 'LEFT' ? -1 : 0;
+  const crownY = baseY - ry - 2;
+  const hairlineY = baseY + 2;
+  const centerDip = hasBangs ? 7 : isCenterPart ? 10 : 5;
 
   return (
     <g data-hair-id={runtime.id} data-frame={`${frame.x},${frame.y},${frame.w},${frame.h}`}>
-      <ellipse cx={64 + sideSign * 2} cy={baseY} rx={rx} ry={ry} fill={hairColor} />
+      <path
+        d={[
+          `M${64 - rx + 2} ${hairlineY}`,
+          `C${64 - rx + 6} ${baseY - ry + 4} ${64 - Math.floor(rx * 0.72)} ${crownY} ${64} ${crownY - 1}`,
+          `C${64 + Math.floor(rx * 0.72)} ${crownY} ${64 + rx - 6} ${baseY - ry + 4} ${64 + rx - 2} ${hairlineY}`,
+          `C${64 + Math.floor(rx * 0.52)} ${baseY + centerDip} ${64 - Math.floor(rx * 0.52)} ${baseY + centerDip} ${64 - rx + 2} ${hairlineY}`,
+          'Z',
+        ].join(' ')}
+        fill={hairColor}
+      />
       <path
         d={`M${64 - widthSpread} ${58 + templeDepth} C${64 - widthSpread + 12} ${50 - topLift} ${64 + widthSpread - 12} ${50 - topLift} ${64 + widthSpread} ${58 + templeDepth}`}
         stroke={hairColor}
