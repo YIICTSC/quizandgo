@@ -7,8 +7,7 @@ type AvatarViewMode = 'portrait' | 'topdown';
 
 type TopdownDirection = 'DOWN' | 'UP' | 'RIGHT' | 'LEFT';
 
-const HAIR_STYLE_BY_TYPE: Record<AvatarHairType, string> = {
-  none: 'see_through_bang_short',
+const LEGACY_HAIR_STYLE_BY_TYPE: Record<string, string> = {
   short: 'korean_mash_soft',
   bangs: 'see_through_bang_midi',
   spike: 'short_spiky_active',
@@ -37,7 +36,9 @@ function TopDownHairLayer({ hairType, hairColor, skinColor, faceDirection }: {
   skinColor: string;
   faceDirection: AvatarFaceDirection;
 }) {
-  const hairId = HAIR_STYLE_BY_TYPE[hairType] || 'korean_mash_soft';
+  const hairId = hairType === 'none'
+    ? 'see_through_bang_short'
+    : (TOPDOWN_HAIR_RUNTIME[hairType] ? hairType : LEGACY_HAIR_STYLE_BY_TYPE[hairType]) || 'korean_mash_soft';
   const runtime = TOPDOWN_HAIR_RUNTIME[hairId] || TOPDOWN_HAIR_RUNTIME.korean_mash_soft;
   const direction = toTopdownDirection(faceDirection);
   const frame = getHairSpriteFrame(runtime.id, direction);
@@ -97,7 +98,7 @@ export default function AvatarPreview({
   const center = 64;
   const faceFill = config.skinColor;
   const isTopDownBackView = viewMode === 'topdown' && faceDirection === 'up';
-  const shouldRenderLegacyHair = viewMode !== 'topdown';
+  const shouldRenderLegacyHair = viewMode !== 'topdown' && hairTypeHasLegacyShape(config.hairType);
   const faceOffset = {
     front: { x: 0, y: 0 },
     up: { x: 0, y: -3 },
@@ -427,4 +428,8 @@ export default function AvatarPreview({
       <circle cx={center} cy={64} r="56" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="4" />
     </svg>
   );
+}
+
+function hairTypeHasLegacyShape(hairType: AvatarHairType): boolean {
+  return hairType in LEGACY_HAIR_STYLE_BY_TYPE;
 }
