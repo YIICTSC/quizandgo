@@ -44,15 +44,38 @@ function TopDownHairLayer({ hairType, hairColor, skinColor, faceDirection }: {
   const frame = getHairSpriteFrame(runtime.id, direction);
   const swing = runtime.animation.frontSwayPx;
   const lag = runtime.animation.backLagPx;
+  const styleSeed = runtime.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const topLift = 17 + (styleSeed % 7);
+  const widthSpread = 28 + (styleSeed % 10);
+  const templeDepth = 4 + (styleSeed % 6);
+  const isCenterPart = runtime.id.includes('centerpart') || runtime.id.includes('comma');
+  const hasBangs = runtime.id.includes('bang') || runtime.id.includes('mash');
+  const hasCurl = runtime.id.includes('curl') || runtime.id.includes('perm');
+  const hasTail = runtime.id.includes('tail') || runtime.id.includes('ponytail');
+  const hasBraid = runtime.id.includes('braid');
 
   const baseY = direction === 'UP' ? 54 : 56;
-  const rx = direction === 'LEFT' || direction === 'RIGHT' ? 30 : 34;
-  const ry = direction === 'UP' ? 22 : 20;
+  const rx = direction === 'LEFT' || direction === 'RIGHT' ? 26 + (styleSeed % 7) : widthSpread;
+  const ry = direction === 'UP' ? 18 + (styleSeed % 7) : 18 + (styleSeed % 5);
   const sideSign = direction === 'RIGHT' ? 1 : direction === 'LEFT' ? -1 : 0;
 
   return (
     <g data-hair-id={runtime.id} data-frame={`${frame.x},${frame.y},${frame.w},${frame.h}`}>
       <ellipse cx={64 + sideSign * 2} cy={baseY} rx={rx} ry={ry} fill={hairColor} />
+      <path
+        d={`M${64 - widthSpread} ${58 + templeDepth} C${64 - widthSpread + 12} ${50 - topLift} ${64 + widthSpread - 12} ${50 - topLift} ${64 + widthSpread} ${58 + templeDepth}`}
+        stroke={hairColor}
+        strokeWidth={5}
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.95"
+      />
+      {isCenterPart ? (
+        <path d={`M64 ${46 - Math.floor(topLift / 3)} L64 58`} stroke={skinColor} strokeWidth="3" strokeLinecap="round" opacity="0.9" />
+      ) : null}
+      {hasBangs ? (
+        <path d={`M${64 - widthSpread + 10} 58 C54 66 74 66 ${64 + widthSpread - 10} 58`} stroke={skinColor} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.68" />
+      ) : null}
       {direction === 'DOWN' ? (
         <path d={`M34 58 C44 48 54 47 64 52 C74 47 84 48 94 58`} stroke={skinColor} strokeWidth="2.8" strokeLinecap="round" fill="none" opacity="0.72" />
       ) : null}
@@ -62,8 +85,20 @@ function TopDownHairLayer({ hairType, hairColor, skinColor, faceDirection }: {
       {(direction === 'LEFT' || direction === 'RIGHT') ? (
         <path d={`M${64 + sideSign * 22} 52 C${64 + sideSign * 28} 64 ${64 + sideSign * 24} 73 ${64 + sideSign * 16} 80`} stroke={hairColor} strokeWidth={5} strokeLinecap="round" fill="none" opacity="0.92" />
       ) : null}
+      {hasCurl ? (
+        <>
+          <circle cx={46} cy={54} r={4 + (styleSeed % 3)} fill={hairColor} opacity="0.88" />
+          <circle cx={82} cy={56} r={4 + ((styleSeed + 1) % 3)} fill={hairColor} opacity="0.88" />
+        </>
+      ) : null}
+      {hasBraid ? (
+        <path d="M88 60 C95 66 95 82 86 94" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.92" />
+      ) : null}
       {hairType === 'ponytail' || hairType === 'princess' ? (
         <path d={`M90 ${58 + swing} C108 ${60 + lag} 108 ${84 + lag} 92 94`} fill={hairColor} opacity="0.96" />
+      ) : null}
+      {hasTail && hairType !== 'ponytail' && hairType !== 'princess' ? (
+        <path d={`M88 ${62 + swing} C103 ${66 + lag} 101 ${86 + lag} 90 94`} fill={hairColor} opacity="0.9" />
       ) : null}
       {hairType === 'wolf' ? (
         <path d="M40 74 L48 67 L56 77 L64 68 L72 77 L80 67 L88 74" stroke={hairColor} strokeWidth="4" strokeLinecap="round" fill="none" />
