@@ -373,23 +373,21 @@ export default function BomberGame({ roomId, me, players, bomberState, onMove, o
               )}
 
               {(bomberState.itemDrops || []).map((drop: any) => (
-                
                 <div
                   key={drop.id}
-                  className="absolute flex items-center justify-center border border-slate-900 bg-amber-100/95"
+                  className="absolute flex items-center justify-center"
                   style={{
-                    width: `calc(${cellWidthPercent}% - 8px)`,
-                    height: `calc(${cellHeightPercent}% - 8px)`,
-                    left: `calc(${drop.x * cellWidthPercent}% + 4px)`,
-                    top: `calc(${drop.y * cellHeightPercent}% + 4px)`,
-                    boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.65), inset 0 -2px 0 rgba(120,53,15,0.4)',
+                    width: `calc(${cellWidthPercent}% - 4px)`,
+                    height: `calc(${cellHeightPercent}% - 4px)`,
+                    left: `calc(${drop.x * cellWidthPercent}% + 2px)`,
+                    top: `calc(${drop.y * cellHeightPercent}% + 2px)`,
                   }}
                   title={drop.itemId}
                 >
                   <img
                     src={withBaseUrl(BOMBER_ITEM_META[(drop.itemId as BomberItemId) || 'speed_up']?.iconAsset || BOMBER_ITEM_META.speed_up.iconAsset)}
                     alt={`${drop.itemId} アイテム`}
-                    className="h-[82%] w-[82%] rounded-[2px] border border-slate-900/60 bg-slate-950/20 p-[1px]"
+                    className="h-full w-full object-contain"
                     loading="lazy"
                   />
                 </div>
