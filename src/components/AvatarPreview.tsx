@@ -125,6 +125,19 @@ function TopDownHairLayer({ hairType, hairColor, skinColor, faceDirection }: {
   );
 }
 
+function getPortraitHairVariant(hairType: AvatarHairType) {
+  const id = hairType === 'none' ? '' : hairType;
+  return {
+    id,
+    isLong: id.includes('long') || id.includes('hime') || id.includes('low') || id.includes('medium'),
+    hasAsymmetry: id.includes('asymmetry') || id.includes('side_swept'),
+    hasTwin: id.includes('twin_tail'),
+    hasBraid: id.includes('braid'),
+    hasOuterFlip: id.includes('outer_flip'),
+    isStraightLong: id.includes('long_straight'),
+  };
+}
+
 
 export default function AvatarPreview({
   avatar,
@@ -146,6 +159,7 @@ export default function AvatarPreview({
   const faceFill = config.skinColor;
   const isTopDownBackView = viewMode === 'topdown' && faceDirection === 'up';
   const portraitHairType = viewMode !== 'topdown' ? toPortraitHairType(config.hairType) : null;
+  const portraitHair = getPortraitHairVariant(config.hairType);
   const faceOffset = {
     front: { x: 0, y: 0 },
     up: { x: 0, y: -3 },
@@ -256,7 +270,7 @@ export default function AvatarPreview({
       ) : null}
       {portraitHairType === 'bob' ? (
         <>
-          <path d="M27 56 C30 22 98 22 101 56 L95 84 C90 90 82 94 74 92 L80 64 C76 52 52 52 48 64 L54 92 C46 94 38 90 33 84 Z" fill={config.accentColor} />
+          <path d={portraitHair.hasOuterFlip ? 'M27 56 C30 22 98 22 101 56 L95 80 C92 90 86 92 78 90 L86 74 C82 67 76 66 72 69 L72 92 C67 95 61 95 56 92 L56 69 C52 66 46 67 42 74 L50 90 C42 92 36 90 33 80 Z' : 'M27 56 C30 22 98 22 101 56 L95 84 C90 90 82 94 74 92 L80 64 C76 52 52 52 48 64 L54 92 C46 94 38 90 33 84 Z'} fill={config.accentColor} />
           <path d="M38 56 C44 48 50 47 56 53" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
           <path d="M72 53 C78 47 84 48 90 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.92" />
         </>
@@ -274,18 +288,29 @@ export default function AvatarPreview({
       ) : null}
       {portraitHairType === 'ponytail' ? (
         <>
-          <path d="M32 56 C36 24 92 23 96 56 C91 52 86 51 81 54 C76 47 70 45 64 49 C58 45 52 47 47 54 C42 51 37 52 32 56 Z" fill={config.accentColor} />
-          <path d="M44 56 C50 48 57 46 64 51 C71 46 78 48 85 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.88" />
-          <path d="M92 56 C108 57 110 86 92 95 C99 83 100 69 92 56 Z" fill={config.accentColor} />
-          <circle cx="91" cy="57" r="4" fill={config.skinColor} opacity="0.85" />
+          <path d={portraitHair.hasAsymmetry ? 'M31 56 C36 24 92 23 96 56 C90 50 83 49 76 52 C71 45 67 44 61 48 C54 46 49 49 45 55 C40 51 36 52 31 56 Z' : 'M32 56 C36 24 92 23 96 56 C91 52 86 51 81 54 C76 47 70 45 64 49 C58 45 52 47 47 54 C42 51 37 52 32 56 Z'} fill={config.accentColor} />
+          <path d={portraitHair.hasAsymmetry ? 'M42 56 C50 47 57 46 65 52 C72 47 80 48 86 55' : 'M44 56 C50 48 57 46 64 51 C71 46 78 48 85 56'} stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.88" />
+          {portraitHair.hasTwin ? (
+            <>
+              <path d="M38 58 C22 62 20 88 36 98 C31 84 30 69 38 58 Z" fill={config.accentColor} />
+              <path d="M90 58 C108 62 108 88 92 98 C98 84 99 69 90 58 Z" fill={config.accentColor} />
+              <circle cx="39" cy="58" r="3.5" fill={config.skinColor} opacity="0.85" />
+              <circle cx="89" cy="58" r="3.5" fill={config.skinColor} opacity="0.85" />
+            </>
+          ) : (
+            <>
+              <path d={portraitHair.isLong ? 'M92 56 C110 58 111 92 90 104 C100 88 101 70 92 56 Z' : 'M92 56 C108 57 110 86 92 95 C99 83 100 69 92 56 Z'} fill={config.accentColor} />
+              <circle cx="91" cy="57" r="4" fill={config.skinColor} opacity="0.85" />
+            </>
+          )}
         </>
       ) : null}
       {portraitHairType === 'princess' ? (
         <>
-          <path d="M30 54 C35 19 93 19 98 54 L95 95 C88 92 82 88 76 88 L82 64 C77 52 51 52 46 64 L52 88 C46 88 40 92 33 95 Z" fill={config.accentColor} />
-          <path d="M40 56 C47 47 53 45 58 52" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
-          <path d="M70 52 C75 45 81 47 88 56" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
-          <path d="M52 74 C56 78 60 79 64 79 C68 79 72 78 76 74" stroke={config.skinColor} strokeWidth="2.6" strokeLinecap="round" opacity="0.62" />
+          <path d={portraitHair.isStraightLong ? 'M29 54 C34 19 94 19 99 54 L96 102 C90 106 84 106 78 104 L82 66 C77 52 51 52 46 66 L50 104 C44 106 38 106 32 102 Z' : 'M30 54 C35 19 93 19 98 54 L95 95 C88 92 82 88 76 88 L82 64 C77 52 51 52 46 64 L52 88 C46 88 40 92 33 95 Z'} fill={config.accentColor} />
+          <path d={portraitHair.hasAsymmetry ? 'M36 56 C45 46 53 45 58 52' : 'M40 56 C47 47 53 45 58 52'} stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
+          <path d={portraitHair.hasAsymmetry ? 'M72 52 C79 44 84 47 90 58' : 'M70 52 C75 45 81 47 88 56'} stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.9" />
+          <path d={portraitHair.isStraightLong ? 'M50 78 C55 83 60 84 64 84 C68 84 73 83 78 78' : 'M52 74 C56 78 60 79 64 79 C68 79 72 78 76 74'} stroke={config.skinColor} strokeWidth="2.6" strokeLinecap="round" opacity="0.62" />
         </>
       ) : null}
       {portraitHairType === 'centerpart' ? (
@@ -315,7 +340,7 @@ export default function AvatarPreview({
       ) : null}
       {portraitHairType === 'wolf' ? (
         <>
-          <path d="M31 54 C36 20 92 20 97 54 L89 74 L80 66 L72 76 L64 66 L56 76 L47 66 L39 74 Z" fill={config.accentColor} />
+          <path d={portraitHair.isLong ? 'M31 54 C36 20 92 20 97 54 L90 80 L81 71 L73 84 L64 72 L55 84 L47 71 L38 80 Z' : 'M31 54 C36 20 92 20 97 54 L89 74 L80 66 L72 76 L64 66 L56 76 L47 66 L39 74 Z'} fill={config.accentColor} />
           <path d="M41 54 C49 46 57 44 63 53 C69 44 78 45 87 54" stroke={config.skinColor} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.86" />
         </>
       ) : null}
@@ -487,6 +512,11 @@ function toPortraitHairType(hairType: AvatarHairType): keyof typeof LEGACY_HAIR_
     if (reverseMapped) return reverseMapped as keyof typeof LEGACY_HAIR_STYLE_BY_TYPE;
   }
 
+  if (hairType.includes('long_straight') || hairType.includes('hime')) return 'princess';
+  if (hairType.includes('asymmetry_long')) return 'ponytail';
+  if (hairType.includes('medium_layer') || hairType.includes('outer_flip')) return 'bob';
+  if (hairType.includes('twin_tail')) return 'ponytail';
+  if (hairType.includes('braid')) return 'ponytail';
   if (hairType.includes('ponytail') || hairType.includes('tail')) return 'ponytail';
   if (hairType.includes('hime') || hairType.includes('princess')) return 'princess';
   if (hairType.includes('wolf')) return 'wolf';
