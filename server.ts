@@ -746,6 +746,29 @@ const handBallToInfieldPlayer = (room: Room, sourceTeamId?: number | null) => {
   nextOwner.dodgeHasBall = true;
 };
 
+const redistributeMissedDodgeBall = (room: Room, lastOwnerId: string) => {
+  const lastOwner = room.players[lastOwnerId];
+  const allAlivePlayers = Object.values(room.players).filter((player) => player.alive);
+  if (allAlivePlayers.length === 0) return;
+
+  const pickRandomEligible = (players: Player[]) => {
+    const withoutBall = players.filter((player) => !player.dodgeHasBall);
+    const pool = withoutBall.length > 0 ? withoutBall : players;
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)] || null;
+  };
+
+  if (!isTeamDodgeMode(room) || !lastOwner?.teamId) {
+    const nextOwner = pickRandomEligible(allAlivePlayers);
+    if (nextOwner) nextOwner.dodgeHasBall = true;
+    return;
+  }
+
+  const enemyCandidates = allAlivePlayers.filter((player) => player.teamId != null && player.teamId !== lastOwner.teamId);
+  const nextOwner = pickRandomEligible(enemyCandidates.length > 0 ? enemyCandidates : allAlivePlayers);
+  if (nextOwner) nextOwner.dodgeHasBall = true;
+};
+
 const respawnDodgePlayer = (room: Room, player: Player) => {
   if (!room.dodgeState) return;
   const { width, height } = room.dodgeState;
@@ -1487,6 +1510,7 @@ const startDodgeLoop = (io: Server, roomId: string) => {
         ball.y < -ball.radius ||
         ball.y > height + ball.radius
       ) {
+        redistributeMissedDodgeBall(room, ball.ownerId);
         return false;
       }
 
