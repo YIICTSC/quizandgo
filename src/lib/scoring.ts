@@ -15,6 +15,10 @@ export type ScorePlayerLike = {
   territoryCells?: number;
   dodgeValue?: number;
   dodgeHasBall?: boolean;
+  drillDepth?: number;
+  drillOxygen?: number;
+  drillCombo?: number;
+  drillCharges?: number;
 };
 
 export const calculateGolfScore = (player: ScorePlayerLike) => {
@@ -52,6 +56,17 @@ export const calculateColorBomberScore = (player: ScorePlayerLike) => {
   return baseScore + (territoryCells * 30);
 };
 
+
+export const calculateQuizDrillerScore = (player: ScorePlayerLike) => {
+  const drillDepth = player.drillDepth || 0;
+  const drillOxygen = player.drillOxygen || 0;
+  const drillCombo = player.drillCombo || 0;
+  const drillCharges = player.drillCharges || 0;
+  const quizPoints = player.quizPoints || 0;
+
+  return (drillDepth * 18) + (drillOxygen * 6) + (drillCombo * 40) + (drillCharges * 15) + quizPoints;
+};
+
 export const calculateDodgeScore = (player: ScorePlayerLike) => {
   const kills = player.kills || 0;
   const correctAnswers = player.correctAnswers || 0;
@@ -69,6 +84,9 @@ export const calculateGameScore = (gameType: string | undefined, player: ScorePl
   }
   if (gameType === 'dodge') {
     return calculateDodgeScore(player);
+  }
+  if (gameType === 'quiz_driller') {
+    return calculateQuizDrillerScore(player);
   }
   if (gameType === 'color_bomber') {
     return calculateColorBomberScore(player);
