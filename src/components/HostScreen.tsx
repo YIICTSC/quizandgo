@@ -74,7 +74,6 @@ const getGameTitleByType = (type?: string) => {
   if (type === 'quiz') return 'クイズモード';
   if (type === 'dodge') return 'バトルドッジ';
   if (type === 'team_bomber') return 'チームボンバー';
-  if (type === 'quiz_driller') return 'クイズドリラー';
   if (type === 'color_bomber') return 'カラーボンバー';
   return 'クイズボンバー';
 };

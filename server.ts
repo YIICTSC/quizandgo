@@ -44,11 +44,6 @@ interface Player {
   lastQuestionIssuedAt: number | null;
   quizLives: number;
   battleRoyaleWins: number;
-  drillDepth: number;
-  drillOxygen: number;
-  drillCombo: number;
-  drillCharges: number;
-  drillCount: number;
   currentBattlePairId?: string | null;
   currentBattlePairIds?: string[];
   canShoot: boolean;
@@ -220,7 +215,6 @@ const isBomberGameType = (gameType?: string) => BOMBER_GAME_TYPES.has(gameType |
 const isTeamBomberGameType = (gameType?: string) => gameType === 'team_bomber';
 const isColorBomberGameType = (gameType?: string) => gameType === 'color_bomber';
 const isDodgeGameType = (gameType?: string) => gameType === 'dodge';
-const isQuizDrillerGameType = (gameType?: string) => gameType === 'quiz_driller';
 const isTeamDodgeMode = (room?: Room) => isDodgeGameType(room?.gameType) && room?.dodgeMode === 'team';
 const DODGE_SINGLE_OUTFIELD_DEPTH = 58;
 const DODGE_BALL_OWNER_ADD_INTERVAL_MS = 60_000;
@@ -337,11 +331,6 @@ const createBasePlayer = (id: string, name: string, color: string, avatar?: Avat
   lastQuestionIssuedAt: null,
   quizLives: 0,
   battleRoyaleWins: 0,
-  drillDepth: 0,
-  drillOxygen: 100,
-  drillCombo: 0,
-  drillCharges: 0,
-  drillCount: 0,
   currentBattlePairId: null,
   currentBattlePairIds: [],
   canShoot: false,
@@ -940,11 +929,6 @@ const resetPlayerState = (player: Player, options?: { preserveTeam?: boolean }) 
   player.lastQuestionIssuedAt = null;
   player.quizLives = 0;
   player.battleRoyaleWins = 0;
-  player.drillDepth = 0;
-  player.drillOxygen = 100;
-  player.drillCombo = 0;
-  player.drillCharges = 0;
-  player.drillCount = 0;
   player.currentBattlePairId = null;
   player.currentBattlePairIds = [];
   player.canShoot = false;
@@ -1306,29 +1290,6 @@ const simulatePseudoPlayersLoad = (room: Room) => {
         }
       } else if (room.quizVariant === 'combo') {
         player.quizCombo = 0;
-      }
-      player.currentQuestion = getQuestionForRoom(room);
-      return;
-    }
-
-    if (isQuizDrillerGameType(room.gameType)) {
-      if (Math.random() < 0.65) {
-        player.correctAnswers += 1;
-        player.drillCharges += 1;
-        player.drillCombo += 1;
-        player.quizPoints += 110;
-      } else {
-        player.drillCombo = 0;
-        player.drillOxygen = Math.max(0, player.drillOxygen - 7);
-      }
-      if (player.drillCharges > 0 && player.drillOxygen > 0) {
-        const baseDepth = 4 + Math.floor(Math.random() * 6);
-        const comboBonus = Math.min(5, Math.floor(player.drillCombo / 2));
-        player.drillDepth += baseDepth + comboBonus;
-        player.drillCharges = Math.max(0, player.drillCharges - 1);
-        player.drillCount += 1;
-        player.drillOxygen = Math.max(0, Math.min(100, player.drillOxygen - (4 + Math.floor(Math.random() * 6))));
-        player.quizPoints += 25;
       }
       player.currentQuestion = getQuestionForRoom(room);
       return;
@@ -2025,14 +1986,6 @@ async function startServer() {
             player.currentQuestion = getQuestionForRoom(room);
             nextQuestion = player.currentQuestion;
             nextDelayMs = 700;
-          } else if (isQuizDrillerGameType(room.gameType)) {
-            player.quizPoints += 120;
-            player.drillCharges = (player.drillCharges || 0) + 1;
-            player.drillCombo = (player.drillCombo || 0) + 1;
-            player.drillOxygen = Math.min(100, (player.drillOxygen || 0) + 6);
-            player.currentQuestion = getQuestionForRoom(room);
-            nextQuestion = player.currentQuestion;
-            nextDelayMs = 700;
           } else if (isBomberGameType(room.gameType)) {
             player.bombsAvailable = (player.bombsAvailable || 0) + 1;
             player.currentQuestion = getQuestionForRoom(room);
@@ -2060,7 +2013,7 @@ async function startServer() {
             correctIndex: currentQuestion.correctIndex,
             correctText: currentQuestion.correctText,
           });
-          if ((room.gameType === 'quiz' && room.state !== 'results') || isQuizDrillerGameType(room.gameType) || isBomberGameType(room.gameType) || isDodgeGameType(room.gameType)) {
+          if ((room.gameType === 'quiz' && room.state !== 'results') || isBomberGameType(room.gameType) || isDodgeGameType(room.gameType)) {
             setTimeout(() => {
               emitPersonalQuestion(io, player);
             }, nextDelayMs || 700);
@@ -2068,10 +2021,6 @@ async function startServer() {
         } else {
           if (room.gameType === 'quiz' && room.quizVariant === 'combo') {
             player.quizCombo = 0;
-          }
-          if (isQuizDrillerGameType(room.gameType)) {
-            player.drillCombo = 0;
-            player.drillOxygen = Math.max(0, (player.drillOxygen || 0) - 10);
           }
           // 不正解の場合は新しい問題を生成（当てずっぽう防止）
           player.currentQuestion = getQuestionForRoom(room);
@@ -2108,32 +2057,6 @@ async function startServer() {
         console.log(`[submitAnswer] Failed: room=${!!room}, player=${!!player}, currentQuestion=${!!player?.currentQuestion}`);
         callback?.({ ok: false });
       }
-    });
-
-
-    socket.on('quizDrillerDig', ({ roomId, laneIndex }) => {
-      const room = rooms[roomId];
-      const player = room?.players[socket.id];
-      if (!room || !player || room.state !== 'playing' || !isQuizDrillerGameType(room.gameType)) return;
-      if ((player.drillCharges || 0) <= 0 || (player.drillOxygen || 0) <= 0) return;
-
-      const tunnels = [
-        { depthGain: 4, oxygenDelta: -4, comboBoost: 1 },
-        { depthGain: 7, oxygenDelta: -8, comboBoost: 1 },
-        { depthGain: 10, oxygenDelta: -12, comboBoost: 2 },
-      ];
-      const choice = tunnels[Math.max(0, Math.min(2, Number(laneIndex) || 0))] || tunnels[0];
-      const comboBonus = Math.min(5, Math.floor((player.drillCombo || 0) / 2));
-      const randomBonus = Math.random() < 0.22 ? 2 : 0;
-
-      player.drillDepth = (player.drillDepth || 0) + choice.depthGain + comboBonus + randomBonus;
-      player.drillOxygen = Math.max(0, Math.min(100, (player.drillOxygen || 0) + choice.oxygenDelta));
-      player.drillCharges = Math.max(0, (player.drillCharges || 0) - 1);
-      player.drillCombo = (player.drillCombo || 0) + choice.comboBoost;
-      player.drillCount = (player.drillCount || 0) + 1;
-      player.quizPoints += 30 + comboBonus * 4;
-
-      io.to(roomId).emit('roomStateUpdate', room);
     });
 
     socket.on('playerShot', ({ roomId, velocity }) => {
