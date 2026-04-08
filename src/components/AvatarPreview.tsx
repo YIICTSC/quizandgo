@@ -127,14 +127,20 @@ function TopDownHairLayer({ hairType, hairColor, skinColor, faceDirection }: {
 
 function getPortraitHairVariant(hairType: AvatarHairType) {
   const id = hairType === 'none' ? '' : hairType;
+  const styleSeed = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return {
     id,
+    styleSeed,
     isLong: id.includes('long') || id.includes('hime') || id.includes('low') || id.includes('medium'),
     hasAsymmetry: id.includes('asymmetry') || id.includes('side_swept'),
     hasTwin: id.includes('twin_tail'),
     hasBraid: id.includes('braid'),
     hasOuterFlip: id.includes('outer_flip'),
     isStraightLong: id.includes('long_straight'),
+    fringeDepth: 50 + (styleSeed % 8),
+    sideVolume: 22 + (styleSeed % 9),
+    partShift: -6 + (styleSeed % 13),
+    strandCount: 2 + (styleSeed % 3),
   };
 }
 
@@ -350,6 +356,29 @@ export default function AvatarPreview({
           <path d="M33 56 C34 45 36 39 39 35" stroke={config.skinColor} strokeWidth="4" strokeLinecap="round" opacity="0.7" />
           <path d="M95 55 C94 45 92 39 89 35" stroke={config.skinColor} strokeWidth="4" strokeLinecap="round" opacity="0.7" />
         </>
+      ) : null}
+      {portraitHairType ? (
+        <g opacity="0.38">
+          {Array.from({ length: portraitHair.strandCount }).map((_, idx) => {
+            const swing = idx * 5;
+            const startX = 64 + portraitHair.partShift - portraitHair.sideVolume + swing;
+            const endX = 64 + portraitHair.partShift + portraitHair.sideVolume - swing;
+            const controlX = 64 + portraitHair.partShift + (idx % 2 === 0 ? -4 : 4);
+            const startY = 46 + idx;
+            const dipY = portraitHair.fringeDepth + idx * 2;
+            const endY = 46 + idx;
+            return (
+              <path
+                key={`strand-${idx}`}
+                d={`M${startX} ${startY} Q${controlX} ${dipY} ${endX} ${endY}`}
+                stroke={config.skinColor}
+                strokeWidth={1.6 + idx * 0.3}
+                strokeLinecap="round"
+                fill="none"
+              />
+            );
+          })}
+        </g>
       ) : null}
 
       {!isTopDownBackView ? (
