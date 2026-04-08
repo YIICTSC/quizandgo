@@ -938,7 +938,8 @@ export default function PlayerScreen({
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">ボール: <span className="font-bold text-cyan-300">{me?.dodgeBallStock || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">ドッ値: <span className="font-bold text-cyan-300">{me?.dodgeValue || 0}</span></div>
+                  <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">ボール所持: <span className="font-bold text-amber-300">{me?.dodgeHasBall ? 'あり' : 'なし'}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">撃破: <span className="font-bold text-emerald-300">{me?.kills || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">被弾: <span className="font-bold text-rose-300">{me?.deaths || 0}</span></div>
                   <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">正答: <span className="font-bold text-amber-300">{me?.correctAnswers || 0}</span></div>
@@ -955,6 +956,7 @@ export default function PlayerScreen({
                   me={me}
                   players={roomState.players}
                   dodgeState={roomState.dodgeState}
+                  dodgeMode={roomState?.dodgeMode}
                   onSetMove={handleDodgeMove}
                   onSetMoveVector={handleDodgeMoveVector}
                   onThrow={handleDodgeThrow}
@@ -972,7 +974,7 @@ export default function PlayerScreen({
                     <div className="text-lg font-black text-violet-200">外野プレイ中</div>
                     <div className="mt-1 text-xs text-violet-100">
                       {roomState?.dodgeMode === 'team'
-                        ? '正解してから味方の球を受けると投げられます。敵内野に当てると内野復帰！'
+                        ? '外野はキャッチ成功時にボールを保持。投げるにはドッ値が必要です。敵内野に当てると内野復帰！'
                         : 'コート外周を自由に移動できます。相手内野に当てると内野復帰！'}
                     </div>
                     {roomState?.dodgeMode === 'team' ? (
@@ -985,7 +987,7 @@ export default function PlayerScreen({
                 {question ? (
                   <div className="flex h-full min-h-0 flex-col gap-3">
                     <div className="rounded-2xl bg-slate-900/50 p-3">
-                      <div className="mb-2 text-[11px] font-bold text-slate-400">正解するとボールを1個補充</div>
+                      <div className="mb-2 text-[11px] font-bold text-slate-400">正解でドッ値+1（外野は+3）</div>
                       <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text}</h2>
                     </div>
                     {question.visual ? <ProblemVisual visual={question.visual} /> : null}

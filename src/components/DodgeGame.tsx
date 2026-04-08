@@ -6,6 +6,7 @@ type DodgeDirection = 'up' | 'down' | 'left' | 'right';
 type MoveVector = { x: number; y: number };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const SINGLE_OUTFIELD_DEPTH = 58;
 const normalizeVector = (vector: MoveVector) => {
   const length = Math.hypot(vector.x, vector.y);
   if (!length) return { x: 0, y: 0 };
@@ -40,9 +41,10 @@ type DodgeGameProps = {
   onSetMoveVector?: (vector: MoveVector | null) => void;
   onThrow?: (aimVector?: MoveVector) => void;
   readOnly?: boolean;
+  dodgeMode?: 'single' | 'team';
 };
 
-export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMoveVector, onThrow, readOnly = false }: DodgeGameProps) {
+export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMoveVector, onThrow, readOnly = false, dodgeMode = 'single' }: DodgeGameProps) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [boardViewport, setBoardViewport] = useState<{ width: number; height: number } | null>(null);
   const activeDirectionRef = useRef<DodgeDirection | null>(null);
@@ -51,7 +53,7 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
   const onSetMoveVectorRef = useRef(onSetMoveVector);
   const onThrowRef = useRef(onThrow);
   const [displayPositions, setDisplayPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [displayBallPositions, setDisplayBallPositions] = useState<Record<string, { x: number; y: number; radius: number; shotType?: string }>>({});
+  const [displayBallPositions, setDisplayBallPositions] = useState<Record<string, { x: number; y: number; radius: number; dodgeValue?: number; shotType?: string }>>({});
   const [facingByPlayer, setFacingByPlayer] = useState<Record<string, DodgeDirection>>({});
   const previousPositionByPlayerRef = useRef<Record<string, { x: number; y: number }>>({});
   const localStopGraceUntilRef = useRef(0);
@@ -151,16 +153,16 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
 
   useEffect(() => {
     const ballIds = new Set((dodgeState?.balls || []).map((ball: any) => String(ball.id)));
-    setDisplayBallPositions((current) => {
-      const next = { ...current };
-      (dodgeState?.balls || []).forEach((ball: any) => {
-        const id = String(ball.id);
-        if (!next[id]) {
-          next[id] = { x: ball.x, y: ball.y, radius: ball.radius, shotType: ball.shotType };
-        } else {
-          next[id] = { ...next[id], radius: ball.radius, shotType: ball.shotType };
-        }
-      });
+      setDisplayBallPositions((current) => {
+        const next = { ...current };
+        (dodgeState?.balls || []).forEach((ball: any) => {
+          const id = String(ball.id);
+          if (!next[id]) {
+            next[id] = { x: ball.x, y: ball.y, radius: ball.radius, dodgeValue: ball.dodgeValue, shotType: ball.shotType };
+          } else {
+            next[id] = { ...next[id], radius: ball.radius, dodgeValue: ball.dodgeValue, shotType: ball.shotType };
+          }
+        });
       Object.keys(next).forEach((id) => {
         if (!ballIds.has(id)) delete next[id];
       });
@@ -226,23 +228,24 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
       });
 
       setDisplayBallPositions((current) => {
-        const next: Record<string, { x: number; y: number; radius: number; shotType?: string }> = {};
+        const next: Record<string, { x: number; y: number; radius: number; dodgeValue?: number; shotType?: string }> = {};
         let changed = false;
         (dodgeState?.balls || []).forEach((ball: any) => {
           const id = String(ball.id);
-          const currentPos = current[id] || { x: ball.x, y: ball.y, radius: ball.radius, shotType: ball.shotType };
+          const currentPos = current[id] || { x: ball.x, y: ball.y, radius: ball.radius, dodgeValue: ball.dodgeValue, shotType: ball.shotType };
           const distance = Math.hypot(ball.x - currentPos.x, ball.y - currentPos.y);
           const snapDistance = Math.max(ball.radius * 8, 120);
           const easing = 1 - Math.exp(-30 * dt);
           const nextX = distance > snapDistance ? ball.x : currentPos.x + (ball.x - currentPos.x) * easing;
           const nextY = distance > snapDistance ? ball.y : currentPos.y + (ball.y - currentPos.y) * easing;
-          if (Math.abs(nextX - currentPos.x) > 0.02 || Math.abs(nextY - currentPos.y) > 0.02 || currentPos.radius !== ball.radius || currentPos.shotType !== ball.shotType) {
+          if (Math.abs(nextX - currentPos.x) > 0.02 || Math.abs(nextY - currentPos.y) > 0.02 || currentPos.radius !== ball.radius || currentPos.shotType !== ball.shotType || currentPos.dodgeValue !== ball.dodgeValue) {
             changed = true;
           }
           next[id] = {
             x: Math.abs(ball.x - nextX) < 0.02 ? ball.x : nextX,
             y: Math.abs(ball.y - nextY) < 0.02 ? ball.y : nextY,
             radius: ball.radius,
+            dodgeValue: ball.dodgeValue,
             shotType: ball.shotType,
           };
         });
@@ -408,10 +411,22 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
             <div className="absolute left-1/2 top-1/2 h-[30%] w-[16%] -translate-x-1/2 -translate-y-1/2 rounded-[999px] border border-white/10 bg-white/5" />
             <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-white/15" />
 
-            {(Object.entries(displayBallPositions) as Array<[string, { x: number; y: number; radius: number; shotType?: string }]>).map(([id, ball]) => (
+            {dodgeMode === 'single' ? (
+              <div
+                className="pointer-events-none absolute border border-white/10"
+                style={{
+                  left: `${(SINGLE_OUTFIELD_DEPTH / width) * 100}%`,
+                  top: `${(SINGLE_OUTFIELD_DEPTH / height) * 100}%`,
+                  width: `${((width - SINGLE_OUTFIELD_DEPTH * 2) / width) * 100}%`,
+                  height: `${((height - SINGLE_OUTFIELD_DEPTH * 2) / height) * 100}%`,
+                }}
+              />
+            ) : null}
+
+            {(Object.entries(displayBallPositions) as Array<[string, { x: number; y: number; radius: number; dodgeValue?: number; shotType?: string }]>).map(([id, ball]) => (
               <div
                 key={id}
-                className={`absolute rounded-full border ${
+                className={`absolute flex items-center justify-center rounded-full border text-[10px] font-black text-slate-950 ${
                   ball.shotType === 'fast'
                     ? 'border-rose-200 bg-rose-400 shadow-[0_0_22px_rgba(251,113,133,0.72)]'
                     : ball.shotType === 'wave'
@@ -428,7 +443,9 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
                   willChange: 'left, top, transform',
                   transform: 'translateZ(0)',
                 }}
-              />
+              >
+                {ball.dodgeValue ?? 0}
+              </div>
             ))}
 
             {Object.values(players || {}).map((player: any) => {
@@ -470,6 +487,11 @@ export default function DodgeGame({ me, players, dodgeState, onSetMove, onSetMov
                     >
                       {String(player.name || '?').slice(0, 1)}
                     </div>
+                    {player.dodgeHasBall ? (
+                      <div className="absolute -right-2 -top-2 rounded-full border border-amber-200 bg-amber-400 px-1.5 text-[10px] font-black leading-5 text-slate-950 shadow-[0_0_12px_rgba(251,191,36,0.65)]">
+                        🏐
+                      </div>
+                    ) : null}
                     {player.dodgeRole === 'outfield' ? (
                       <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-violet-500/80 px-2 py-0.5 text-[9px] font-bold text-white">
                         外
