@@ -72,7 +72,6 @@ export default function PlayerScreen({
   const previousAliveRef = useRef<boolean | null>(null);
   const previousSpecialBallCountRef = useRef(0);
   const isQuizMode = roomState?.gameType === 'quiz';
-  const isQuizDrillerMode = roomState?.gameType === 'quiz_driller';
   const isDodgeMode = roomState?.gameType === 'dodge';
   const isBomberMode = isBomberGameType(roomState?.gameType);
   const quizVariant = roomState?.quizVariant || 'classic';
@@ -154,10 +153,6 @@ export default function PlayerScreen({
     socket.emit('submitAnswer', { roomId, ...payload });
   }, [applyLocalAnswerResult, isBomberMode, isDodgeMode, roomId]);
 
-  const handleQuizDrillerDig = useCallback((laneIndex: number) => {
-    socket.emit('quizDrillerDig', { roomId, laneIndex });
-  }, [roomId]);
-
   const startSpeechRecognition = useCallback(() => {
     if (!question?.speechPrompt || answerResult !== null || isListening) return;
 
@@ -230,7 +225,7 @@ export default function PlayerScreen({
       if (correct) {
         playCorrectSound();
         setTimeout(() => {
-          if (!isQuizMode && !isQuizDrillerMode && !isBomberMode && !isDodgeMode) {
+          if (!isQuizMode && !isBomberMode && !isDodgeMode) {
             setQuestion(null);
           }
         }, 700);
@@ -257,7 +252,7 @@ export default function PlayerScreen({
       socket.off('answerResult', onAnswerResult);
       socket.off('timeUpdate', onTimeUpdate);
     };
-  }, [isBomberMode, isDodgeMode, isQuizDrillerMode, isQuizMode, roomId, stopRecognition]);
+  }, [isBomberMode, isDodgeMode, isQuizMode, roomId, stopRecognition]);
 
   useEffect(() => {
     const me = roomState?.players?.[socket.id];
@@ -492,12 +487,12 @@ export default function PlayerScreen({
           </div>
           <div className="grid grid-cols-2 gap-8 mt-8">
             <div>
-              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : isQuizDrillerMode ? '深度' : isBomberMode || isDodgeMode ? '撃破' : 'クリアホール'}</div>
-              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : isQuizDrillerMode ? `${me?.drillDepth || 0}m` : isBomberMode || isDodgeMode ? (me?.kills || 0) : me?.holesCompleted}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? 'モード' : isBomberMode || isDodgeMode ? '撃破' : 'クリアホール'}</div>
+              <div className="text-3xl font-mono font-bold text-green-400">{isQuizMode ? 'QUIZ' : isBomberMode || isDodgeMode ? (me?.kills || 0) : me?.holesCompleted}</div>
             </div>
             <div>
-              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : isQuizDrillerMode ? '酸素' : isBomberMode ? '破壊' : isDodgeMode ? '被弾' : '打数'}</div>
-              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : isQuizDrillerMode ? `${me?.drillOxygen || 0}%` : isBomberMode ? (me?.blocksDestroyed || 0) : isDodgeMode ? (me?.deaths || 0) : me?.totalStrokes}</div>
+              <div className="text-sm text-slate-400">{isQuizMode ? '残り時間' : isBomberMode ? '破壊' : isDodgeMode ? '被弾' : '打数'}</div>
+              <div className="text-3xl font-mono font-bold text-blue-400">{isQuizMode ? (timeRemaining ?? roomState?.timeRemaining ?? 0) : isBomberMode ? (me?.blocksDestroyed || 0) : isDodgeMode ? (me?.deaths || 0) : me?.totalStrokes}</div>
             </div>
             <div>
               <div className="text-sm text-slate-400">{isBomberMode ? '正答数' : '正答数'}</div>
@@ -514,96 +509,6 @@ export default function PlayerScreen({
   }
 
   if (roomState.state === 'playing') {
-    if (isQuizDrillerMode) {
-      return (
-        <div className="min-h-screen bg-slate-900 text-white p-4">
-          {hostSwitchButton}
-          {hostPersistentGameInfo}
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-            <div className="rounded-3xl border border-cyan-400/30 bg-slate-800 p-4 md:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-xl font-black text-cyan-200">クイズドリラー</div>
-                  <div className="text-sm text-slate-300">{playerName} / マルチ対戦</div>
-                </div>
-                <div className="flex flex-wrap gap-2 text-xs md:text-sm">
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">残り: <span className="font-bold text-yellow-300">{timeRemaining ?? roomState?.timeRemaining ?? 0}</span></div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">深度: <span className="font-bold text-cyan-300">{me?.drillDepth || 0}m</span></div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">酸素: <span className="font-bold text-emerald-300">{me?.drillOxygen || 0}%</span></div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">掘削チャージ: <span className="font-bold text-amber-300">{me?.drillCharges || 0}</span></div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">スコア: <span className="font-bold text-yellow-300">{calculateGameScore(roomState?.gameType, me || {})}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="rounded-3xl border border-slate-700 bg-slate-800 p-4">
-                <div className="mb-3 text-lg font-bold">採掘ルート</div>
-                <p className="mb-4 text-sm text-slate-300">問題に正解してチャージを獲得し、ルートを選んで深度を伸ばそう。</p>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {[
-                    { label: '安全ルート', depth: '+4m', oxygen: '-4%' },
-                    { label: '標準ルート', depth: '+7m', oxygen: '-8%' },
-                    { label: '危険ルート', depth: '+10m', oxygen: '-12%' },
-                  ].map((lane, idx) => (
-                    <button
-                      key={lane.label}
-                      onClick={() => handleQuizDrillerDig(idx)}
-                      disabled={(me?.drillCharges || 0) <= 0 || (me?.drillOxygen || 0) <= 0}
-                      className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-4 text-left transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <div className="font-bold text-white">{lane.label}</div>
-                      <div className="mt-1 text-xs text-slate-200">深度 {lane.depth}</div>
-                      <div className="text-xs text-slate-200">酸素 {lane.oxygen}</div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/40 p-3 text-sm text-slate-200">
-                  {(me?.drillCharges || 0) > 0 ? 'チャージあり。ルートを選んで採掘可能です。' : 'チャージ不足。クイズに正解して採掘チャージを獲得してください。'}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-indigo-400/35 bg-indigo-500/10 p-4">
-                <div className="mb-3 text-lg font-bold text-indigo-100">チェックポイントクイズ</div>
-                {question ? (
-                  <div className="space-y-3">
-                    <div className="rounded-2xl border border-indigo-300/25 bg-slate-900/50 p-3">
-                      <h2 className="text-xl font-black leading-snug">{question.text}</h2>
-                    </div>
-                    {question.visual ? <ProblemVisual visual={question.visual} /> : null}
-                    <div className="grid grid-cols-2 gap-2">
-                      {question.options.map((opt: string, i: number) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            setSelectedAnswerIndex(i);
-                            submitAnswer({ answerIndex: i });
-                          }}
-                          disabled={answerResult !== null}
-                          className={`rounded-2xl p-3 text-base font-bold shadow-lg transition-transform ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
-                          style={{ backgroundColor: optionColors[i % 4] }}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                    {answerResult === false && correctAnswerText ? (
-                      <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center text-sm font-bold text-emerald-100">
-                        正解は <span className="text-emerald-300">{correctAnswerText}</span> です
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 text-slate-300">
-                    問題を準備しています...
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
     if (isQuizMode) {
       return (
         <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">

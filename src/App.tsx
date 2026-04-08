@@ -12,7 +12,6 @@ import SinglePlayScreen from './components/SinglePlayScreen';
 import SingleQuizScreen from './components/SingleQuizScreen';
 import SingleBomberScreen from './components/SingleBomberScreen';
 import SingleDodgeDebugScreen from './components/SingleDodgeDebugScreen';
-import SingleQuizDrillerScreen from './components/SingleQuizDrillerScreen';
 import { AVATAR_STORAGE_KEY, AvatarConfig, createRandomAvatar, normalizeAvatar } from './avatar';
 
 const getGameTitle = (gameType: string) => {
@@ -20,7 +19,6 @@ const getGameTitle = (gameType: string) => {
   if (gameType === 'quiz') return 'クイズモード';
   if (gameType === 'dodge') return 'バトルドッジ';
   if (gameType === 'bomber') return 'クイズボンバー';
-  if (gameType === 'quiz_driller') return 'クイズドリラー';
   if (gameType === 'team_bomber') return 'チームボンバー';
   if (gameType === 'color_bomber') return 'カラーボンバー';
   return gameType;
@@ -189,17 +187,6 @@ export default function App() {
       );
     }
 
-    if (selectedGameType === 'quiz_driller') {
-      return (
-        <SingleQuizDrillerScreen
-          questions={singlePlayConfig.questions}
-          mode={singlePlayConfig.mode}
-          timeLimit={singlePlayConfig.timeLimit}
-          gameTitle={singlePlayConfig.gameTitle}
-          onReturnToTitle={returnToTitle}
-        />
-      );
-    }
     return (
         <SinglePlayScreen
           questions={singlePlayConfig.questions}
