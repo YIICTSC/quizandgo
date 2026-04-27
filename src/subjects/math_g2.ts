@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 const MATH_G2_1: GeneralProblem[] = [
         { question: "「25 ＋ 38」のひっ算。一のくらいの 計算は？", answer: "5 ＋ 8 ＝ 13", options: d("5 ＋ 8 ＝ 13", "2 ＋ 3 ＝ 5", "5 － 8", "1 ＋ 2 ＋ 3"), hint: "まずは 右のはし（一のくらい）から 計算するよ。" },
@@ -230,7 +230,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
         }
         case 'MATH_G2_U10': {
             const a = (n % 8) + 2;
-            const b = (n % 8) + 2;
+            const b = (Math.floor(n / 8) % 8) + 2;
             const p = a * b;
             if (n % 3 === 0) return { question: `九九。 ${a} × ${b} = ?`, answer: `${p}`, options: d(`${p}`, `${p + 1}`, `${p - 1}`, `${a + b}`), hint: "九九を おもいだそう。" };
             if (n % 3 === 1) return { question: `${p} に なる かけ算は？`, answer: `${a} × ${b}`, options: d(`${a} × ${b}`, `${a} + ${b}`, `${p} × 1`, `${a} × ${b + 1}`), hint: "しきを えらぼう。" };
@@ -267,12 +267,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G2_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G2_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G2_UNIT_DATA, makeUnitProblem);
 
 export const MATH_G2_DATA: Record<string, GeneralProblem[]> = {
     MATH_G2_1,

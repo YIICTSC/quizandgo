@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 // --- 6年生 1学期: 対称・文字と式・分数の掛け算割り算 (50問) ---
 const MATH_G6_1: GeneralProblem[] = [
@@ -378,12 +378,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G6_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G6_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G6_UNIT_DATA, makeUnitProblem);
 
 export const MATH_G6_DATA: Record<string, GeneralProblem[]> = {
     MATH_G6_1,

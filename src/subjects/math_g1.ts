@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 const MATH_G1_1: GeneralProblem[] = [
         { question: "1、2、3、の つぎの かずは なに？", answer: "4", options: d("4", "0", "5", "6"), hint: "ひとつ ずつ ふえていくよ。" },
@@ -312,12 +312,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G1_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G1_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G1_UNIT_DATA, makeUnitProblem);
 
 export const MATH_G1_DATA: Record<string, GeneralProblem[]> = {
     MATH_G1_1,

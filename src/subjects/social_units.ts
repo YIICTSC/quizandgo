@@ -1998,11 +1998,34 @@ const getAssignedSourceSlice = (mode: string, sourceMode: string): GeneralProble
   return source.slice(start, end);
 };
 
+const MIN_SOCIAL_UNIT_PROBLEMS = 50;
+
+const buildSocialSupplementProblem = (unitName: string, index: number): GeneralProblem => {
+  const variants: Array<(label: string) => GeneralProblem> = [
+    (label) => q(`${label}を 学ぶとき、資料からまず読み取ることは？`, 'いつ・どこで・何が起きたか', '紙の厚さ', '文字の大きさだけ', '余白の広さ', '資料の基本情報をつかむ。'),
+    (label) => q(`${label}で 理由を考えるときに 大切なことは？`, '人々のくらしや社会のしくみと結びつける', '名前だけ暗記する', '一番短い答えを選ぶ', '関係ない数字を見る', '社会科はつながりを考える。'),
+    (label) => q(`${label}の まとめ方として よいものは？`, 'できごとや特色を比べて整理する', '順番をばらばらにする', '理由を書かない', '地名を全部消す', '比較すると特色が見える。'),
+    (label) => q(`${label}で 地図や年表を見るときに 注目することは？`, '場所や時期のつながり', '線の太さだけ', '色の好みだけ', '紙の向きだけ', '位置や順序が手がかりになる。'),
+    (label) => q(`${label}の 問題で 具体例を選ぶときに よい考え方は？`, '単元の特色に合う例を選ぶ', '聞いたことのない語だけ選ぶ', '長い文だけ選ぶ', '数字がないものだけ選ぶ', '特色と例を結びつける。'),
+    (label) => q(`${label}で 変化を説明するときに 入れるとよいものは？`, '前と後の違いとその理由', '好きな感想だけ', '人名だけ', '関係ない地名', '変化には理由がある。'),
+    (label) => q(`${label}で 複数の資料を比べる目的は？`, '一つの資料だけでは見えない特色を見つけるため', '答えを長くするため', '文字を増やすため', '地図を隠すため', '資料を組み合わせて考える。'),
+    (label) => q(`${label}の 学習を生活とつなげるときに見るものは？`, '今のくらしや地域との関係', 'えんぴつの色だけ', '机の形だけ', '天気だけ', '社会の学習は身近な生活にもつながる。'),
+  ];
+  return variants[index % variants.length](`【${unitName}】確認${Math.floor(index / variants.length) + 1}`);
+};
+
+const ensureMinimumUnitProblems = (unitName: string, problems: GeneralProblem[]): GeneralProblem[] => {
+  const result = dedupeByQuestion(problems);
+  let index = 0;
+  while (result.length < MIN_SOCIAL_UNIT_PROBLEMS) {
+    result.push(buildSocialSupplementProblem(unitName, index));
+    index += 1;
+  }
+  return dedupeByQuestion(result);
+};
+
 const expandUnitProblems = (mode: string, sourceMode: string, unitName: string): GeneralProblem[] => {
   const seeds = SOCIAL_UNIT_SEED_DATA[mode] || [];
-  if (seeds.length >= 20) {
-    return dedupeByQuestion(seeds).slice(0, 20);
-  }
   const source = SOURCE_MODE_DATA[sourceMode] || [];
   const assignedSlice = getAssignedSourceSlice(mode, sourceMode);
   const keywords = buildKeywords(unitName);
@@ -2010,11 +2033,11 @@ const expandUnitProblems = (mode: string, sourceMode: string, unitName: string):
   const relatedOutsideSlice = source.filter(
     (problem) => !assignedSlice.includes(problem) && isRelated(problem, keywords)
   );
-  return dedupeByQuestion([
+  return ensureMinimumUnitProblems(unitName, [
     ...seeds,
     ...assignedRelated,
     ...relatedOutsideSlice,
-  ]).slice(0, 20);
+  ]);
 };
 
 export const SOCIAL_UNIT_DATA: Record<string, GeneralProblem[]> = Object.fromEntries(

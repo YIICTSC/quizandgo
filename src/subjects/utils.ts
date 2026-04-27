@@ -44,3 +44,48 @@ export interface GeneralProblem {
  * シャッフルはコンポーネント側で行うため、ここでは行わない。
  */
 export const d = (ans: string, ...others: string[]) => [ans, ...others];
+
+const problemSignature = (problem: GeneralProblem): string =>
+    JSON.stringify({
+        question: problem.question,
+        answer: problem.answer,
+        options: problem.options,
+        hint: problem.hint,
+        visual: problem.visual,
+        audioPrompt: problem.audioPrompt,
+        speechPrompt: problem.speechPrompt,
+    });
+
+export const fillGeneratedUnitProblems = (
+    unitData: Record<string, GeneralProblem[]>,
+    makeProblem: (unitId: string, n: number) => GeneralProblem,
+    options: { min?: number; maxAttempts?: number; duplicatePatience?: number } = {},
+): void => {
+    const min = options.min ?? 50;
+    const maxAttempts = options.maxAttempts ?? 240;
+    const duplicatePatience = options.duplicatePatience ?? 80;
+
+    Object.keys(unitData).forEach((unitId) => {
+        const problems = unitData[unitId];
+        const seen = new Set(problems.map(problemSignature));
+        let n = problems.length;
+        let duplicateStreak = 0;
+
+        while (n < maxAttempts && (problems.length < min || duplicateStreak < duplicatePatience)) {
+            const problem = makeProblem(unitId, n);
+            const signature = problemSignature(problem);
+            if (!seen.has(signature)) {
+                problems.push(problem);
+                seen.add(signature);
+                duplicateStreak = 0;
+            } else {
+                duplicateStreak += 1;
+            }
+            n += 1;
+        }
+
+        while (problems.length < min) {
+            problems.push(makeProblem(unitId, problems.length));
+        }
+    });
+};

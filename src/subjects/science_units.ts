@@ -1881,6 +1881,32 @@ const getAssignedSourceSlice = (mode: string, sourceMode: string): GeneralProble
   return source.slice(start, end);
 };
 
+const MIN_SCIENCE_UNIT_PROBLEMS = 50;
+
+const buildScienceSupplementProblem = (unitName: string, index: number): GeneralProblem => {
+  const variants: Array<(label: string) => GeneralProblem> = [
+    (label) => q(`${label}で 観察や実験を始める前に まず確かめることは？`, '調べる条件や見方', '答えを先に決めること', '結果を見ないこと', '道具をかくすこと', '何を比べるかをはっきりさせる。'),
+    (label) => q(`${label}の 学習で 結果をまとめるときに 大切なことは？`, '事実と考えを分けて書くこと', '好きな数字だけ書くこと', '友だちの記録を消すこと', '理由を書かないこと', '観察したことと考察を区別する。'),
+    (label) => q(`${label}で 条件を変えて比べるとき、変えるものは？`, '調べたい条件だけ', '全部の条件', '関係ない名前', '記録する人だけ', '一つずつ変えると比べやすい。'),
+    (label) => q(`${label}の 説明として よい答え方は？`, '変化と理由をつなげて説明する', '名前だけを言う', '関係ない例を選ぶ', '見た目だけで決める', '「なぜそうなるか」まで考える。'),
+    (label) => q(`${label}の 図や表を読むときに 注目することは？`, '数値や向きの変化', '文字の色だけ', '表の大きさだけ', '余白の広さ', '変わったところに意味がある。'),
+    (label) => q(`${label}で 安全に学ぶために 正しい行動は？`, '先生の指示と道具の使い方を守る', '勝手に混ぜる', '走りながら観察する', '記録をしない', '理科では安全確認も学習の一部。'),
+    (label) => q(`${label}の 予想を立てるときに よい考え方は？`, 'これまでの観察や知識をもとにする', 'さいころで決める', '一番長い選択肢を選ぶ', '友だちと同じにするだけ', '根拠のある予想にする。'),
+    (label) => q(`${label}で うまくいかなかった実験の扱いとして 正しいものは？`, '条件や手順を見直してもう一度考える', '結果をなかったことにする', '記録をすてる', '答えだけ写す', '失敗も考察の材料になる。'),
+  ];
+  return variants[index % variants.length](`【${unitName}】確認${Math.floor(index / variants.length) + 1}`);
+};
+
+const ensureMinimumUnitProblems = (unitName: string, problems: GeneralProblem[]): GeneralProblem[] => {
+  const result = dedupeByQuestion(problems);
+  let index = 0;
+  while (result.length < MIN_SCIENCE_UNIT_PROBLEMS) {
+    result.push(buildScienceSupplementProblem(unitName, index));
+    index += 1;
+  }
+  return dedupeByQuestion(result);
+};
+
 const expandUnitProblems = (mode: string, sourceMode: string, unitName: string): GeneralProblem[] => {
   const seeds = SCIENCE_UNIT_SEED_DATA[mode] || [];
   const source = SOURCE_MODE_DATA[sourceMode] || [];
@@ -1890,11 +1916,11 @@ const expandUnitProblems = (mode: string, sourceMode: string, unitName: string):
   const relatedOutsideSlice = source.filter(
     (problem) => !assignedSlice.includes(problem) && isRelated(problem, keywords)
   );
-  return dedupeByQuestion([
+  return ensureMinimumUnitProblems(unitName, [
     ...seeds,
     ...assignedRelated,
     ...relatedOutsideSlice,
-  ]).slice(0, 20);
+  ]);
 };
 
 const getGradeFromMode = (mode: string): number => {

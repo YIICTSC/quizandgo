@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 const MATH_G4_1: GeneralProblem[] = [
         { question: "「億」の10倍のたんいは何？", answer: "十億", options: d("十億", "百億", "一兆", "千万"), hint: "位（くらい）は十、百、千と上がっていくよ。" },
@@ -372,12 +372,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G4_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G4_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G4_UNIT_DATA, makeUnitProblem);
 
 export const MATH_G4_DATA: Record<string, GeneralProblem[]> = {
     MATH_G4_1,

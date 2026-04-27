@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 // --- 中2 1学期: 式の計算・連立方程式・一次関数 (50問) ---
 const MATH_G8_1: GeneralProblem[] = [
@@ -262,12 +262,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G8_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G8_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G8_UNIT_DATA, makeUnitProblem);
 
 export const MATH_G8_DATA: Record<string, GeneralProblem[]> = {
     MATH_G8_1,

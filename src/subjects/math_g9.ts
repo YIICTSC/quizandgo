@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 export const MATH_G9_DATA: Record<string, GeneralProblem[]> = {
     // --- 1学期: 式の展開・因数分解、平方根、二次方程式 (50問) ---
@@ -271,12 +271,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G9_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G9_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G9_UNIT_DATA, makeUnitProblem);
 
 Object.assign(MATH_G9_DATA, MATH_G9_UNIT_DATA);
 

@@ -1,4 +1,4 @@
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 export const KOKUGO_G5_UNIT_DATA: Record<string, GeneralProblem[]> = {
   KOKUGO_G5_U01: [], KOKUGO_G5_U02: [], KOKUGO_G5_U03: [], KOKUGO_G5_U04: [], KOKUGO_G5_U05: [],
@@ -150,10 +150,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
   }
 };
 
-Object.keys(KOKUGO_G5_UNIT_DATA).forEach((unitId) => {
-  const problems = KOKUGO_G5_UNIT_DATA[unitId];
-  while (problems.length < 20) problems.push(makeUnitProblem(unitId, problems.length));
-});
+fillGeneratedUnitProblems(KOKUGO_G5_UNIT_DATA, makeUnitProblem);
 
 export const KOKUGO_G5_DATA: Record<string, GeneralProblem[]> = {
   KOKUGO_G5_1: Object.values(KOKUGO_G5_UNIT_DATA).flat(),

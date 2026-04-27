@@ -1,5 +1,5 @@
 
-import { GeneralProblem, d } from './utils';
+import { GeneralProblem, d, fillGeneratedUnitProblems } from './utils';
 
 // --- 5年生 1学期: 整数・倍数・約数・体積・合同・角度 (50問) ---
 const MATH_G5_1: GeneralProblem[] = [
@@ -374,12 +374,7 @@ const makeUnitProblem = (unitId: string, n: number): GeneralProblem => {
     }
 };
 
-Object.keys(MATH_G5_UNIT_DATA).forEach((unitId) => {
-    const problems = MATH_G5_UNIT_DATA[unitId];
-    while (problems.length < 20) {
-        problems.push(makeUnitProblem(unitId, problems.length));
-    }
-});
+fillGeneratedUnitProblems(MATH_G5_UNIT_DATA, makeUnitProblem);
 
 export const MATH_G5_DATA: Record<string, GeneralProblem[]> = {
     MATH_G5_1,
