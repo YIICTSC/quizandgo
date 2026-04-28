@@ -274,9 +274,9 @@ export default function SingleQuizScreen({
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-800 p-4 shadow-2xl md:p-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-screen overflow-hidden bg-slate-900 p-3 text-white md:p-4">
+      <div className="mx-auto flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-800 p-4 shadow-2xl md:p-6">
+        <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3 md:mb-5">
           <div>
             <div className="text-xl font-bold">シングルクイズ</div>
             <div className="text-sm text-slate-400">{gameTitle}</div>
@@ -288,11 +288,11 @@ export default function SingleQuizScreen({
           </div>
         </div>
         {question ? (
-          <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
-            <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.question || question.text}</h2>
+          <div className="min-h-0 overflow-y-auto rounded-2xl bg-slate-900/60 p-4 md:p-5">
+            <h2 className="mb-3 break-words text-center text-xl font-bold leading-snug md:mb-4 md:text-3xl">{question.question || question.text}</h2>
             {question.visual && <ProblemVisual visual={question.visual} />}
             {(question.audioPrompt || question.speechPrompt) && (
-              <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
                 {question.audioPrompt && (
                   <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-500">
                     音声を再生
@@ -309,14 +309,14 @@ export default function SingleQuizScreen({
               </div>
             )}
             {question.hint ? (
-              <div className="mb-6 text-center text-sm text-yellow-300">{question.hint}</div>
+              <div className="mb-4 break-words text-center text-sm text-yellow-300">{question.hint}</div>
             ) : null}
             {question.speechPrompt?.freeResponse ? (
               <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center text-lg text-emerald-100">
                 この問題は音声回答タイプです。上のボタンから話して答えてください。
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 gap-2 md:gap-3">
                 {question.options.map((opt, i) => (
                   <button
                     key={`${opt}-${i}`}
@@ -325,7 +325,7 @@ export default function SingleQuizScreen({
                       handleResult(matchesAnswerText(opt, question.answer));
                     }}
                     disabled={answerResult !== null}
-                    className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                    className={`min-h-16 break-words rounded-2xl p-3 text-base font-bold leading-snug shadow-lg transition-transform md:min-h-20 md:p-4 md:text-xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
                     style={{ backgroundColor: optionColors[i % 4] }}
                   >
                     {opt}

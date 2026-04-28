@@ -759,8 +759,8 @@ export default function SingleBomberScreen({
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-900 text-white">
-      <div className="mx-auto flex h-full max-w-7xl flex-col gap-2 p-2 md:p-3">
+    <div className="h-[100dvh] overflow-y-auto bg-slate-900 text-white lg:overflow-hidden">
+      <div className="mx-auto flex min-h-[100dvh] max-w-7xl flex-col gap-2 p-2 md:p-3 lg:h-full lg:min-h-0">
         <div className="rounded-2xl border border-slate-700 bg-slate-800 p-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -790,8 +790,8 @@ export default function SingleBomberScreen({
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
-          <div className="min-h-0 rounded-2xl border border-slate-700 bg-slate-800 p-2">
+        <div className="grid min-h-0 flex-1 gap-2 grid-rows-[minmax(360px,1fr)_minmax(260px,auto)] md:grid-rows-[minmax(420px,1fr)_minmax(260px,34dvh)] lg:grid-cols-[minmax(0,1fr)_330px] lg:grid-rows-1">
+          <div className="min-h-[360px] rounded-2xl border border-slate-700 bg-slate-800 p-2 md:min-h-[420px] lg:min-h-0">
             <BomberGame
               roomId="single-bomber"
               me={me}
@@ -847,7 +847,7 @@ export default function SingleBomberScreen({
               }}
             />
           </div>
-          <div className="min-h-0 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3">
+          <div className="min-h-[260px] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 p-3 lg:min-h-0">
             {!playerPos.alive ? (
               <div className="mb-3 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-3 text-center">
                 <div className="text-xl font-black text-rose-300">やられた！</div>
@@ -856,9 +856,9 @@ export default function SingleBomberScreen({
             ) : null}
             {question ? (
               <div className="flex h-full min-h-0 flex-col gap-3">
-                <div className="rounded-2xl bg-slate-900/50 p-3">
+                <div className="shrink-0 rounded-2xl bg-slate-900/50 p-3">
                   <div className="mb-2 text-[11px] font-bold text-slate-400">爆弾は使うと減る（正解で1個補充）</div>
-                  <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text || question.question}</h2>
+                  <h2 className="break-words text-lg font-black leading-snug md:text-xl">{question.text || question.question}</h2>
                 </div>
                 {question.visual ? <ProblemVisual visual={question.visual} /> : null}
                 {(question.audioPrompt || question.speechPrompt) && (
@@ -878,7 +878,7 @@ export default function SingleBomberScreen({
                     )}
                   </div>
                 )}
-                {question.hint ? <div className="text-xs text-yellow-300">ヒント: {question.hint}</div> : null}
+                {question.hint ? <div className="break-words text-xs text-yellow-300">ヒント: {question.hint}</div> : null}
                 {question.speechPrompt?.freeResponse ? (
                   <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center text-base text-emerald-100">
                     この問題は音声回答タイプです。上のボタンから話して答えてください。
@@ -893,7 +893,7 @@ export default function SingleBomberScreen({
                           submitAnswer(i);
                         }}
                         disabled={answerResult !== null}
-                        className={`rounded-2xl p-3 text-base font-bold shadow-lg transition-transform md:text-lg ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                        className={`min-h-12 break-words rounded-2xl p-2.5 text-sm font-bold leading-snug shadow-lg transition-transform md:text-base ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
                         style={{ backgroundColor: optionColors[i % 4] }}
                       >
                         {opt}

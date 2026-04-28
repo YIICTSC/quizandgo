@@ -511,11 +511,11 @@ export default function PlayerScreen({
   if (roomState.state === 'playing') {
     if (isQuizMode) {
       return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+        <div className="flex h-screen overflow-hidden bg-slate-900 p-3 text-white md:p-4">
           {hostSwitchButton}
           {hostPersistentGameInfo}
-          <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-800 p-4 shadow-2xl md:p-8">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="mx-auto flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-800 p-4 shadow-2xl md:p-6">
+            <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3 md:mb-5">
               <div>
                 <div className="text-xl font-bold">{playerName}</div>
                 <div className="text-sm text-slate-400">クイズモード / {quizVariantLabel}</div>
@@ -578,7 +578,7 @@ export default function PlayerScreen({
               </div>
             ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'question' ? (
               question ? (
-                <div className="rounded-[2rem] border border-fuchsia-400/25 bg-slate-900/70 p-5 md:p-7">
+                <div className="max-h-full overflow-y-auto rounded-[2rem] border border-fuchsia-400/25 bg-slate-900/70 p-4 md:p-5">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-xs font-black tracking-[0.3em] text-fuchsia-200">QUESTION BATTLE</div>
@@ -597,7 +597,7 @@ export default function PlayerScreen({
                       </div>
                     </div>
                   </div>
-                  <h2 className="mb-5 text-center text-3xl font-black leading-snug md:text-5xl">{question.text}</h2>
+                  <h2 className="mb-4 break-words text-center text-2xl font-black leading-snug md:text-4xl">{question.text}</h2>
                   {question.visual && <ProblemVisual visual={question.visual} />}
                   {(question.audioPrompt || question.speechPrompt) && (
                     <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
@@ -621,7 +621,7 @@ export default function PlayerScreen({
                       この問題は音声回答タイプです。上のボタンから話して答えてください。
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 md:gap-5">
+                    <div className="grid grid-cols-2 gap-2 md:gap-3">
                       {question.options.map((opt: string, i: number) => (
                         <button
                           key={i}
@@ -631,7 +631,7 @@ export default function PlayerScreen({
                             socket.emit('submitAnswer', { roomId, answerIndex: i });
                           }}
                           disabled={answerResult !== null || battleAnswerSubmitted || myBattleAnswered}
-                          className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-7 md:text-3xl ${answerResult !== null || battleAnswerSubmitted || myBattleAnswered ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                          className={`min-h-16 break-words rounded-2xl p-3 text-base font-bold leading-snug shadow-lg transition-transform md:min-h-20 md:p-4 md:text-xl ${answerResult !== null || battleAnswerSubmitted || myBattleAnswered ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
                           style={{ backgroundColor: optionColors[i % 4] }}
                         >
                           {opt}
@@ -651,10 +651,10 @@ export default function PlayerScreen({
                 </div>
               )
             ) : quizVariant === 'battle_royale' && roomState?.quizBattlePhase === 'reveal' ? (
-              <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
-                <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{myBattleQuestion?.text}</h2>
+              <div className="max-h-full overflow-y-auto rounded-2xl bg-slate-900/60 p-4 md:p-5">
+                <h2 className="mb-3 break-words text-center text-xl font-bold leading-snug md:text-3xl">{myBattleQuestion?.text}</h2>
                 {myBattleQuestion?.visual ? <ProblemVisual visual={myBattleQuestion.visual} /> : null}
-                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div className="grid grid-cols-2 gap-2 md:gap-3">
                   {(myBattleQuestion?.options || []).map((opt: string, i: number) => {
                     const total = (myBattlePair?.answerCounts || []).reduce((sum: number, count: number) => sum + count, 0);
                     const count = myBattlePair?.answerCounts?.[i] || 0;
@@ -662,7 +662,7 @@ export default function PlayerScreen({
                     return (
                       <div
                         key={i}
-                        className={`rounded-2xl border-2 p-4 text-center ${i === myBattleQuestion?.correctIndex ? 'border-emerald-300 bg-emerald-500/15' : 'border-slate-700 bg-slate-800/70'}`}
+                        className={`rounded-2xl border-2 p-3 text-center ${i === myBattleQuestion?.correctIndex ? 'border-emerald-300 bg-emerald-500/15' : 'border-slate-700 bg-slate-800/70'}`}
                       >
                         <div className="text-lg font-bold">{opt}</div>
                         <div className="mt-2 text-sm text-slate-300">選択 {count}人 / {ratio}%</div>
@@ -714,11 +714,11 @@ export default function PlayerScreen({
                 <div className="mt-5 text-sm font-bold tracking-[0.2em] text-fuchsia-100/75">NEXT MATCH IS COMING...</div>
               </div>
             ) : question ? (
-              <div className="rounded-2xl bg-slate-900/60 p-4 md:p-6">
-                <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>
+              <div className="min-h-0 overflow-y-auto rounded-2xl bg-slate-900/60 p-4 md:p-5">
+                <h2 className="mb-3 break-words text-center text-xl font-bold leading-snug md:text-3xl">{question.text}</h2>
                 {question.visual && <ProblemVisual visual={question.visual} />}
                 {(question.audioPrompt || question.speechPrompt) && (
-                  <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
+                  <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
                     {question.audioPrompt && (
                       <button onClick={() => speakPrompt(question.audioPrompt.text, question.audioPrompt.lang || 'ja-JP')} className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-500">
                         音声を再生
@@ -734,13 +734,13 @@ export default function PlayerScreen({
                     )}
                   </div>
                 )}
-                {question.hint ? <div className="mb-4 text-center text-sm text-yellow-300">{question.hint}</div> : null}
+                {question.hint ? <div className="mb-4 break-words text-center text-sm text-yellow-300">{question.hint}</div> : null}
                 {question.speechPrompt?.freeResponse ? (
                   <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center text-lg text-emerald-100">
                     この問題は音声回答タイプです。上のボタンから話して答えてください。
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 md:gap-4">
+                  <div className="grid grid-cols-2 gap-2 md:gap-3">
                         {question.options.map((opt: string, i: number) => (
                           <button
                             key={i}
@@ -752,7 +752,7 @@ export default function PlayerScreen({
                               socket.emit('submitAnswer', { roomId, answerIndex: i });
                             }}
                             disabled={answerResult !== null || (quizVariant === 'battle_royale' && (battleAnswerSubmitted || myBattleAnswered))}
-                            className={`rounded-2xl p-4 text-xl font-bold shadow-lg transition-transform md:p-6 md:text-2xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                            className={`min-h-16 break-words rounded-2xl p-3 text-base font-bold leading-snug shadow-lg transition-transform md:min-h-20 md:p-4 md:text-xl ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
                             style={{ backgroundColor: optionColors[i % 4] }}
                           >
                             {opt}
@@ -854,9 +854,9 @@ export default function PlayerScreen({
                 ) : null}
                 {question ? (
                   <div className="flex h-full min-h-0 flex-col gap-3">
-                    <div className="rounded-2xl bg-slate-900/50 p-3">
+                    <div className="shrink-0 rounded-2xl bg-slate-900/50 p-3">
                       <div className="mb-2 text-[11px] font-bold text-slate-400">正解すると爆弾を1個補充</div>
-                      <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text}</h2>
+                      <h2 className="break-words text-lg font-black leading-snug md:text-xl">{question.text}</h2>
                     </div>
                     {question.visual ? <ProblemVisual visual={question.visual} /> : null}
                     {(question.audioPrompt || question.speechPrompt) && (
@@ -876,7 +876,7 @@ export default function PlayerScreen({
                         )}
                       </div>
                     )}
-                    {question.hint ? <div className="text-xs text-yellow-300">ヒント: {question.hint}</div> : null}
+                    {question.hint ? <div className="break-words text-xs text-yellow-300">ヒント: {question.hint}</div> : null}
                     {question.speechPrompt?.freeResponse ? (
                       <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center text-base text-emerald-100">
                         この問題は音声回答タイプです。上のボタンから話して答えてください。
@@ -891,7 +891,7 @@ export default function PlayerScreen({
                               submitAnswer({ answerIndex: i });
                             }}
                             disabled={answerResult !== null}
-                            className={`rounded-2xl p-3 text-base font-bold shadow-lg transition-transform md:text-lg ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                            className={`min-h-12 break-words rounded-2xl p-2.5 text-sm font-bold leading-snug shadow-lg transition-transform md:text-base ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
                             style={{ backgroundColor: optionColors[i % 4] }}
                           >
                             {opt}
@@ -986,9 +986,9 @@ export default function PlayerScreen({
                 ) : null}
                 {question ? (
                   <div className="flex h-full min-h-0 flex-col gap-3">
-                    <div className="rounded-2xl bg-slate-900/50 p-3">
+                    <div className="shrink-0 rounded-2xl bg-slate-900/50 p-3">
                       <div className="mb-2 text-[11px] font-bold text-slate-400">正解でドッ値+1（外野は+3）</div>
-                      <h2 className="text-xl font-black leading-snug md:text-2xl">{question.text}</h2>
+                      <h2 className="break-words text-lg font-black leading-snug md:text-xl">{question.text}</h2>
                     </div>
                     {question.visual ? <ProblemVisual visual={question.visual} /> : null}
                     {(question.audioPrompt || question.speechPrompt) && (
@@ -1022,7 +1022,7 @@ export default function PlayerScreen({
                               submitAnswer({ answerIndex: i });
                             }}
                             disabled={answerResult !== null}
-                            className={`rounded-2xl p-3 text-base font-bold shadow-lg transition-transform md:text-lg ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
+                            className={`min-h-12 break-words rounded-2xl p-2.5 text-sm font-bold leading-snug shadow-lg transition-transform md:text-base ${answerResult !== null ? 'cursor-not-allowed' : ''} ${getOptionStateClass(i)}`}
                             style={{ backgroundColor: optionColors[i % 4] }}
                           >
                             {opt}
@@ -1119,8 +1119,8 @@ export default function PlayerScreen({
             {question && pendingChoices.length === 0 && (!me?.canShoot || answerResult !== null) && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 p-4 backdrop-blur-md md:p-8">
                 {answerResult === null || answerResult === false ? (
-                  <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
-                    <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.text}</h2>
+                  <div className="max-h-full w-full max-w-2xl overflow-y-auto animate-in fade-in zoom-in duration-300">
+                    <h2 className="mb-3 break-words text-center text-xl font-bold leading-snug md:text-3xl">{question.text}</h2>
                   {question.visual && <ProblemVisual visual={question.visual} />}
                   {(question.audioPrompt || question.speechPrompt) && (
                     <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
@@ -1147,8 +1147,8 @@ export default function PlayerScreen({
                     </div>
                   )}
                   {question.hint && (
-                    <div className="text-center mb-8">
-                      <p className="text-xl text-yellow-300 bg-slate-800/50 py-2 px-4 rounded-lg inline-block">
+                    <div className="mb-4 text-center">
+                      <p className="inline-block rounded-lg bg-slate-800/50 px-4 py-2 text-base text-yellow-300 md:text-lg">
                         💡 ヒント: {question.hint}
                       </p>
                     </div>
@@ -1161,7 +1161,7 @@ export default function PlayerScreen({
                       ) : null}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 md:gap-6">
+                    <div className="grid grid-cols-2 gap-2 md:gap-3">
                       {question.options.map((opt: string, i: number) => (
                         <button
                           key={i}
@@ -1170,7 +1170,7 @@ export default function PlayerScreen({
                           submitAnswer({ answerIndex: i });
                         }}
                         disabled={answerResult !== null}
-                        className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
+                        className={`min-h-16 break-words rounded-2xl p-3 text-base font-bold leading-snug shadow-lg transition-transform md:min-h-20 md:p-4 md:text-xl ${
                             answerResult !== null ? 'cursor-not-allowed' : ''
                           } ${getOptionStateClass(i)}`}
                           style={{

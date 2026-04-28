@@ -29,12 +29,15 @@ const FractionText = ({ n, d }: { n: number; d: number }) => (
 );
 
 export default function ProblemVisual({ visual }: { visual: ProblemVisualType }) {
+  const visualPanelClass = 'mb-3 max-h-[24vh] min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-800/70 p-2 md:mb-4 md:max-h-[28vh] md:p-3';
+  const svgClass = 'h-28 max-h-[22vh] w-full md:h-36 md:max-h-[26vh]';
+
   if (visual.kind === 'map_symbol') {
     const imageSrc = MAP_SYMBOL_IMAGE_MAP[visual.symbol];
     return (
-      <div className="mb-4 flex flex-col items-center">
+      <div className="mb-3 flex max-h-[24vh] flex-col items-center overflow-hidden md:mb-4">
         {imageSrc ? (
-          <img src={imageSrc} alt={visual.symbol} className="w-24 h-24 object-contain bg-white rounded-lg p-2" />
+          <img src={imageSrc} alt={visual.symbol} className="h-20 w-20 rounded-lg bg-white object-contain p-2 md:h-24 md:w-24" />
         ) : (
           <div className="text-sm text-slate-300">地図記号: {visual.symbol}</div>
         )}
@@ -45,7 +48,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
   if (visual.kind === 'fraction') {
     return (
-      <div className="mb-4 flex items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 p-4 text-3xl font-bold text-white">
+      <div className="mb-3 flex max-h-[24vh] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-2xl font-bold text-white md:mb-4 md:text-3xl">
         {visual.whole ? <span className="mr-3">{visual.whole}</span> : null}
         <FractionText n={visual.numerator} d={visual.denominator} />
       </div>
@@ -54,7 +57,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
   if (visual.kind === 'fraction_operation') {
     return (
-      <div className="mb-4 flex items-center justify-center gap-4 rounded-xl border border-slate-700 bg-slate-800/70 p-4 text-3xl font-bold text-white">
+      <div className="mb-3 flex max-h-[24vh] flex-wrap items-center justify-center gap-3 overflow-hidden rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-2xl font-bold text-white md:mb-4 md:gap-4 md:text-3xl">
         <FractionText n={visual.left.n} d={visual.left.d} />
         <span>{visual.op}</span>
         <FractionText n={visual.right.n} d={visual.right.d} />
@@ -64,9 +67,9 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
   if (visual.kind === 'number_sequence') {
     return (
-      <div className="mb-4 flex justify-center gap-3 flex-wrap rounded-xl border border-slate-700 bg-slate-800/70 p-4">
+      <div className="mb-3 flex max-h-[24vh] flex-wrap justify-center gap-2 overflow-y-auto rounded-xl border border-slate-700 bg-slate-800/70 p-3 md:mb-4 md:gap-3">
         {visual.values.map((value, index) => (
-          <div key={`${value}-${index}`} className="min-w-14 rounded-lg bg-slate-700 px-4 py-3 text-center text-2xl font-bold text-white">
+          <div key={`${value}-${index}`} className="min-w-12 rounded-lg bg-slate-700 px-3 py-2 text-center text-xl font-bold text-white md:min-w-14 md:text-2xl">
             {value}
           </div>
         ))}
@@ -76,13 +79,13 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
   if (visual.kind === 'dots') {
     return (
-      <div className="mb-4 flex justify-center gap-4 flex-wrap rounded-xl border border-slate-700 bg-slate-800/70 p-4">
+      <div className="mb-3 flex max-h-[24vh] flex-wrap justify-center gap-3 overflow-y-auto rounded-xl border border-slate-700 bg-slate-800/70 p-3 md:mb-4 md:gap-4">
         {visual.counts.map((count, index) => (
-          <div key={`${count}-${index}`} className="min-w-24">
+          <div key={`${count}-${index}`} className="min-w-20 md:min-w-24">
             {visual.labels?.[index] ? <div className="mb-2 text-center text-sm text-slate-300">{visual.labels[index]}</div> : null}
             <div className="flex flex-wrap justify-center gap-1">
               {Array.from({ length: count }).map((_, dotIndex) => (
-                <span key={dotIndex} className="h-3 w-3 rounded-full bg-green-400" />
+                <span key={dotIndex} className="h-2.5 w-2.5 rounded-full bg-green-400 md:h-3 md:w-3" />
               ))}
             </div>
           </div>
@@ -94,14 +97,14 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
   if (visual.kind === 'bar_chart') {
     const maxValue = Math.max(...visual.values, 1);
     return (
-      <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/70 p-4">
-        <div className="flex items-end justify-center gap-4 h-40">
+      <div className="mb-3 max-h-[24vh] overflow-hidden rounded-xl border border-slate-700 bg-slate-800/70 p-3 md:mb-4">
+        <div className="flex h-28 items-end justify-center gap-3 md:h-36 md:gap-4">
           {visual.values.map((value, index) => (
             <div key={`${value}-${index}`} className="flex flex-col items-center gap-2">
               <div className="text-xs text-slate-300">{value}</div>
               <div
-                className="w-12 rounded-t-lg bg-sky-400"
-                style={{ height: `${Math.max(24, (value / maxValue) * 120)}px` }}
+                className="w-9 rounded-t-lg bg-sky-400 md:w-12"
+                style={{ height: `${Math.max(20, (value / maxValue) * 96)}px` }}
               />
               <div className="text-xs text-slate-400">{visual.labels?.[index] || `#${index + 1}`}</div>
             </div>
@@ -116,7 +119,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
       const minuteAngle = (visual.minute / 60) * Math.PI * 2 - Math.PI / 2;
       const hourAngle = (((visual.hour % 12) + visual.minute / 60) / 12) * Math.PI * 2 - Math.PI / 2;
       return (
-        <svg viewBox="0 0 280 200" className="w-full h-48">
+        <svg viewBox="0 0 280 200" className={svgClass}>
           <circle cx={cx} cy={cy} r="70" fill="#f8fafc" stroke="#0f172a" strokeWidth="4" />
           {Array.from({ length: 12 }, (_, i) => {
             const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
@@ -142,7 +145,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
     if (visual.kind === 'polygon') {
       const points = polygonPoints(visual.sides);
       return (
-        <svg viewBox="0 0 280 200" className="w-full h-48">
+        <svg viewBox="0 0 280 200" className={svgClass}>
           <polygon points={joinPoints(points)} fill="#e2e8f0" stroke="#0f172a" strokeWidth="4" />
           {visual.showDiagonals ? points.slice(0, -2).map((point, index) => (
             <line key={index} x1={point.x} y1={point.y} x2={points[index + 2].x} y2={points[index + 2].y} stroke="#94a3b8" strokeDasharray="6 4" strokeWidth="2" />
@@ -158,7 +161,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
     if (visual.kind === 'angle') {
       return (
-        <svg viewBox="0 0 280 200" className="w-full h-48">
+        <svg viewBox="0 0 280 200" className={svgClass}>
           {visual.parallelLines ? (
             <>
               <line x1="50" y1="55" x2="230" y2="55" stroke="#94a3b8" strokeWidth="4" />
@@ -178,7 +181,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
     if (visual.kind === 'circle') {
       return (
-        <svg viewBox="0 0 280 200" className="w-full h-48">
+        <svg viewBox="0 0 280 200" className={svgClass}>
           <circle cx={cx} cy={cy} r="64" fill="#e2e8f0" stroke="#0f172a" strokeWidth="4" />
           {visual.showRadius ? <line x1={cx} y1={cy} x2={cx + 64} y2={cy} stroke="#38bdf8" strokeWidth="4" /> : null}
           {visual.showDiameter ? <line x1={cx - 64} y1={cy} x2={cx + 64} y2={cy} stroke="#38bdf8" strokeWidth="4" /> : null}
@@ -194,7 +197,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
 
     if (visual.kind === 'cube' || visual.kind === 'prism' || visual.kind === 'cylinder' || visual.kind === 'pyramid' || visual.kind === 'cone') {
       return (
-        <svg viewBox="0 0 280 200" className="w-full h-48">
+        <svg viewBox="0 0 280 200" className={svgClass}>
           {visual.kind === 'cube' || visual.kind === 'prism' ? (
             <>
               <rect x="70" y="70" width="90" height="70" fill="#e2e8f0" stroke="#0f172a" strokeWidth="4" />
@@ -270,7 +273,7 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
         return `${140 + x * 24},${150 - y * 12}`;
       }).join(' ');
       return (
-        <svg viewBox="0 0 280 200" className="w-full h-48">
+        <svg viewBox="0 0 280 200" className={svgClass}>
           <line x1="20" y1="150" x2="260" y2="150" stroke="#94a3b8" strokeWidth="2" />
           <line x1="140" y1="20" x2="140" y2="180" stroke="#94a3b8" strokeWidth="2" />
           <polyline points={points} fill="none" stroke="#38bdf8" strokeWidth="4" />
@@ -285,5 +288,5 @@ export default function ProblemVisual({ visual }: { visual: ProblemVisualType })
   const svg = renderSvg();
   if (!svg) return null;
 
-  return <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/70 p-4">{svg}</div>;
+  return <div className={visualPanelClass}>{svg}</div>;
 }

@@ -461,8 +461,8 @@ export default function SinglePlayScreen({
           {question && !debugFreePlay && !pendingItemChoices?.length && (!canShoot || answerResult !== null) && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 p-4 backdrop-blur-md md:p-8">
               {answerResult === null || answerResult === false ? (
-                <div className="w-full max-w-2xl animate-in fade-in zoom-in duration-300">
-                  <h2 className="mb-4 text-center text-2xl font-bold md:text-4xl">{question.question}</h2>
+                <div className="max-h-full w-full max-w-2xl overflow-y-auto animate-in fade-in zoom-in duration-300">
+                  <h2 className="mb-3 break-words text-center text-xl font-bold leading-snug md:text-3xl">{question.question}</h2>
                 {question.visual && <ProblemVisual visual={question.visual} />}
                 {(question.audioPrompt || question.speechPrompt) && (
                   <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
@@ -489,8 +489,8 @@ export default function SinglePlayScreen({
                   </div>
                 )}
                 {question.hint && (
-                  <div className="text-center mb-8">
-                    <p className="text-xl text-yellow-300 bg-slate-800/50 py-2 px-4 rounded-lg inline-block">
+                  <div className="mb-4 text-center">
+                    <p className="inline-block rounded-lg bg-slate-800/50 px-4 py-2 text-base text-yellow-300 md:text-lg">
                       💡 ヒント: {question.hint}
                     </p>
                   </div>
@@ -500,7 +500,7 @@ export default function SinglePlayScreen({
                     <p className="text-lg text-emerald-100">この問題は音声回答タイプです。上のボタンから話して答えてください。</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 md:gap-6">
+                  <div className="grid grid-cols-2 gap-2 md:gap-3">
                     {question.options.map((opt, i) => (
                       <button
                         key={i}
@@ -509,7 +509,7 @@ export default function SinglePlayScreen({
                           submitAnswer(opt);
                         }}
                         disabled={answerResult !== null}
-                        className={`rounded-2xl p-4 text-xl font-bold transition-transform shadow-lg md:p-8 md:text-3xl ${
+                        className={`min-h-16 break-words rounded-2xl p-3 text-base font-bold leading-snug shadow-lg transition-transform md:min-h-20 md:p-4 md:text-xl ${
                           answerResult !== null ? 'cursor-not-allowed' : ''
                         } ${getOptionStateClass(i)}`}
                         style={{
