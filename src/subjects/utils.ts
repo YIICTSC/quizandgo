@@ -45,6 +45,28 @@ export interface GeneralProblem {
  */
 export const d = (ans: string, ...others: string[]) => [ans, ...others];
 
+export const normalizeProblemQuestionText = (question: string): string =>
+    question
+        .replace(/【([^】]+)】\s*(?:確認|復習)\s*\d+\s*の\s*/g, '$1の学習の')
+        .replace(/【([^】]+)】\s*(?:確認|復習)\s*\d+\s*で\s*/g, '$1の学習で ')
+        .replace(/【([^】]+)】\s*(?:確認|復習)\s*\d+\s*を\s*/g, '$1を ')
+        .replace(/【([^】]+)】\s*(?:確認|復習)\s*\d+\s*([にへと])\s*/g, '$1$2 ')
+        .replace(/【([^】]+)】\s*(?:確認|復習)\s*\d+\s*/g, '$1の学習')
+        .replace(/(?:確認|復習)\s*\d+\s*の\s*/g, '学習の')
+        .replace(/(?:確認|復習)\s*\d+\s*で\s*/g, '学習で ')
+        .replace(/学習まとめ/g, '学習のまとめ')
+        .replace(/\s*(?:確認|復習)\s*\d+\s*$/g, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/ \n/g, '\n')
+        .trim();
+
+export const normalizeProblemQuestionLabels = (problem: GeneralProblem): GeneralProblem => {
+    const normalizedQuestion = normalizeProblemQuestionText(problem.question);
+    return normalizedQuestion === problem.question
+        ? problem
+        : { ...problem, question: normalizedQuestion };
+};
+
 const problemSignature = (problem: GeneralProblem): string =>
     JSON.stringify({
         question: problem.question,

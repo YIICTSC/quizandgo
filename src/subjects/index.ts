@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { GeneralProblem } from './utils';
+import { GeneralProblem, normalizeProblemQuestionLabels } from './utils';
 import { SCIENCE_UNIT_DATA } from './science_units';
 import { SOCIAL_UNIT_DATA } from './social_units';
 import { SCIENCE_GRADE_UNITS } from '../scienceUnitConfig';
@@ -128,5 +128,8 @@ const createAliasUnits = (rawUnits: SubjectUnit[]): SubjectUnit[] => {
 
 export const getAllUnits = (): SubjectUnit[] => {
   const rawUnits = createRawUnits();
-  return [...rawUnits, ...createAliasUnits(rawUnits)];
+  return [...rawUnits, ...createAliasUnits(rawUnits)].map((unit) => ({
+    ...unit,
+    questions: unit.questions.map(normalizeProblemQuestionLabels),
+  }));
 };
