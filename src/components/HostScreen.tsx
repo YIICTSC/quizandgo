@@ -75,6 +75,9 @@ const getGameTitleByType = (type?: string) => {
   if (type === 'dodge') return 'バトルドッジ';
   if (type === 'team_bomber') return 'チームボンバー';
   if (type === 'color_bomber') return 'カラーボンバー';
+  if (type === 'quiz_run_3d') return '3Dクイズラン';
+  if (type === 'voxel_coop') return 'ブロック協力クイズ';
+  if (type === 'voxel_battle') return 'ブロック対戦クイズ';
   return 'クイズボンバー';
 };
 
@@ -137,6 +140,8 @@ export default function HostScreen({
   const [showPinOverlay, setShowPinOverlay] = useState(false);
   const [inviteCopyState, setInviteCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [showQuizVariantModal, setShowQuizVariantModal] = useState(false);
+  const [showUnitPickerModal, setShowUnitPickerModal] = useState(false);
+  const [unitSearchQuery, setUnitSearchQuery] = useState('');
   const [quizVariantDraft, setQuizVariantDraft] = useState<string>('classic');
   const [quizBattleLivesDraft, setQuizBattleLivesDraft] = useState<number>(3);
   const [quizBattleQuestionLimitDraft, setQuizBattleQuestionLimitDraft] = useState<number>(10);
@@ -216,11 +221,13 @@ export default function HostScreen({
     setSelectedSubject(subject);
     setSelectedGrade(nextGrade);
     setSelectedUnits([]);
+    setUnitSearchQuery('');
   };
 
   const handleGradeChange = (grade: string) => {
     setSelectedGrade(grade);
     setSelectedUnits([]);
+    setUnitSearchQuery('');
   };
 
   useEffect(() => {
@@ -276,6 +283,14 @@ export default function HostScreen({
   const selectedQuestionCount = units
     .filter((u) => selectedUnits.includes(u.unit))
     .reduce((total, unit) => total + unit.questions.length, 0);
+  const selectedUnitNames = units
+    .filter((u) => selectedUnits.includes(u.unit))
+    .map((unit) => getReadableUnitName(unit));
+  const filteredUnits = useMemo(() => {
+    const query = unitSearchQuery.trim().toLowerCase();
+    if (!query) return units;
+    return units.filter((unit) => getReadableUnitName(unit).toLowerCase().includes(query));
+  }, [unitSearchQuery, units]);
   const selectedQuizVariant = QUIZ_VARIANTS.find((variant) => variant.id === quizVariant) || QUIZ_VARIANTS[0];
   const selectedQuizVariantDraft =
     QUIZ_VARIANTS.find((variant) => variant.id === quizVariantDraft) || QUIZ_VARIANTS[0];
@@ -665,83 +680,30 @@ export default function HostScreen({
                 </div>
 
                 {selectedMode === 'custom' && (
-                  <div className="mb-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-600 bg-slate-700/50 p-2.5 flex flex-col">
-                    <div className="mb-2 flex flex-wrap items-center gap-1">
-                      <h3 className="mr-1 text-sm font-bold text-white md:text-base">単元の選択</h3>
-                      {availableSubjects.map(s => (
-                        <button
-                          key={s}
-                          onClick={() => handleSubjectChange(s)}
-                          className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold transition-colors md:text-[10px] ${
-                            selectedSubject === s
-                              ? 'border-blue-400 bg-blue-500 text-white'
-                              : 'border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600'
-                          }`}
-                        >
-                          {SUBJECT_LABELS[s] || s}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid min-h-0 flex-1 grid-cols-1 gap-2">
-                    {/* 学年選択 */}
-                    {subjectUsesGrades && (
-                    <div className="shrink-0">
-                      <div className="mb-1 flex flex-wrap items-center gap-1">
-                        <label className="mr-1 text-[11px] font-medium text-slate-300">学年を選ぶ</label>
-                        {grades.map(g => {
-                          return (
-                            <button
-                              key={g}
-                              onClick={() => handleGradeChange(g)}
-                              className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold transition-colors md:text-[10px] ${
-                                selectedGrade === g 
-                                  ? 'bg-green-500 text-white border-green-400' 
-                                  : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
-                              }`}
-                            >
-                              {getGradeLabel(g)}
-                            </button>
-                          );
-                        })}
+                  <div className="mb-2 rounded-xl border border-slate-600 bg-slate-700/50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-white md:text-base">単元の選択</h3>
+                        <p className="mt-1 text-[11px] text-slate-300">
+                          {SUBJECT_LABELS[selectedSubject] || selectedSubject}
+                          {subjectUsesGrades ? ` / ${getGradeLabel(selectedGrade)}` : ''}
+                          {' / '}
+                          <span className="font-bold text-cyan-200">{selectedUnits.length}単元 / {selectedQuestionCount}問</span>
+                        </p>
                       </div>
+                      <button
+                        onClick={() => setShowUnitPickerModal(true)}
+                        className="rounded-xl border border-cyan-300 bg-cyan-500 px-4 py-2 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400"
+                      >
+                        単元を選ぶ
+                      </button>
                     </div>
-                    )}
-
-                    {/* 単元選択 */}
-                    <div className="min-h-0 flex flex-col">
-                      <label className="mb-1 block text-[11px] font-medium text-slate-300">単元を選ぶ（複数選択可）</label>
-                      <div key={`${selectedSubject}-${selectedGrade}`} className="grid min-h-0 flex-1 auto-rows-max grid-cols-2 gap-2 overflow-y-auto rounded-lg pr-1 content-start">
-                        {units.map(u => (
-                          <button
-                            key={u.unit}
-                            onClick={() => toggleUnitSelection(u.unit)}
-                            className={`rounded-lg border px-3 py-2 text-left text-xs font-bold transition-colors ${
-                              selectedUnits.includes(u.unit)
-                                ? 'bg-purple-500/40 text-white border-purple-400' 
-                                : 'bg-slate-700/40 text-slate-200 border-slate-600 hover:bg-slate-700/70'
-                            }`}
-                          >
-                            <div className="line-clamp-2 leading-snug">{getReadableUnitName(u)}</div>
-                            <div className="mt-2 flex items-center justify-between text-[10px]">
-                              <span className="text-slate-400">{u.questions.length}問</span>
-                              {selectedUnits.includes(u.unit) ? <span className="text-white">選択中</span> : null}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {selectedUnits.length > 0 && (
-                      <p className="rounded-lg bg-slate-800 p-2 text-[10px] text-slate-200 md:text-[11px]">
-                        ✓ 選択中: <span className="font-bold">{selectedUnits.length}単元 / {selectedQuestionCount}問</span>
-                        <span className="mt-1 block text-slate-300 line-clamp-2">
-                          {units
-                            .filter((u) => selectedUnits.includes(u.unit))
-                            .map((unit) => getReadableUnitName(unit))
-                            .join(' / ')}
-                        </span>
-                      </p>
-                    )}
+                    <div className="mt-2 rounded-lg bg-slate-900/50 p-2 text-[11px] text-slate-300">
+                      {selectedUnitNames.length > 0 ? (
+                        <span className="line-clamp-2">{selectedUnitNames.join(' / ')}</span>
+                      ) : (
+                        <span className="text-rose-200">単元が選択されていません</span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1653,6 +1615,148 @@ export default function HostScreen({
           )}
         </div>
       </div>
+
+      {selectedMode === 'custom' && showUnitPickerModal ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm md:p-5">
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-2xl border border-cyan-400/25 bg-slate-900 shadow-2xl">
+            <div className="shrink-0 border-b border-slate-700 p-4 md:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-xl font-black text-white md:text-2xl">単元を選ぶ</div>
+                  <div className="mt-1 text-xs text-slate-300 md:text-sm">
+                    教科と学年を切り替えて、出題したい単元を複数選択できます。
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowUnitPickerModal(false)}
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700"
+                >
+                  閉じる
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_260px]">
+                <div className="space-y-3">
+                  <div>
+                    <div className="mb-1 text-[11px] font-bold text-slate-300">教科</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableSubjects.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => handleSubjectChange(s)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                            selectedSubject === s
+                              ? 'border-blue-300 bg-blue-500 text-white'
+                              : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          {SUBJECT_LABELS[s] || s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {subjectUsesGrades ? (
+                    <div>
+                      <div className="mb-1 text-[11px] font-bold text-slate-300">学年</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {grades.map(g => (
+                          <button
+                            key={g}
+                            onClick={() => handleGradeChange(g)}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                              selectedGrade === g
+                                ? 'border-green-300 bg-green-500 text-white'
+                                : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'
+                            }`}
+                          >
+                            {getGradeLabel(g)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-xl border border-slate-700 bg-slate-800/70 p-3">
+                  <div className="text-[11px] font-bold text-slate-400">現在の選択</div>
+                  <div className="mt-1 text-lg font-black text-cyan-200">{selectedUnits.length}単元 / {selectedQuestionCount}問</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedUnits(units.map((unit) => unit.unit))}
+                      className="rounded-lg bg-cyan-500/15 px-3 py-1.5 text-xs font-bold text-cyan-100 transition-colors hover:bg-cyan-500/25"
+                    >
+                      この一覧を全選択
+                    </button>
+                    <button
+                      onClick={() => setSelectedUnits([])}
+                      className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-600"
+                    >
+                      選択解除
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <input
+                  value={unitSearchQuery}
+                  onChange={(e) => setUnitSearchQuery(e.target.value)}
+                  placeholder="単元名で検索"
+                  className="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2.5 text-sm font-bold text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+              <div key={`${selectedSubject}-${selectedGrade}-${unitSearchQuery}`} className="grid auto-rows-fr grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {filteredUnits.map(u => {
+                  const isSelected = selectedUnits.includes(u.unit);
+                  return (
+                    <button
+                      key={u.unit}
+                      onClick={() => toggleUnitSelection(u.unit)}
+                      className={`rounded-xl border px-4 py-3 text-left text-sm font-bold transition-colors ${
+                        isSelected
+                          ? 'border-purple-300 bg-purple-500/40 text-white'
+                          : 'border-slate-700 bg-slate-800/80 text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="line-clamp-2 min-h-[2.5rem] leading-snug">{getReadableUnitName(u)}</div>
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className="text-slate-400">{u.questions.length}問</span>
+                        {isSelected ? <span className="rounded-full bg-purple-400/20 px-2 py-0.5 text-purple-100">選択中</span> : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {filteredUnits.length === 0 ? (
+                <div className="rounded-xl border border-slate-700 bg-slate-800 p-6 text-center text-sm text-slate-300">
+                  条件に合う単元がありません。
+                </div>
+              ) : null}
+            </div>
+
+            <div className="shrink-0 border-t border-slate-700 p-4 md:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 text-xs text-slate-300">
+                  <span className="font-bold text-cyan-200">{selectedUnits.length}単元 / {selectedQuestionCount}問</span>
+                  {selectedUnitNames.length > 0 ? (
+                    <span className="ml-2 line-clamp-1 text-slate-400">{selectedUnitNames.join(' / ')}</span>
+                  ) : null}
+                </div>
+                <button
+                  onClick={() => setShowUnitPickerModal(false)}
+                  className="rounded-xl bg-cyan-500 px-5 py-2.5 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400"
+                >
+                  決定して戻る
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {resolvedGameType === 'quiz' && showQuizVariantModal ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
